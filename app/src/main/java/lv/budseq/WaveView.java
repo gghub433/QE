@@ -87,8 +87,20 @@ public class WaveView extends View {
     }
 
     void draw(Canvas c, float w, float h) {
-        float mid = h / 2f;
+        paint(c, 0, 0, w, h, level, time, color, d, path, line);
+    }
+
+    /**
+     * Фирменная волна EQ (одна на всё приложение: экран, виджет, окно, карточка итогов).
+     * level 0..1 — размах, time — фаза анимации.
+     */
+    static void paint(Canvas c, float left, float top, float w, float h, float level, float time, int color,
+                      float d, Path path, Paint line) {
+        float mid = top + h / 2f;
         float maxAmp = h * 0.42f;
+        line.setStyle(Paint.Style.STROKE);
+        line.setStrokeCap(Paint.Cap.ROUND);
+        line.setStrokeJoin(Paint.Join.ROUND);
         // дальний слой светлее и тоньше, ближний — ярче
         for (int layer = 2; layer >= 0; layer--) {
             float amp = maxAmp * level * (1f - layer * 0.28f);
@@ -103,7 +115,7 @@ public class WaveView extends View {
                 float env = (float) Math.pow(Math.sin(Math.PI * t), 1.6);
                 float wobble = 0.75f + 0.25f * (float) Math.sin(time * 0.9f + t * 5f + layer);
                 float y = mid + (float) Math.sin(t * freq * Math.PI * 2 + phase) * amp * env * wobble;
-                float x = t * w;
+                float x = left + t * w;
                 if (i == 0) path.moveTo(x, y);
                 else path.lineTo(x, y);
             }
@@ -114,7 +126,7 @@ public class WaveView extends View {
         }
     }
 
-    private static int mix(int a, int b, float t) {
+    static int mix(int a, int b, float t) {
         int r = (int) (Color.red(a) + (Color.red(b) - Color.red(a)) * t);
         int g = (int) (Color.green(a) + (Color.green(b) - Color.green(a)) * t);
         int bl = (int) (Color.blue(a) + (Color.blue(b) - Color.blue(a)) * t);

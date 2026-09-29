@@ -86,6 +86,12 @@ public class MusicTimeView extends View {
         grow = 1f;
     }
 
+    /** Подпись по центру x, но не вылезая за края графика. */
+    private float clampX(String t, float x, float w) {
+        float half = text.measureText(t) / 2 + 2 * d;
+        return Math.max(half, Math.min(w - half, x));
+    }
+
     /** Подпись над столбиком без слов (не зависит от языка): 1:25 = 1 ч 25 мин, 0:42 = 42 мин. */
     static String shortTime(long s) {
         long m = s / 60;
@@ -135,12 +141,13 @@ public class MusicTimeView extends View {
             text.setColor(today ? Color.WHITE : GREY_TEXT);
             text.setFakeBoldText(today);
             String lbl = labels != null && i < labels.length && labels[i] != null ? labels[i] : "";
-            c.drawText(lbl, x, h - 6 * d, text);
+            c.drawText(lbl, clampX(lbl, x, w), h - 6 * d, text);
 
             if ((i == maxIdx || today) && secs[i] > 0) {
                 text.setColor(Color.WHITE);
                 text.setFakeBoldText(true);
-                c.drawText(shortTime(secs[i]), x, bottom - bh - 6 * d, text);
+                String v = shortTime(secs[i]);
+                c.drawText(v, clampX(v, x, w), bottom - bh - 6 * d, text);
             }
         }
         text.setFakeBoldText(false);

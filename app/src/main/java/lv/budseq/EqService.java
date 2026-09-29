@@ -36,7 +36,7 @@ public class EqService extends Service {
     private static final String CHANNEL = "eq";
     private static final String CHANNEL_ALERT = "alerts";
     private static final String CHANNEL_TIPS = "tips";
-    private static final int NOTIF_MAIN = 1, NOTIF_APP = 3, NOTIF_AUTOEQ = 4, NOTIF_LOW_BASE = 100;
+    private static final int NOTIF_MAIN = 1, NOTIF_APP = 3, NOTIF_AUTOEQ = 4, NOTIF_SLEEP = 7, NOTIF_LOW_BASE = 100;
     private static final long STATS_TICK_MS = 15000, UPDATE_TICK_MS = 6L * 60 * 60 * 1000;
 
     private EqEngine eq;
@@ -52,12 +52,37 @@ public class EqService extends Service {
     private AudioManager am;
     private long lastStatsTick;
 
-    /** Music Time: раз в 15 с — играет ли музыка и кто. */
+    private int widgetTicks;
+
+    // автопресет по приложению
+    private final AppPresets.Tracker appTracker = new AppPresets.Tracker();
+    private boolean gameNow;
+
+    private final AudioManager.AudioPlaybackCallback playbackCallback = new AudioManager.AudioPlaybackCallback() {
+        @Override
+        public void onPlaybackConfigChanged(java.util.List<android.media.AudioPlaybackConfiguration> configs) {
+            gameNow = AppPresets.gameActive(configs);
+            checkAppPreset();
+        }
+    };
+
+    private void checkAppPreset() {
+        String pkg = np.active() && np.playing() ? np.packageName() : null;
+        appTracker.update(this, pkg, gameNow);
+    }
+
+    /** Music Time: раз в 15 с — играет ли музыка и кто. Виджет — раз в минуту. */
     private final Runnable statsTick = new Runnable() {
         public void run() {
+            checkAppPreset();
             tickStats();
+            if (++widgetTicks % 4 == 0) updateWidget();
             main.postDelayed(this, STATS_TICK_MS);
         }
+    };
+
+    private final Runnable widgetTask = new Runnable() {
+        public void run() { pushWidget(); }
     };
 
     private final Runnable updateTick = new Runnable() {
@@ -101,7 +126,10 @@ public class EqService extends Service {
     };
 
     private final Runnable eqListener = new Runnable() {
-        public void run() { updateNotification(); }
+        public void run() {
+            updateNotification();
+            updateWidget();
+        }
     };
 
     @Override
@@ -120,7 +148,10 @@ public class EqService extends Service {
         nm = getSystemService(NotificationManager.class);
         am = (AudioManager) getSystemService(AUDIO_SERVICE);
         np = new NowPlaying(this, new NowPlaying.Listener() {
-            public void onNowPlayingChanged() { }
+            public void onNowPlayingChanged() {
+                updateWidget();
+                checkAppPreset();
+            }
         });
 
         nm.createNotificationChannel(
@@ -158,6 +189,9 @@ public class EqService extends Service {
         updateNotification();
 
         np.start();
+        // игры не создают MediaSession — узнаём их по типу звука (USAGE_GAME)
+        am.registerAudioPlaybackCallback(playbackCallback, main);
+        gameNow = AppPresets.gameActive(am);
         lastStatsTick = SystemClock.elapsedRealtime();
         main.postDelayed(statsTick, STATS_TICK_MS);
         main.postDelayed(updateTick, 20000); // не мешаем запуску
@@ -165,16 +199,118 @@ public class EqService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent != null && ACT_SLEEP.equals(intent.getAction())) {
+            startSleep(intent.getIntExtra(EXTRA_MINUTES, 0));
+            return START_STICKY;
+        }
         monitor.refresh();
         return START_STICKY;
+    }
+
+    // =====================================================================
+    // Таймер сна: за минуту до конца музыка плавно затихает, потом — пауза
+    // =====================================================================
+
+    static final String ACT_SLEEP = "lv.budseq.SLEEP", EXTRA_MINUTES = "minutes";
+    private static final long SLEEP_FADE_MS = 60000;
+    /** Когда уснуть (SystemClock.elapsedRealtime), 0 — таймер выключен. Читает экран. */
+    static volatile long sleepEnd;
+    private int sleepVolume = -1;
+
+    /** Запустить (minutes > 0) или выключить (0) таймер сна. Вызывать с открытого экрана. */
+    static void setSleep(Context c, int minutes) {
+        Intent i = new Intent(c, EqService.class);
+        i.setAction(ACT_SLEEP);
+        i.putExtra(EXTRA_MINUTES, minutes);
+        try {
+            c.startService(i);
+        } catch (Exception e) {
+            try {
+                c.startForegroundService(i);
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
+    /** Сколько минут осталось (округление вверх), 0 — выключен. */
+    static int sleepMinutesLeft() {
+        long left = sleepEnd - SystemClock.elapsedRealtime();
+        return sleepEnd == 0 || left <= 0 ? 0 : (int) ((left + 59999) / 60000);
+    }
+
+    private final Runnable sleepTick = new Runnable() {
+        public void run() {
+            long left = sleepEnd - SystemClock.elapsedRealtime();
+            if (sleepEnd == 0) return;
+            if (left <= 0) {
+                finishSleep();
+                return;
+            }
+            if (left <= SLEEP_FADE_MS) {
+                // плавное затухание громкости по кривой (ухо слышит громкость логарифмически)
+                if (sleepVolume < 0) sleepVolume = am.getStreamVolume(AudioManager.STREAM_MUSIC);
+                float k = left / (float) SLEEP_FADE_MS;
+                int v = Math.round(sleepVolume * k * k);
+                try {
+                    if (am.getStreamVolume(AudioManager.STREAM_MUSIC) != v) {
+                        am.setStreamVolume(AudioManager.STREAM_MUSIC, Math.max(0, v), 0);
+                    }
+                } catch (Exception ignored) {
+                }
+            }
+            if (left % 30000 < 1000) updateNotification();
+            main.postDelayed(this, 1000);
+        }
+    };
+
+    private void startSleep(int minutes) {
+        main.removeCallbacks(sleepTick);
+        restoreSleepVolume();
+        if (minutes <= 0) {
+            sleepEnd = 0;
+        } else {
+            sleepEnd = SystemClock.elapsedRealtime() + minutes * 60000L;
+            main.post(sleepTick);
+        }
+        updateNotification();
+    }
+
+    private void finishSleep() {
+        sleepEnd = 0;
+        np.pause();
+        // громкость возвращаем чуть позже, когда плеер уже встал на паузу
+        main.postDelayed(new Runnable() {
+            public void run() { restoreSleepVolume(); }
+        }, 2500);
+        nm.notify(NOTIF_SLEEP, new Notification.Builder(this, CHANNEL_TIPS)
+                .setSmallIcon(R.drawable.ic_bedtime)
+                .setContentTitle(getString(R.string.sleep_done))
+                .setTimeoutAfter(10 * 60 * 1000)
+                .setAutoCancel(true)
+                .build());
+        updateNotification();
+    }
+
+    private void restoreSleepVolume() {
+        if (sleepVolume < 0) return;
+        try {
+            am.setStreamVolume(AudioManager.STREAM_MUSIC, sleepVolume, 0);
+        } catch (Exception ignored) {
+        }
+        sleepVolume = -1;
     }
 
     @Override
     public void onDestroy() {
         main.removeCallbacks(statsTick);
         main.removeCallbacks(updateTick);
+        main.removeCallbacks(widgetTask);
+        main.removeCallbacks(sleepTick);
+        restoreSleepVolume();
+        sleepEnd = 0;
         tickStats();
         ListenStats.get(this).saveNow();
+        try { am.unregisterAudioPlaybackCallback(playbackCallback); } catch (Exception ignored) { }
         np.stop();
         try { unregisterReceiver(sessionReceiver); } catch (Exception ignored) { }
         link.removeListener(budsListener);
@@ -352,12 +488,13 @@ public class EqService extends Service {
         dt = Math.min(dt, 2 * STATS_TICK_MS / 1000);
 
         if (!np.isStarted() && NowPlaying.hasAccess(this)) np.start(); // доступ выдали позже
-        String pkg = null, artist = null;
+        String pkg = null, artist = null, title = null;
         boolean playing;
         if (np.active()) {
             playing = np.playing();
             pkg = np.packageName();
             artist = np.artist();
+            title = np.title();
         } else {
             // без доступа к уведомлениям — только общее время
             try {
@@ -366,7 +503,13 @@ public class EqService extends Service {
                 playing = false;
             }
         }
-        if (playing) ListenStats.get(this).add(dt, pkg, artist);
+        if (!playing) return;
+        // где и с каким звуком слушали — для итогов месяца и достижений
+        DeviceInfo out = monitor.primaryAudio();
+        String device = out != null ? out.name : getString(R.string.phone_speaker);
+        String preset = eq.lastPreset.isEmpty() ? getString(R.string.custom) : eq.lastPreset;
+        ListenStats.get(this).add(dt, pkg, artist, title, device, preset,
+                out != null && out.isHeadphones() ? out.name : null);
     }
 
     private void checkLowBattery() {
@@ -444,6 +587,41 @@ public class EqService extends Service {
                 .build();
     }
 
+    // =====================================================================
+    // Виджет
+    // =====================================================================
+
+    /** Собрать данные не чаще раза в секунду (плеер шлёт много событий подряд). */
+    private void updateWidget() {
+        main.removeCallbacks(widgetTask);
+        main.postDelayed(widgetTask, 700);
+    }
+
+    private void pushWidget() {
+        if (!EqWidget.exists(this)) return;
+        EqWidget.Data w = new EqWidget.Data();
+        w.title = np.title();
+        w.artist = np.artist();
+        w.art = np.art();
+        w.playing = np.active() ? np.playing() : am.isMusicActive();
+        w.eqOn = eq.enabled;
+        w.eqStatus = !eq.enabled ? getString(R.string.off) : eq.lastPreset;
+        w.todaySecs = ListenStats.get(this).today();
+        DeviceInfo p = monitor.primaryAudio();
+        if (p != null) {
+            w.device = p.name;
+            BudsLink.State b = budsFor(p);
+            if (b != null && b.hasBattery()) {
+                w.batL = b.batL;
+                w.batR = b.batR;
+                w.batCase = b.batCase;
+            } else if (p.battery >= 0) {
+                w.battery = p.battery + "%";
+            }
+        }
+        EqWidget.push(this, w);
+    }
+
     private void updateNotification() {
         DeviceInfo p = monitor.primaryAudio();
         if (p == null && !monitor.list().isEmpty()) p = monitor.list().get(0);
@@ -460,7 +638,10 @@ public class EqService extends Service {
                 text = p.name;
             }
         }
+        int sleep = sleepMinutesLeft();
+        if (sleep > 0) text = getString(R.string.sleep_left, sleep) + " · " + text;
         nm.notify(NOTIF_MAIN, buildMain(text));
+        updateWidget();
     }
 
     private void notifyAlert(int id, String title, String text) {

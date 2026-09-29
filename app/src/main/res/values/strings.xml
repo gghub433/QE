@@ -243,4 +243,39 @@
     <!-- 5.2: AirPods -->
     <string name="air_permission">Show AirPods battery</string>
     <string name="air_permission_old">AirPods report their battery over Bluetooth LE. Before Android 12, Android only allows such a search with the “Location” permission — EQ does not use your location.</string>
+    <!-- 5.3: виджет -->
+    <string name="widget_name">EQ — player and headphones</string>
+    <string name="widget_desc">Track, wave, player buttons, headphone battery and today’s Music Time</string>
+    <string name="w_today">Today: %s</string>
+    <!-- 5.4: таймер сна -->
+    <string name="sleep_timer">Sleep timer</string>
+    <string name="sleep_left">Sleep in %d min</string>
+    <string name="sleep_off">Turn off the timer</string>
+    <string name="sleep_hint">During the last minute the music fades out smoothly, then pauses</string>
+    <string name="sleep_done">Good night: the music is paused</string>
+    <!-- 5.5: автопресет по приложению -->
+    <string name="ap_title">Preset per app</string>
+    <string name="ap_switch">Switch presets by app</string>
+    <string name="ap_hint">Spotify, YouTube, games — each with its own sound. When the app goes quiet, your sound comes back. Long press — delete the rule.</string>
+    <string name="ap_add">Add rule</string>
+    <string name="ap_games">Games</string>
+    <string name="ap_choose_app">Which app?</string>
+    <string name="ap_choose_preset">Preset for %s</string>
+    <!-- 5.6: Music Time+ -->
+    <string name="mt_period_week">Week</string>
+    <string name="mt_period_month">Month</string>
+    <string name="mt_month_sub">Days with music: %1$d · %2$s a day on average</string>
+    <string name="mt_summary">Month summary</string>
+    <string name="mt_fav_device">Favorite device: %s</string>
+    <string name="mt_fav_preset">Favorite preset: %s</string>
+    <string name="mt_fav_artist">Top artist: %s</string>
+    <string name="mt_night">At night (after 23:00): %s</string>
+    <string name="mt_top_tracks">Favorite tracks</string>
+    <string name="ach_title">Achievements</string>
+    <string name="ach_10h">10 hours</string>
+    <string name="ach_100h">100 hours</string>
+    <string name="ach_500h">500 hours</string>
+    <string name="ach_night">Night listener</string>
+    <string name="ach_loyal">Buds loyalist</string>
+    <string name="time_h">%d h</string>
 </resources>

@@ -243,4 +243,39 @@
     <!-- 5.2: AirPods -->
     <string name="air_permission">Показывать заряд AirPods</string>
     <string name="air_permission_old">AirPods сообщают заряд по Bluetooth LE. До Android 12 такой поиск Android разрешает только с доступом к «Геолокации» — EQ твоё местоположение не использует.</string>
+    <!-- 5.3: виджет -->
+    <string name="widget_name">EQ — плеер и наушники</string>
+    <string name="widget_desc">Трек, волна, кнопки плеера, заряд наушников и Music Time за сегодня</string>
+    <string name="w_today">Сегодня: %s</string>
+    <!-- 5.4: таймер сна -->
+    <string name="sleep_timer">Таймер сна</string>
+    <string name="sleep_left">Сон через %d мин</string>
+    <string name="sleep_off">Выключить таймер</string>
+    <string name="sleep_hint">В последнюю минуту музыка плавно затихнет и встанет на паузу</string>
+    <string name="sleep_done">Спокойной ночи: музыка на паузе</string>
+    <!-- 5.5: автопресет по приложению -->
+    <string name="ap_title">Пресет по приложению</string>
+    <string name="ap_switch">Менять пресет по приложению</string>
+    <string name="ap_hint">Spotify, YouTube, игры — у каждого свой звук. Когда приложение замолкает, возвращается твой звук. Долгое нажатие — удалить правило.</string>
+    <string name="ap_add">Добавить правило</string>
+    <string name="ap_games">Игры</string>
+    <string name="ap_choose_app">Какое приложение?</string>
+    <string name="ap_choose_preset">Пресет для %s</string>
+    <!-- 5.6: Music Time+ -->
+    <string name="mt_period_week">Неделя</string>
+    <string name="mt_period_month">Месяц</string>
+    <string name="mt_month_sub">Дней с музыкой: %1$d · в среднем %2$s в день</string>
+    <string name="mt_summary">Итоги месяца</string>
+    <string name="mt_fav_device">Любимое устройство: %s</string>
+    <string name="mt_fav_preset">Любимый пресет: %s</string>
+    <string name="mt_fav_artist">Главный исполнитель: %s</string>
+    <string name="mt_night">Ночью (после 23:00): %s</string>
+    <string name="mt_top_tracks">Любимые треки</string>
+    <string name="ach_title">Достижения</string>
+    <string name="ach_10h">10 часов</string>
+    <string name="ach_100h">100 часов</string>
+    <string name="ach_500h">500 часов</string>
+    <string name="ach_night">Ночной слушатель</string>
+    <string name="ach_loyal">Верен Buds</string>
+    <string name="time_h">%d ч</string>
 </resources>

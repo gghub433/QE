@@ -243,4 +243,39 @@
     <!-- 5.2: AirPods -->
     <string name="air_permission">Rādīt AirPods uzlādi</string>
     <string name="air_permission_old">AirPods ziņo uzlādi, izmantojot Bluetooth LE. Līdz Android 12 šādu meklēšanu Android atļauj tikai ar piekļuvi «Atrašanās vietai» — EQ tavu atrašanās vietu neizmanto.</string>
+    <!-- 5.3: виджет -->
+    <string name="widget_name">EQ — atskaņotājs un austiņas</string>
+    <string name="widget_desc">Dziesma, vilnis, atskaņotāja pogas, austiņu uzlāde un šodienas Music Time</string>
+    <string name="w_today">Šodien: %s</string>
+    <!-- 5.4: таймер сна -->
+    <string name="sleep_timer">Miega taimeris</string>
+    <string name="sleep_left">Miegs pēc %d min</string>
+    <string name="sleep_off">Izslēgt taimeri</string>
+    <string name="sleep_hint">Pēdējā minūtē mūzika pamazām apklusīs un apstāsies</string>
+    <string name="sleep_done">Ar labu nakti: mūzika ir apturēta</string>
+    <!-- 5.5: автопресет по приложению -->
+    <string name="ap_title">Priekšiestatījums lietotnei</string>
+    <string name="ap_switch">Mainīt priekšiestatījumu pēc lietotnes</string>
+    <string name="ap_hint">Spotify, YouTube, spēles — katrai sava skaņa. Kad lietotne apklust, atgriežas tava skaņa. Ilgs pieskāriens — dzēst noteikumu.</string>
+    <string name="ap_add">Pievienot noteikumu</string>
+    <string name="ap_games">Spēles</string>
+    <string name="ap_choose_app">Kura lietotne?</string>
+    <string name="ap_choose_preset">Priekšiestatījums lietotnei %s</string>
+    <!-- 5.6: Music Time+ -->
+    <string name="mt_period_week">Nedēļa</string>
+    <string name="mt_period_month">Mēnesis</string>
+    <string name="mt_month_sub">Dienas ar mūziku: %1$d · vidēji %2$s dienā</string>
+    <string name="mt_summary">Mēneša kopsavilkums</string>
+    <string name="mt_fav_device">Mīļākā ierīce: %s</string>
+    <string name="mt_fav_preset">Mīļākais priekšiestatījums: %s</string>
+    <string name="mt_fav_artist">Galvenais izpildītājs: %s</string>
+    <string name="mt_night">Naktī (pēc 23:00): %s</string>
+    <string name="mt_top_tracks">Mīļākās dziesmas</string>
+    <string name="ach_title">Sasniegumi</string>
+    <string name="ach_10h">10 stundas</string>
+    <string name="ach_100h">100 stundas</string>
+    <string name="ach_500h">500 stundas</string>
+    <string name="ach_night">Nakts klausītājs</string>
+    <string name="ach_loyal">Uzticīgs Buds</string>
+    <string name="time_h">%d h</string>
 </resources>

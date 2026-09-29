@@ -109,10 +109,13 @@ public class MainActivity extends Activity {
 
     // Music Time
     private MusicTimeView mtView;
-    private TextView mtToday, mtWeek, mtHint;
+    private TextView mtToday, mtTodayLbl, mtWeek, mtHint;
+    private Button mtWeekBtn, mtMonthBtn;
+    private FlowLayout mtAchBox;
     private LinearLayout mtTopBox;
     private int mtTicks;
     private WaveView wave;
+    private Button sleepBtn;
 
     // AutoEQ
     private TextView aeStatus, aeSuggestText;
@@ -164,6 +167,7 @@ public class MainActivity extends Activity {
         public void run() {
             updateProgress();
             if (tab == TAB_MUSIC && ++mtTicks % 20 == 0) refreshMusicTime();
+            if (tab == TAB_MUSIC && mtTicks % 5 == 0) refreshSleep();
             ui.postDelayed(this, 1000);
         }
     };
@@ -252,6 +256,7 @@ public class MainActivity extends Activity {
         buildAutoEq(roots[TAB_EQ]);
         buildSound(roots[TAB_EQ]);
         buildPresets(roots[TAB_EQ]);
+        buildAppPresets(roots[TAB_EQ]);
         TextView tip = text(getString(R.string.tip_wearable), 12, GREY);
         tip.setPadding(dp(4), dp(20), dp(4), 0);
         roots[TAB_EQ].addView(tip);
@@ -701,6 +706,128 @@ public class MainActivity extends Activity {
         root.addView(hscroll(actions));
     }
 
+    // =====================================================================
+    // Автопресет по приложению
+    // =====================================================================
+
+    private LinearLayout appRulesBox;
+    private Switch appPresetSwitch;
+
+    private void buildAppPresets(LinearLayout root) {
+        root.addView(section(getString(R.string.ap_title)));
+        appPresetSwitch = styledSwitch();
+        LinearLayout sw = switchRow(getString(R.string.ap_switch), getString(R.string.ap_hint), appPresetSwitch);
+        sw.setPadding(dp(4), 0, dp(4), dp(6));
+        root.addView(sw);
+        appPresetSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            public void onCheckedChanged(CompoundButton v, boolean on) {
+                if (!updating) AppPresets.setEnabled(MainActivity.this, on);
+            }
+        });
+        appRulesBox = new LinearLayout(this);
+        appRulesBox.setOrientation(LinearLayout.VERTICAL);
+        root.addView(appRulesBox);
+        LinearLayout add = new LinearLayout(this);
+        add.setPadding(0, dp(6), 0, 0);
+        add.addView(chip(getString(R.string.ap_add), R.drawable.ic_add, CHIP, new View.OnClickListener() {
+            public void onClick(View v) { chooseRuleApp(); }
+        }));
+        root.addView(hscroll(add));
+        refreshAppPresets();
+    }
+
+    private String ruleAppLabel(String app) {
+        return AppPresets.GAME.equals(app) ? getString(R.string.ap_games) : appLabel(app);
+    }
+
+    private void refreshAppPresets() {
+        if (appRulesBox == null) return;
+        updating = true;
+        appPresetSwitch.setChecked(AppPresets.enabled(this));
+        updating = false;
+        appRulesBox.removeAllViews();
+        LinearLayout flow = new LinearLayout(this);
+        for (final AppPresets.Rule r : AppPresets.rules(this)) {
+            Button b = chip(ruleAppLabel(r.app) + "  →  " + AppPresets.presetLabel(this, r.preset),
+                    AppPresets.GAME.equals(r.app) ? R.drawable.ic_gamepad : R.drawable.ic_music, CHIP,
+                    new View.OnClickListener() {
+                        public void onClick(View v) { chooseRulePreset(r.app); }
+                    });
+            b.setOnLongClickListener(new View.OnLongClickListener() {
+                public boolean onLongClick(View v) {
+                    AppPresets.remove(MainActivity.this, r.app);
+                    refreshAppPresets();
+                    return true;
+                }
+            });
+            flow.addView(b);
+        }
+        if (flow.getChildCount() > 0) appRulesBox.addView(hscroll(flow));
+    }
+
+    /** Выбор приложения: «Игры», потом музыкальные, потом остальные по алфавиту. */
+    private void chooseRuleApp() {
+        final PackageManager pm = getPackageManager();
+        Intent main = new Intent(Intent.ACTION_MAIN);
+        main.addCategory(Intent.CATEGORY_LAUNCHER);
+        List<String[]> rows = new ArrayList<>();
+        for (ResolveInfo ri : pm.queryIntentActivities(main, 0)) {
+            String p = ri.activityInfo.packageName;
+            if (p.equals(getPackageName())) continue;
+            boolean dup = false;
+            for (String[] r : rows) if (r[0].equals(p)) dup = true;
+            if (!dup) rows.add(new String[]{p, ri.loadLabel(pm).toString()});
+        }
+        Collections.sort(rows, new Comparator<String[]>() {
+            public int compare(String[] a, String[] c) {
+                int ia = MUSIC_APPS.indexOf(a[0]), ic = MUSIC_APPS.indexOf(c[0]);
+                if (ia >= 0 || ic >= 0) {
+                    if (ia < 0) return 1;
+                    if (ic < 0) return -1;
+                    return ia - ic;
+                }
+                return a[1].compareToIgnoreCase(c[1]);
+            }
+        });
+        final List<String> pkgs = new ArrayList<>();
+        List<String> labels = new ArrayList<>();
+        pkgs.add(AppPresets.GAME);
+        labels.add(getString(R.string.ap_games));
+        for (String[] r : rows) {
+            pkgs.add(r[0]);
+            labels.add(r[1]);
+        }
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.ap_choose_app)
+                .setItems(labels.toArray(new String[0]), new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface d, int which) { chooseRulePreset(pkgs.get(which)); }
+                })
+                .show();
+    }
+
+    private void chooseRulePreset(final String app) {
+        final List<String> ids = new ArrayList<>();
+        List<String> labels = new ArrayList<>();
+        for (int i = 0; i < EqEngine.PRESET_NAMES.length; i++) {
+            ids.add(AppPresets.BUILTIN + i);
+            labels.add(getString(EqEngine.PRESET_NAMES[i]));
+        }
+        for (String n : eq.presetNames()) {
+            ids.add(AppPresets.USER + n);
+            labels.add(n);
+        }
+        new AlertDialog.Builder(this)
+                .setTitle(getString(R.string.ap_choose_preset, ruleAppLabel(app)))
+                .setItems(labels.toArray(new String[0]), new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface d, int which) {
+                        AppPresets.put(MainActivity.this, app, ids.get(which));
+                        refreshAppPresets();
+                    }
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
     private void buildAutomation(LinearLayout root) {
         root.addView(section(getString(R.string.sec_auto)));
 
@@ -1054,6 +1181,25 @@ public class MainActivity extends Activity {
 
     private void buildMusicTime(LinearLayout root) {
         root.addView(section(getString(R.string.music_time)));
+
+        // период: неделя / месяц
+        LinearLayout period = new LinearLayout(this);
+        mtWeekBtn = chip(getString(R.string.mt_period_week), 0, CHIP, new View.OnClickListener() {
+            public void onClick(View v) {
+                settings.edit().putBoolean("mt_month", false).apply();
+                refreshMusicTime();
+            }
+        });
+        mtMonthBtn = chip(getString(R.string.mt_period_month), 0, CHIP, new View.OnClickListener() {
+            public void onClick(View v) {
+                settings.edit().putBoolean("mt_month", true).apply();
+                refreshMusicTime();
+            }
+        });
+        period.addView(mtWeekBtn);
+        period.addView(mtMonthBtn);
+        root.addView(hscroll(period));
+
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(dp(16), dp(14), dp(16), dp(14));
@@ -1064,9 +1210,9 @@ public class MainActivity extends Activity {
         mtToday = text("", 28, Color.WHITE);
         mtToday.getPaint().setFakeBoldText(true);
         head.addView(mtToday);
-        TextView todayLbl = text(getString(R.string.mt_today), 14, GREY);
-        todayLbl.setPadding(dp(8), 0, 0, dp(5));
-        head.addView(todayLbl);
+        mtTodayLbl = text(getString(R.string.mt_today), 14, GREY);
+        mtTodayLbl.setPadding(dp(8), 0, 0, dp(5));
+        head.addView(mtTodayLbl);
         card.addView(head);
         mtWeek = text("", 13, Color.rgb(0xC8, 0xCA, 0xD0));
         mtWeek.setPadding(0, dp(2), 0, 0);
@@ -1081,6 +1227,11 @@ public class MainActivity extends Activity {
         mtTopBox.setOrientation(LinearLayout.VERTICAL);
         card.addView(mtTopBox);
         root.addView(card);
+
+        // достижения
+        root.addView(section(getString(R.string.ach_title)));
+        mtAchBox = new FlowLayout(this);
+        root.addView(mtAchBox);
 
         mtHint = hintText("");
         mtHint.setPadding(dp(4), dp(8), dp(4), 0);
@@ -1106,40 +1257,61 @@ public class MainActivity extends Activity {
     }
 
     private String duration(long s) {
-        long h = s / 3600, m = (s % 3600) / 60;
-        return h > 0 ? getString(R.string.time_hm, h, m) : getString(R.string.time_m, m);
+        return ListenStats.format(this, s);
     }
 
     private void refreshMusicTime() {
         if (mtView == null) return;
         ListenStats st = ListenStats.get(this);
-        long[] days = st.lastDays(7);
-        String[] labels = new String[7];
+        boolean month = settings.getBoolean("mt_month", false);
+        mtWeekBtn.setBackground(round(!month ? ACCENT : CHIP, 24));
+        mtMonthBtn.setBackground(round(month ? ACCENT : CHIP, 24));
         Locale loc = getResources().getConfiguration().getLocales().get(0);
-        SimpleDateFormat fmt = new SimpleDateFormat("EE", loc);
-        Calendar cal = Calendar.getInstance();
-        cal.add(Calendar.DAY_OF_YEAR, -6);
-        long week = 0;
-        for (int i = 0; i < 7; i++) {
-            labels[i] = fmt.format(cal.getTime());
-            cal.add(Calendar.DAY_OF_YEAR, 1);
-            week += days[i];
+        ListenStats.Summary sum;
+        if (!month) {
+            long[] days = st.lastDays(7);
+            String[] labels = new String[7];
+            SimpleDateFormat fmt = new SimpleDateFormat("EE", loc);
+            Calendar cal = Calendar.getInstance();
+            cal.add(Calendar.DAY_OF_YEAR, -6);
+            long week = 0;
+            for (int i = 0; i < 7; i++) {
+                labels[i] = fmt.format(cal.getTime());
+                cal.add(Calendar.DAY_OF_YEAR, 1);
+                week += days[i];
+            }
+            mtView.setData(days, labels);
+            mtToday.setText(duration(days[6]));
+            mtTodayLbl.setText(R.string.mt_today);
+            mtWeek.setText(getString(R.string.mt_week, duration(week), duration(week / 7)));
+            sum = st.summary(7);
+        } else {
+            long[] days = st.monthDays();
+            String[] labels = new String[days.length];
+            for (int i = 0; i < days.length; i++) {
+                int day = i + 1;
+                labels[i] = day == 1 || day % 5 == 0 || i == days.length - 1 ? String.valueOf(day) : "";
+            }
+            mtView.setData(days, labels);
+            sum = st.summary(0);
+            mtToday.setText(ListenStats.hours(this, sum.total));
+            String name = new SimpleDateFormat("LLLL", loc).format(Calendar.getInstance().getTime());
+            mtTodayLbl.setText(name.isEmpty() ? name : name.substring(0, 1).toUpperCase(loc) + name.substring(1));
+            mtWeek.setText(getString(R.string.mt_month_sub, sum.daysWithMusic, duration(sum.total / Math.max(1, days.length))));
         }
-        mtView.setData(days, labels);
-        mtToday.setText(duration(days[6]));
-        mtWeek.setText(getString(R.string.mt_week, duration(week), duration(week / 7)));
 
         mtTopBox.removeAllViews();
-        List<ListenStats.Entry> artists = st.topArtists(5);
-        if (!artists.isEmpty()) {
-            mtTopBox.addView(label(getString(R.string.mt_top_artists)));
-            long max = artists.get(0).seconds;
-            for (int i = 0; i < artists.size(); i++) {
-                ListenStats.Entry e = artists.get(i);
-                mtTopBox.addView(statRow((i + 1) + ".  " + e.name, e.seconds, max, null));
-            }
+        if (month && sum.total > 0) {
+            // итоги месяца
+            mtTopBox.addView(label(getString(R.string.mt_summary)));
+            if (sum.top(sum.devices) != null) mtTopBox.addView(summaryLine(R.drawable.ic_headset, getString(R.string.mt_fav_device, sum.top(sum.devices))));
+            if (sum.top(sum.presets) != null) mtTopBox.addView(summaryLine(R.drawable.ic_equalizer, getString(R.string.mt_fav_preset, sum.top(sum.presets))));
+            if (sum.top(sum.artists) != null) mtTopBox.addView(summaryLine(R.drawable.ic_favorite, getString(R.string.mt_fav_artist, sum.top(sum.artists))));
+            if (sum.night > 0) mtTopBox.addView(summaryLine(R.drawable.ic_bedtime, getString(R.string.mt_night, duration(sum.night))));
         }
-        List<ListenStats.Entry> apps = st.topApps(3);
+        addTop(R.string.mt_top_artists, ListenStats.head(sum.artists, 5));
+        addTop(R.string.mt_top_tracks, ListenStats.head(sum.tracks, 5));
+        List<ListenStats.Entry> apps = ListenStats.head(sum.apps, 3);
         if (!apps.isEmpty()) {
             mtTopBox.addView(label(getString(R.string.mt_top_apps)));
             long max = apps.get(0).seconds;
@@ -1158,6 +1330,44 @@ public class MainActivity extends Activity {
             mtHint.setText(R.string.mt_no_access);
         } else {
             mtHint.setText(R.string.mt_hint);
+        }
+        refreshAchievements(st.achievements());
+    }
+
+    private void addTop(int titleRes, List<ListenStats.Entry> list) {
+        if (list.isEmpty()) return;
+        mtTopBox.addView(label(getString(titleRes)));
+        long max = list.get(0).seconds;
+        for (int i = 0; i < list.size(); i++) {
+            ListenStats.Entry e = list.get(i);
+            mtTopBox.addView(statRow((i + 1) + ".  " + e.name, e.seconds, max, null));
+        }
+    }
+
+    private View summaryLine(int iconRes, String s) {
+        TextView t = text(s, 14, Color.WHITE);
+        Drawable ic = icon(iconRes, GREY);
+        ic.setBounds(0, 0, dp(18), dp(18));
+        t.setCompoundDrawablesRelative(ic, null, null, null);
+        t.setCompoundDrawablePadding(dp(10));
+        t.setPadding(0, dp(4), 0, dp(4));
+        return t;
+    }
+
+    /** Значки достижений: полученные — акцентом, остальные — серые (цель видна заранее). */
+    private void refreshAchievements(boolean[] got) {
+        mtAchBox.removeAllViews();
+        int[] names = {R.string.ach_10h, R.string.ach_100h, R.string.ach_500h, R.string.ach_night, R.string.ach_loyal};
+        int[] icons = {R.drawable.ic_trophy, R.drawable.ic_trophy, R.drawable.ic_trophy, R.drawable.ic_bedtime, R.drawable.ic_headset};
+        for (int i = 0; i < names.length; i++) {
+            Button b = chip(getString(names[i]), icons[i], got[i] ? ACCENT : Color.rgb(0x26, 0x28, 0x2E), null);
+            if (!got[i]) {
+                b.setTextColor(GREY);
+                Drawable d = icon(icons[i], Color.rgb(0x6A, 0x6E, 0x78));
+                d.setBounds(0, 0, dp(18), dp(18));
+                b.setCompoundDrawablesRelative(d, null, null, null);
+            }
+            mtAchBox.addView(b);
         }
     }
 
@@ -1896,6 +2106,42 @@ public class MainActivity extends Activity {
         sp.addView(spOpenBtn);
         root.addView(hscroll(sp));
         root.addView(hintText(getString(R.string.sp_hint_eq)));
+
+        // таймер сна
+        LinearLayout sl = new LinearLayout(this);
+        sl.setPadding(0, dp(10), 0, 0);
+        sleepBtn = chip(getString(R.string.sleep_timer), R.drawable.ic_bedtime, CHIP, new View.OnClickListener() {
+            public void onClick(View v) { showSleepDialog(); }
+        });
+        sl.addView(sleepBtn);
+        root.addView(hscroll(sl));
+    }
+
+    private void showSleepDialog() {
+        final int[] minutes = {15, 30, 45, 60, 90, 120};
+        boolean on = EqService.sleepMinutesLeft() > 0;
+        String[] items = new String[minutes.length + (on ? 1 : 0)];
+        for (int i = 0; i < minutes.length; i++) items[i] = getString(R.string.time_m, (long) minutes[i]);
+        if (on) items[minutes.length] = getString(R.string.sleep_off);
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.sleep_timer)
+                .setItems(items, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface d, int which) {
+                        EqService.setSleep(MainActivity.this, which < minutes.length ? minutes[which] : 0);
+                        ui.postDelayed(new Runnable() {
+                            public void run() { refreshSleep(); }
+                        }, 300);
+                    }
+                })
+                .show();
+        Toast.makeText(this, R.string.sleep_hint, Toast.LENGTH_SHORT).show();
+    }
+
+    private void refreshSleep() {
+        if (sleepBtn == null) return;
+        int left = EqService.sleepMinutesLeft();
+        sleepBtn.setText(left > 0 ? getString(R.string.sleep_left, left) : getString(R.string.sleep_timer));
+        sleepBtn.setBackground(round(left > 0 ? ACCENT : CHIP, 24));
     }
 
     private void openListenerSettings() {

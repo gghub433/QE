@@ -233,6 +233,12 @@ public final class NowPlaying {
         }
     }
 
+    /** Пауза (таймер сна): именно пауза, а не «переключить». */
+    public void pause() {
+        if (controller != null) controller.getTransportControls().pause();
+        else key(KeyEvent.KEYCODE_MEDIA_PAUSE);
+    }
+
     public void next() {
         if (controller != null) controller.getTransportControls().skipToNext();
         else key(KeyEvent.KEYCODE_MEDIA_NEXT);

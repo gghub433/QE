@@ -577,6 +577,28 @@ public final class EqEngine {
         }
     }
 
+    /** Снимок звука (кривая, запас, панч, выравнивание) — для автопресета по приложению. */
+    public String soundJson() {
+        try {
+            return writeSound(false).toString();
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    /** Вернуть звук из снимка. */
+    public void loadSoundJson(String json, String preset) {
+        try {
+            readSound(new JSONObject(json), false);
+            lastPreset = preset == null ? "" : preset;
+            applyAll();
+            save();
+            notifyChanged();
+        } catch (Exception e) {
+            Log.w(TAG, "restore failed", e);
+        }
+    }
+
     public void deletePreset(String name) {
         JSONObject all = presets();
         all.remove(name);
