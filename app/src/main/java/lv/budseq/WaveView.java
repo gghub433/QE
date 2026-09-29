@@ -13,9 +13,8 @@ import android.view.View;
  */
 public class WaveView extends View {
 
-    private static final int ACCENT = Color.rgb(0x3E, 0x7B, 0xFA);
 
-    private int color = ACCENT;
+    private int color = Theme.wave();
     private float level = 0.12f, target = 0.12f, time;
     private boolean running;
 
@@ -36,9 +35,9 @@ public class WaveView extends View {
         startLoop();
     }
 
-    /** Цвет волны (например, из обложки); 0 — акцент приложения. */
+    /** Цвет волны (например, из обложки); 0 — цвет волны из темы. */
     public void setColor(int c) {
-        color = c == 0 ? ACCENT : c;
+        color = c == 0 ? Theme.wave() : c;
         invalidate();
     }
 

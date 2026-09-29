@@ -28,7 +28,7 @@ public class CarFocusView extends View {
     private static final float[] BASE = {-0.40f, 0f, 0.40f, -0.25f, 0f, 0.25f};
     private static final float[] STRENGTH = {0.6f, 1f, 1.6f};
 
-    private static final int ACCENT = Color.rgb(0x3E, 0x7B, 0xFA);
+    private final int ACCENT = Theme.accent();
     private static final int BODY = Color.rgb(0x2B, 0x2D, 0x33);
     private static final int BODY_EDGE = Color.rgb(0x5E, 0x62, 0x6C);
     private static final int FLOOR = Color.rgb(0x17, 0x18, 0x1C);

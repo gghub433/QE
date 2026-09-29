@@ -278,4 +278,9 @@
     <string name="ach_night">Нічний слухач</string>
     <string name="ach_loyal">Вірний Buds</string>
     <string name="time_h">%d год</string>
+    <!-- 5.7: темы -->
+    <string name="theme_title">Оформлення</string>
+    <string name="theme_accent">Колір акценту</string>
+    <string name="theme_wave">Колір хвилі</string>
+    <string name="theme_wave_accent">Як акцент</string>
 </resources>

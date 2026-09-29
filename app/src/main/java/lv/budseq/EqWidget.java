@@ -6,6 +6,7 @@ import android.appwidget.AppWidgetProvider;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -13,6 +14,7 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
 import android.media.AudioManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.KeyEvent;
 import android.widget.RemoteViews;
@@ -42,8 +44,8 @@ public class EqWidget extends AppWidgetProvider {
         /** Заряд L/R/кейса (Galaxy Buds, AirPods); -1 — нет данных. */
         public int batL = -1, batR = -1, batCase = -1;
         public long todaySecs;
-        public int accent = Color.rgb(0x3E, 0x7B, 0xFA);
-        public int waveColor;
+        public int accent = Theme.accent();
+        public int waveColor = Theme.wave();
     }
 
     private static volatile Data last;
@@ -109,6 +111,10 @@ public class EqWidget extends AppWidgetProvider {
             RemoteViews rv = new RemoteViews(c.getPackageName(), R.layout.widget);
             rv.setImageViewBitmap(R.id.w_image, bmp);
             rv.setImageViewResource(R.id.w_play, data.playing ? R.drawable.ic_pause : R.drawable.ic_play);
+            if (Build.VERSION.SDK_INT >= 31) {
+                // кнопка «играть» — цветом акцента из темы (раньше Android 12 остаётся синей из XML)
+                rv.setColorStateList(R.id.w_play, "setBackgroundTintList", ColorStateList.valueOf(data.accent));
+            }
             rv.setOnClickPendingIntent(R.id.w_prev, action(c, ACT_PREV, 1));
             rv.setOnClickPendingIntent(R.id.w_play, action(c, ACT_PLAY, 2));
             rv.setOnClickPendingIntent(R.id.w_next, action(c, ACT_NEXT, 3));

@@ -23,7 +23,6 @@ import android.widget.TextView;
  * При первом запуске — выбор языка.
  */
 public class SplashActivity extends Activity {
-    private static final int ACCENT = Color.rgb(0x3E, 0x7B, 0xFA);
     private static final long SPLASH_MS = 1400;
 
     private final Handler ui = new Handler(Looper.getMainLooper());
@@ -151,7 +150,7 @@ public class SplashActivity extends Activity {
         BarsLogo(Context c) {
             super(c);
             bg.setColor(Color.rgb(0x1C, 0x1D, 0x21));
-            bar.setColor(ACCENT);
+            bar.setColor(Theme.accent());
         }
 
         @Override

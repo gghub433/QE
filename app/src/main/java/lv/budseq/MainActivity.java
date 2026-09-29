@@ -61,7 +61,8 @@ import java.util.function.Consumer;
 
 public class MainActivity extends Activity {
 
-    private static final int ACCENT = Color.rgb(0x3E, 0x7B, 0xFA);
+    /** Акцент из темы (задаётся в onCreate; после смены цвета экран пересоздаётся). */
+    private static int ACCENT = Theme.DEFAULT_ACCENT;
     private static final int CARD = Color.rgb(0x1C, 0x1D, 0x21);
     private static final int CHIP = Color.rgb(0x3A, 0x3B, 0x40);
     private static final int DANGER = Color.rgb(0xE5, 0x48, 0x48);
@@ -206,6 +207,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
+        ACCENT = Theme.accent();
         eq = EqEngine.get(this);
         settings = getSharedPreferences("settings", MODE_PRIVATE);
 
@@ -1415,6 +1417,8 @@ public class MainActivity extends Activity {
         lang.addView(langBtn);
         root.addView(hscroll(lang));
 
+        buildTheme(root);
+
         buildAutomation(root);
 
         root.addView(section(getString(R.string.popup_on)));
@@ -1469,6 +1473,59 @@ public class MainActivity extends Activity {
         root.addView(section(getString(R.string.sec_about)));
         root.addView(hintText(getString(R.string.tagline) + " · " + getString(R.string.upd_version,
                 Updater.currentVersion(this))));
+    }
+
+    // ---------- оформление ----------
+
+    private void buildTheme(LinearLayout root) {
+        root.addView(section(getString(R.string.theme_title)));
+        root.addView(label(getString(R.string.theme_accent)));
+        FlowLayout accents = new FlowLayout(this);
+        for (final int color : Theme.PALETTE) {
+            accents.addView(swatch(color, color == Theme.accent(), new View.OnClickListener() {
+                public void onClick(View v) {
+                    if (color == Theme.accent()) return;
+                    Theme.setAccent(MainActivity.this, color);
+                    recreate();
+                }
+            }));
+        }
+        root.addView(accents);
+
+        root.addView(label(getString(R.string.theme_wave)));
+        FlowLayout waves = new FlowLayout(this);
+        Button asAccent = chip(getString(R.string.theme_wave_accent), 0,
+                Theme.waveSetting() == Theme.WAVE_AS_ACCENT ? ACCENT : CHIP, new View.OnClickListener() {
+                    public void onClick(View v) {
+                        Theme.setWave(MainActivity.this, Theme.WAVE_AS_ACCENT);
+                        recreate();
+                    }
+                });
+        waves.addView(asAccent);
+        for (final int color : Theme.PALETTE) {
+            waves.addView(swatch(color, color == Theme.waveSetting(), new View.OnClickListener() {
+                public void onClick(View v) {
+                    Theme.setWave(MainActivity.this, color);
+                    recreate();
+                }
+            }));
+        }
+        root.addView(waves);
+    }
+
+    /** Кружок цвета; выбранный — с белой обводкой. */
+    private View swatch(int color, boolean selected, View.OnClickListener click) {
+        View v = new View(this);
+        GradientDrawable g = new GradientDrawable();
+        g.setShape(GradientDrawable.OVAL);
+        g.setColor(color);
+        if (selected) g.setStroke(dp(3), Color.WHITE);
+        v.setBackground(g);
+        v.setOnClickListener(click);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(40), dp(40));
+        lp.setMargins(0, 0, dp(10), dp(10));
+        v.setLayoutParams(lp);
+        return v;
     }
 
     private void refreshSettings() {

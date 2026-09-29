@@ -123,7 +123,7 @@ public final class BudsPopup {
         open.setCompoundDrawablePadding((int) (8 * d));
         open.setPadding((int) (16 * d), 0, (int) (16 * d), 0);
         GradientDrawable ob = new GradientDrawable();
-        ob.setColor(Color.rgb(0x3E, 0x7B, 0xFA));
+        ob.setColor(Theme.accent());
         ob.setCornerRadius(24 * d);
         open.setBackground(ob);
         open.setOnClickListener(new View.OnClickListener() {

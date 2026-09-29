@@ -278,4 +278,9 @@
     <string name="ach_night">Night listener</string>
     <string name="ach_loyal">Buds loyalist</string>
     <string name="time_h">%d h</string>
+    <!-- 5.7: темы -->
+    <string name="theme_title">Appearance</string>
+    <string name="theme_accent">Accent color</string>
+    <string name="theme_wave">Wave color</string>
+    <string name="theme_wave_accent">Same as accent</string>
 </resources>

@@ -21,7 +21,7 @@ public class EqGraphView extends View {
         void onBandChanged(int band, float db);
     }
 
-    private static final int ACCENT = Color.rgb(0x3E, 0x7B, 0xFA);
+    private final int ACCENT = Theme.accent();
     private static final float MIN = -12f, MAX = 12f;
 
     private float[] freqs = new float[0];

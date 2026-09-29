@@ -31,6 +31,7 @@ public final class Lang {
 
     /** Оборачивает контекст в выбранную локаль (для Activity и Service). */
     public static Context wrap(Context base) {
+        Theme.load(base);
         String code = get(base);
         if (code.isEmpty()) return base;
         Locale loc = new Locale(code);

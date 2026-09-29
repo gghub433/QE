@@ -19,7 +19,7 @@ import java.util.Calendar;
  */
 public class DeviceView extends View {
 
-    private static final int ACCENT = Color.rgb(0x3E, 0x7B, 0xFA);
+    private final int ACCENT = Theme.accent();
     private static final int GREEN = Color.rgb(0x4C, 0xD9, 0x64);
     private static final int ORANGE = Color.rgb(0xFF, 0xB3, 0x40);
     private static final int RED = Color.rgb(0xFF, 0x5A, 0x5A);

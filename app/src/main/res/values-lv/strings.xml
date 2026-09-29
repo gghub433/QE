@@ -278,4 +278,9 @@
     <string name="ach_night">Nakts klausītājs</string>
     <string name="ach_loyal">Uzticīgs Buds</string>
     <string name="time_h">%d h</string>
+    <!-- 5.7: темы -->
+    <string name="theme_title">Noformējums</string>
+    <string name="theme_accent">Akcenta krāsa</string>
+    <string name="theme_wave">Viļņa krāsa</string>
+    <string name="theme_wave_accent">Kā akcents</string>
 </resources>

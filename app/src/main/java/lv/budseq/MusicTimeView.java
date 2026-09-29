@@ -13,7 +13,7 @@ import android.view.View;
  */
 public class MusicTimeView extends View {
 
-    private static final int ACCENT = Color.rgb(0x3E, 0x7B, 0xFA);
+    private final int ACCENT = Theme.accent();
     private static final int BAR = Color.rgb(0x3A, 0x3B, 0x40);
     private static final int GREY_TEXT = Color.rgb(0xA0, 0xA3, 0xAA);
 
