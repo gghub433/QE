@@ -264,7 +264,7 @@ public class DeviceView extends View {
         float bob1 = (float) Math.sin(time * 2.2f) * 4 * d;
         float bob2 = (float) Math.sin(time * 2.2f + 1.4f) * 4 * d;
         float bx = s * 0.21f, by = cy - s * 0.18f;
-        if (samsung) {
+        if (samsung && !BudsView.isStemGalaxy(dev.name)) {
             drawBean(c, cx - bx, by + bob1, s, false, a);
             drawBean(c, cx + bx, by + bob2, s, true, a);
         } else {

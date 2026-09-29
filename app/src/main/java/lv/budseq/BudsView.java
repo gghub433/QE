@@ -11,11 +11,12 @@ import android.view.View;
 /**
  * Анимированный кейс с наушниками: крышка открывается,
  * наушники вылетают из кейса, когда их достают, и показывают заряд.
- * Стили: «фасолины» Galaxy Buds, белые AirPods «с ножками».
+ * Стили: «фасолины» Galaxy Buds, белые AirPods «с ножками», Galaxy Buds3/Buds4 «с ножками»
+ * и подсветкой Blade Light в кейсе с прозрачной крышкой.
  */
 public class BudsView extends View {
 
-    public static final int STYLE_BEAN = 0, STYLE_AIRPODS = 1;
+    public static final int STYLE_BEAN = 0, STYLE_AIRPODS = 1, STYLE_BUDS3 = 2;
 
     private final int ACCENT = Theme.accent();
     private static final int GREEN = Color.rgb(0x4C, 0xD9, 0x64);
@@ -48,6 +49,7 @@ public class BudsView extends View {
     private final Paint lidRim = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path bolt = new Path();
     private final Paint boltPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint blade = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final float d;
 
     public BudsView(Context c) {
@@ -83,6 +85,16 @@ public class BudsView extends View {
             budFill.setColor(Color.rgb(0xFA, 0xFA, 0xFB));
             budShade.setColor(Color.rgb(0xB9, 0xBB, 0xC2));
             grill.setColor(Color.rgb(0x3A, 0x3C, 0x42));
+        } else if (st == STYLE_BUDS3) {
+            // Buds3/Buds4: тёмный кейс, серебристые наушники с ножками
+            caseFill.setColor(Color.rgb(0x2B, 0x2D, 0x33));
+            caseStroke.setColor(Color.rgb(0x5E, 0x62, 0x6C));
+            inner.setColor(Color.rgb(0x14, 0x15, 0x18));
+            lidInner.setColor(Color.rgb(0x3A, 0x3D, 0x46));
+            lidRim.setColor(Color.rgb(0x55, 0x58, 0x62));
+            budFill.setColor(Color.rgb(0xD9, 0xDC, 0xE2));
+            budShade.setColor(Color.rgb(0xA4, 0xA8, 0xB2));
+            grill.setColor(Color.rgb(0x3A, 0x3C, 0x42));
         } else {
             caseFill.setColor(Color.rgb(0x2B, 0x2D, 0x33));
             caseStroke.setColor(Color.rgb(0x55, 0x58, 0x60));
@@ -98,7 +110,16 @@ public class BudsView extends View {
 
     /** Какой стиль рисовать для устройства. */
     public static int styleFor(DeviceInfo info) {
-        return info != null && info.isAirPods() ? STYLE_AIRPODS : STYLE_BEAN;
+        if (info == null) return STYLE_BEAN;
+        if (info.isAirPods()) return STYLE_AIRPODS;
+        return isStemGalaxy(info.name) ? STYLE_BUDS3 : STYLE_BEAN;
+    }
+
+    /** Galaxy Buds3 / Buds3 Pro / Buds4 — «с ножками». */
+    public static boolean isStemGalaxy(String name) {
+        if (name == null) return false;
+        String n = name.toLowerCase(java.util.Locale.ROOT).replace(" ", "");
+        return n.contains("buds3") || n.contains("buds4");
     }
 
     public void setState(BudsLink.State s) {
@@ -209,9 +230,10 @@ public class BudsView extends View {
             inner.setAlpha(a);
         }
 
-        // 2) наушники, которые ещё в кейсе (в закрытом кейсе их не видно)
-        if (outL < 0.5f && lid > 0.02f) drawBud(c, lx, ly, budW, budH, false, wearL);
-        if (outR < 0.5f && lid > 0.02f) drawBud(c, rx, ry, budW, budH, true, wearR);
+        // 2) наушники, которые ещё в кейсе (в закрытом кейсе их не видно — кроме прозрачной крышки Buds3)
+        boolean glassLid = style == STYLE_BUDS3;
+        if (outL < 0.5f && (lid > 0.02f || glassLid)) drawBud(c, lx, ly, budW, budH, false, wearL);
+        if (outR < 0.5f && (lid > 0.02f || glassLid)) drawBud(c, rx, ry, budW, budH, true, wearR);
 
         // 3) нижняя часть корпуса (спереди)
         c.save();
@@ -231,7 +253,15 @@ public class BudsView extends View {
             c.translate(0, -rise);
             c.scale(1f, cosT, 0, seam);
             c.clipRect(cx - caseW, caseTop - 4 * d, cx + caseW, seam);
-            c.drawRoundRect(caseRect, rad, rad, caseFill);
+            if (glassLid) {
+                // затемнённое стекло: сквозь него видно наушники
+                int fa = caseFill.getAlpha();
+                caseFill.setAlpha(fa * 90 / 255);
+                c.drawRoundRect(caseRect, rad, rad, caseFill);
+                caseFill.setAlpha(fa);
+            } else {
+                c.drawRoundRect(caseRect, rad, rad, caseFill);
+            }
             c.drawRoundRect(caseRect, rad, rad, caseStroke);
             c.restore();
         }
@@ -295,6 +325,14 @@ public class BudsView extends View {
         // микрофон на кончике
         r.set(x - stemW * 0.32f, y + stemL - stemW * 0.62f, x + stemW * 0.32f, y + stemL - stemW * 0.18f);
         c.drawRoundRect(r, stemW / 4, stemW / 4, grill);
+        if (style == STYLE_BUDS3) {
+            // Blade Light: светящаяся полоска вдоль ножки (дышит, пока наушники на связи)
+            float glow = state.connected ? 0.55f + 0.45f * (float) Math.sin(time * 2.4f + (right ? 1.3f : 0f)) : 0.25f;
+            blade.setColor(Color.WHITE);
+            blade.setAlpha((int) (255 * glow * (budFill.getAlpha() / 255f)));
+            r.set(x - stemW * 0.12f, y + head * 0.95f, x + stemW * 0.12f, y + stemL * 0.8f);
+            c.drawRoundRect(r, stemW * 0.12f, stemW * 0.12f, blade);
+        }
         // голова
         c.drawCircle(x, y, head, budFill);
         r.set(x - head, y, x + head, y + head);

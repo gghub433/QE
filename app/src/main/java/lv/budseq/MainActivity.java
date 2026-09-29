@@ -1726,7 +1726,7 @@ public class MainActivity extends Activity {
         budsView.setVisibility(budsMode || airMode ? View.VISIBLE : View.GONE);
         deviceView.setVisibility(budsMode || airMode ? View.GONE : View.VISIBLE);
         if (budsMode) {
-            budsView.setStyle(BudsView.STYLE_BEAN);
+            budsView.setStyle(BudsView.styleFor(sel));
             budsView.setState(bs);
         } else if (airMode) {
             budsView.setStyle(BudsView.STYLE_AIRPODS);
