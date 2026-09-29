@@ -1,0 +1,21 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'lv.budseq'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'lv.budseq'
+        minSdk 28
+        targetSdk 36
+        versionCode 8
+        versionName '4.4'
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
