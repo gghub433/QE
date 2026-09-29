@@ -219,4 +219,25 @@
     <string name="upd_conflict">Обновление подписано другим ключом, чем установленное приложение. Собирай и публикуй одним ключом (см. README) или удали EQ и поставь новую версию.</string>
     <string name="upd_install_failed">Не удалось установить: %s</string>
     <string name="sec_about">О приложении</string>
+    <!-- 5.1: AutoEQ -->
+    <string name="ae_title">AutoEQ</string>
+    <string name="ae_hint">Коррекция из открытой базы AutoEq под модель твоих наушников. Складывается с твоей кривой (оранжевая линия на графике) и хранится отдельно для каждых наушников.</string>
+    <string name="ae_none">%s: коррекции пока нет — найди модель</string>
+    <string name="ae_current">Коррекция: %1$s · %2$s</string>
+    <string name="ae_on">Коррекция включена</string>
+    <string name="ae_find">Найти модель</string>
+    <string name="ae_remove">Убрать</string>
+    <string name="ae_need_device">Подключи наушники — коррекция сохраняется для них</string>
+    <string name="ae_loading">Загружаю базу AutoEq…</string>
+    <string name="ae_index_failed">Не удалось загрузить базу: %s</string>
+    <string name="ae_search_hint">Модель наушников</string>
+    <string name="ae_nothing">Ничего не нашлось. Попробуй короче, например «Buds2 Pro».</string>
+    <string name="ae_applied">AutoEQ: %s</string>
+    <string name="ae_fetch_failed">Не удалось скачать коррекцию: %s</string>
+    <string name="ae_suggest">Похоже, это %1$s (%2$s). Применить коррекцию AutoEQ?</string>
+    <string name="ae_apply">Применить</string>
+    <string name="ae_no">Не надо</string>
+    <string name="ae_notif_title">AutoEQ узнал твои наушники</string>
+    <string name="ae_notif_text">%s — нажми, чтобы применить коррекцию</string>
+    <string name="ch_tips">Подсказки</string>
 </resources>

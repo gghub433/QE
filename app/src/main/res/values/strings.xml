@@ -219,4 +219,25 @@
     <string name="upd_conflict">The update is signed with a different key than the installed app. Build and publish with the same key (see README), or uninstall EQ and install the new version.</string>
     <string name="upd_install_failed">Couldn’t install: %s</string>
     <string name="sec_about">About</string>
+    <!-- 5.1: AutoEQ -->
+    <string name="ae_title">AutoEQ</string>
+    <string name="ae_hint">Correction from the open AutoEq database for your headphone model. It adds up with your curve (orange line on the graph) and is stored separately for each pair of headphones.</string>
+    <string name="ae_none">%s: no correction yet — find the model</string>
+    <string name="ae_current">Correction: %1$s · %2$s</string>
+    <string name="ae_on">Correction on</string>
+    <string name="ae_find">Find model</string>
+    <string name="ae_remove">Remove</string>
+    <string name="ae_need_device">Connect headphones — the correction is saved for them</string>
+    <string name="ae_loading">Loading the AutoEq database…</string>
+    <string name="ae_index_failed">Couldn’t load the database: %s</string>
+    <string name="ae_search_hint">Headphone model</string>
+    <string name="ae_nothing">Nothing found. Try a shorter name, e.g. “Buds2 Pro”.</string>
+    <string name="ae_applied">AutoEQ: %s</string>
+    <string name="ae_fetch_failed">Couldn’t download the correction: %s</string>
+    <string name="ae_suggest">Looks like %1$s (%2$s). Apply the AutoEQ correction?</string>
+    <string name="ae_apply">Apply</string>
+    <string name="ae_no">No, thanks</string>
+    <string name="ae_notif_title">AutoEQ found your headphones</string>
+    <string name="ae_notif_text">%s — tap to apply the correction</string>
+    <string name="ch_tips">Tips</string>
 </resources>

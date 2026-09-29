@@ -4,6 +4,7 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.RectF;
 import android.view.MotionEvent;
 import android.view.View;
@@ -26,6 +27,9 @@ public class EqGraphView extends View {
     private float[] freqs = new float[0];
     private float[] values = new float[0];
     private float[] spectrum;      // 0..1 для каждой полосы (или null)
+    private float[] correction = new float[0];   // AutoEQ по полосам (дБ), пусто — нет
+    private final Paint corrLine = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Path corrPath = new Path();
     private final float[] shown = new float[64];
 
     private final Paint track = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -57,6 +61,16 @@ public class EqGraphView extends View {
         valueText.setTextSize(11 * d);
         valueText.setTextAlign(Paint.Align.CENTER);
         spec.setColor(ACCENT);
+        corrLine.setStyle(Paint.Style.STROKE);
+        corrLine.setStrokeWidth(2 * d);
+        corrLine.setStrokeJoin(Paint.Join.ROUND);
+        corrLine.setColor(Color.argb(170, 0xFF, 0xB3, 0x40));
+    }
+
+    /** Кривая AutoEQ поверх ползунков (складывается с ними в звуке). Пустой массив — скрыть. */
+    public void setCorrection(float[] c) {
+        correction = c == null ? new float[0] : c;
+        invalidate();
     }
 
     public void setListener(Listener l) {
@@ -148,6 +162,22 @@ public class EqGraphView extends View {
             if (showLabel(i)) {
                 c.drawText(EqEngine.label(freqs[i]), x, getHeight() - 12 * d, label);
             }
+        }
+
+        // коррекция AutoEQ — тонкая оранжевая линия (итоговый звук = ползунки + линия)
+        if (correction.length == n) {
+            corrPath.reset();
+            for (int i = 0; i < n; i++) {
+                float y = yFor(Math.max(MIN, Math.min(MAX, correction[i])));
+                if (i == 0) corrPath.moveTo(colX(i), y);
+                else corrPath.lineTo(colX(i), y);
+            }
+            c.drawPath(corrPath, corrLine);
+            label.setColor(Color.rgb(0xFF, 0xB3, 0x40));
+            label.setTextAlign(Paint.Align.LEFT);
+            c.drawText("AutoEQ", 12 * d, 18 * d, label);
+            label.setTextAlign(Paint.Align.CENTER);
+            label.setColor(Color.rgb(0xA0, 0xA3, 0xAA));
         }
 
         // «пузырь» со значением для 15/31 полос

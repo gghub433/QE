@@ -35,7 +35,8 @@ import java.util.Set;
 public class EqService extends Service {
     private static final String CHANNEL = "eq";
     private static final String CHANNEL_ALERT = "alerts";
-    private static final int NOTIF_MAIN = 1, NOTIF_APP = 3, NOTIF_LOW_BASE = 100;
+    private static final String CHANNEL_TIPS = "tips";
+    private static final int NOTIF_MAIN = 1, NOTIF_APP = 3, NOTIF_AUTOEQ = 4, NOTIF_LOW_BASE = 100;
     private static final long STATS_TICK_MS = 15000, UPDATE_TICK_MS = 6L * 60 * 60 * 1000;
 
     private EqEngine eq;
@@ -120,6 +121,8 @@ public class EqService extends Service {
                 new NotificationChannel(CHANNEL, getString(R.string.ch_eq), NotificationManager.IMPORTANCE_LOW));
         nm.createNotificationChannel(
                 new NotificationChannel(CHANNEL_ALERT, getString(R.string.ch_alerts), NotificationManager.IMPORTANCE_HIGH));
+        nm.createNotificationChannel(
+                new NotificationChannel(CHANNEL_TIPS, getString(R.string.ch_tips), NotificationManager.IMPORTANCE_DEFAULT));
 
         Notification n = buildMain(getString(R.string.notif_tap));
         // 0x40000000 = FOREGROUND_SERVICE_TYPE_SPECIAL_USE (Android 14)
@@ -199,6 +202,7 @@ public class EqService extends Service {
     }
 
     private void onConnected(final DeviceInfo info) {
+        suggestAutoEq(info);
         final DeviceSettings ds = DeviceSettings.get(this, info.address);
         if (ds.volume >= 0) {
             main.postDelayed(new Runnable() {
@@ -256,6 +260,46 @@ public class EqService extends Service {
         updateNotification();
     }
 
+    /** AutoEQ: при подключении наушников найти их модель в базе и предложить коррекцию. */
+    private void suggestAutoEq(final DeviceInfo info) {
+        final String addr = info.address;
+        if (!info.isHeadphones() || AutoEq.load(this, addr) != null || AutoEq.dismissed(this, addr)
+                || AutoEq.suggestion(this, addr) != null) {
+            return;
+        }
+        // базу (~1 МБ) без спроса качаем только по Wi-Fi; дальше она лежит в памяти телефона
+        if (!AutoEq.hasIndex(this)) {
+            try {
+                android.net.ConnectivityManager cm = getSystemService(android.net.ConnectivityManager.class);
+                if (cm == null || cm.isActiveNetworkMetered()) return;
+            } catch (Exception e) {
+                return;
+            }
+        }
+        AutoEq.loadIndex(this, new AutoEq.IndexCallback() {
+            public void onIndex(java.util.List<AutoEq.Entry> all, String error) {
+                if (all == null) return;
+                AutoEq.Entry e = AutoEq.bestMatch(all, info.name);
+                if (e == null) return;
+                AutoEq.setSuggestion(EqService.this, addr, e);
+                eq.notifyChanged(); // открытый экран покажет предложение
+                if (MainActivity.visible) return;
+                Intent open = new Intent(EqService.this, MainActivity.class);
+                open.putExtra(MainActivity.EXTRA_TAB, MainActivity.TAB_EQ);
+                open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                PendingIntent pi = PendingIntent.getActivity(EqService.this, 13, open,
+                        PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+                nm.notify(NOTIF_AUTOEQ, new Notification.Builder(EqService.this, CHANNEL_TIPS)
+                        .setSmallIcon(R.drawable.ic_equalizer)
+                        .setContentTitle(getString(R.string.ae_notif_title))
+                        .setContentText(getString(R.string.ae_notif_text, e.name))
+                        .setContentIntent(pi)
+                        .setAutoCancel(true)
+                        .build());
+            }
+        });
+    }
+
     /** Автовключение, профиль и фокус машины под текущее звуковое устройство. */
     private void syncProfileAndAuto() {
         DeviceInfo p = monitor.primaryAudio();
@@ -265,6 +309,7 @@ public class EqService extends Service {
             else eq.switchProfile("phone", getString(R.string.phone_speaker));
         }
         CarFocusView.applyFocus(this);
+        AutoEq.applyFor(this, p != null ? p.address : null);
     }
 
     // =====================================================================

@@ -219,4 +219,25 @@
     <string name="upd_conflict">Atjauninājums ir parakstīts ar citu atslēgu nekā instalētā lietotne. Būvē un publicē ar vienu atslēgu (sk. README) vai izdzēs EQ un instalē jauno versiju.</string>
     <string name="upd_install_failed">Neizdevās instalēt: %s</string>
     <string name="sec_about">Par lietotni</string>
+    <!-- 5.1: AutoEQ -->
+    <string name="ae_title">AutoEQ</string>
+    <string name="ae_hint">Korekcija no atvērtās AutoEq datubāzes tavu austiņu modelim. Tā summējas ar tavu līkni (oranžā līnija grafikā) un tiek glabāta atsevišķi katrām austiņām.</string>
+    <string name="ae_none">%s: korekcijas vēl nav — atrodi modeli</string>
+    <string name="ae_current">Korekcija: %1$s · %2$s</string>
+    <string name="ae_on">Korekcija ieslēgta</string>
+    <string name="ae_find">Atrast modeli</string>
+    <string name="ae_remove">Noņemt</string>
+    <string name="ae_need_device">Pievieno austiņas — korekcija tiek saglabāta tām</string>
+    <string name="ae_loading">Ielādē AutoEq datubāzi…</string>
+    <string name="ae_index_failed">Neizdevās ielādēt datubāzi: %s</string>
+    <string name="ae_search_hint">Austiņu modelis</string>
+    <string name="ae_nothing">Nekas netika atrasts. Pamēģini īsāk, piemēram, «Buds2 Pro».</string>
+    <string name="ae_applied">AutoEQ: %s</string>
+    <string name="ae_fetch_failed">Neizdevās lejupielādēt korekciju: %s</string>
+    <string name="ae_suggest">Izskatās, ka tās ir %1$s (%2$s). Lietot AutoEQ korekciju?</string>
+    <string name="ae_apply">Lietot</string>
+    <string name="ae_no">Nevajag</string>
+    <string name="ae_notif_title">AutoEQ atpazina tavas austiņas</string>
+    <string name="ae_notif_text">%s — pieskaries, lai lietotu korekciju</string>
+    <string name="ch_tips">Padomi</string>
 </resources>

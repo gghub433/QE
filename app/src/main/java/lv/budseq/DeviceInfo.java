@@ -35,6 +35,11 @@ public final class DeviceInfo {
         return type >= T_GALAXY_BUDS && type <= T_TV;
     }
 
+    /** Наушники любого вида — для них есть AutoEQ. */
+    public boolean isHeadphones() {
+        return type == T_GALAXY_BUDS || type == T_EARBUDS || type == T_HEADPHONES || type == T_HEADSET;
+    }
+
     public boolean isGalaxyBuds() {
         return detectedType == T_GALAXY_BUDS;
     }

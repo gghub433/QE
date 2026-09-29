@@ -24,7 +24,9 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
+import android.text.Editable;
 import android.text.InputType;
+import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -111,6 +113,12 @@ public class MainActivity extends Activity {
     private LinearLayout mtTopBox;
     private int mtTicks;
     private WaveView wave;
+
+    // AutoEQ
+    private TextView aeStatus, aeSuggestText;
+    private Switch aeSwitch;
+    private LinearLayout aeSuggestBox;
+    private Button aeRemoveBtn;
 
     // настройки
     private Button langBtn, popupBtn2;
@@ -233,6 +241,7 @@ public class MainActivity extends Activity {
         buildCar(roots[TAB_DEVICE]);
 
         buildEqualizer(roots[TAB_EQ]);
+        buildAutoEq(roots[TAB_EQ]);
         buildSound(roots[TAB_EQ]);
         buildPresets(roots[TAB_EQ]);
         TextView tip = text(getString(R.string.tip_wearable), 12, GREY);
@@ -723,6 +732,209 @@ public class MainActivity extends Activity {
             public void onClick(View v) { addTiles(); }
         }));
         root.addView(hscroll(tiles));
+    }
+
+    // =====================================================================
+    // AutoEQ: коррекция наушников из открытой базы AutoEq
+    // =====================================================================
+
+    private void buildAutoEq(LinearLayout root) {
+        root.addView(section(getString(R.string.ae_title)));
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(16), dp(12), dp(16), dp(6));
+        card.setBackground(round(CARD, 24));
+
+        aeStatus = text("", 14, Color.WHITE);
+        card.addView(aeStatus);
+        TextView hint = text(getString(R.string.ae_hint), 12, GREY);
+        hint.setPadding(0, dp(4), 0, 0);
+        card.addView(hint);
+
+        // предложение, найденное при подключении наушников
+        aeSuggestBox = new LinearLayout(this);
+        aeSuggestBox.setOrientation(LinearLayout.VERTICAL);
+        aeSuggestBox.setPadding(dp(12), dp(10), dp(12), dp(4));
+        aeSuggestBox.setBackground(round(Color.rgb(0x2A, 0x2C, 0x33), 18));
+        aeSuggestText = text("", 14, Color.WHITE);
+        aeSuggestBox.addView(aeSuggestText);
+        LinearLayout sb = new LinearLayout(this);
+        sb.setPadding(0, dp(8), 0, 0);
+        sb.addView(chip(getString(R.string.ae_apply), R.drawable.ic_check, ACCENT, new View.OnClickListener() {
+            public void onClick(View v) {
+                DeviceInfo dev = DeviceMonitor.get().primaryAudio();
+                AutoEq.Entry e = dev == null ? null : AutoEq.suggestionEntry(MainActivity.this, dev.address);
+                if (e != null) applyAutoEq(dev, e);
+            }
+        }));
+        sb.addView(chip(getString(R.string.ae_no), 0, CHIP, new View.OnClickListener() {
+            public void onClick(View v) {
+                DeviceInfo dev = DeviceMonitor.get().primaryAudio();
+                if (dev != null) AutoEq.setDismissed(MainActivity.this, dev.address);
+                refreshAutoEq();
+            }
+        }));
+        aeSuggestBox.addView(hscroll(sb));
+        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        slp.topMargin = dp(10);
+        card.addView(aeSuggestBox, slp);
+
+        aeSwitch = styledSwitch();
+        LinearLayout sw = switchRow(getString(R.string.ae_on), null, aeSwitch);
+        sw.setPadding(0, dp(8), 0, 0);
+        card.addView(sw);
+        aeSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            public void onCheckedChanged(CompoundButton v, boolean on) {
+                if (updating) return;
+                DeviceInfo dev = DeviceMonitor.get().primaryAudio();
+                AutoEq.Correction c = dev == null ? null : AutoEq.load(MainActivity.this, dev.address);
+                if (c == null) return;
+                c.on = on;
+                AutoEq.save(MainActivity.this, dev.address, c);
+                AutoEq.applyFor(MainActivity.this, dev.address);
+            }
+        });
+
+        LinearLayout actions = new LinearLayout(this);
+        actions.setPadding(0, dp(10), 0, 0);
+        actions.addView(chip(getString(R.string.ae_find), R.drawable.ic_search, CHIP, new View.OnClickListener() {
+            public void onClick(View v) { showAutoEqSearch(); }
+        }));
+        aeRemoveBtn = chip(getString(R.string.ae_remove), R.drawable.ic_stop, CHIP, new View.OnClickListener() {
+            public void onClick(View v) {
+                DeviceInfo dev = DeviceMonitor.get().primaryAudio();
+                if (dev == null) return;
+                AutoEq.remove(MainActivity.this, dev.address);
+                AutoEq.applyFor(MainActivity.this, dev.address);
+            }
+        });
+        actions.addView(aeRemoveBtn);
+        card.addView(hscroll(actions));
+        root.addView(card);
+    }
+
+    private void refreshAutoEq() {
+        if (aeStatus == null) return;
+        DeviceInfo dev = DeviceMonitor.get().primaryAudio();
+        AutoEq.Correction c = dev == null ? null : AutoEq.load(this, dev.address);
+        if (dev == null) {
+            aeStatus.setText(R.string.ae_need_device);
+        } else if (c == null) {
+            aeStatus.setText(getString(R.string.ae_none, dev.name));
+        } else {
+            aeStatus.setText(getString(R.string.ae_current, c.name, c.source));
+        }
+        updating = true;
+        aeSwitch.setChecked(c != null && c.on);
+        updating = false;
+        aeSwitch.setEnabled(c != null);
+        aeRemoveBtn.setVisibility(c != null ? View.VISIBLE : View.GONE);
+        AutoEq.Entry sug = dev == null || c != null ? null : AutoEq.suggestionEntry(this, dev.address);
+        aeSuggestBox.setVisibility(sug != null ? View.VISIBLE : View.GONE);
+        if (sug != null) aeSuggestText.setText(getString(R.string.ae_suggest, sug.name, sug.source));
+    }
+
+    private void showAutoEqSearch() {
+        final DeviceInfo dev = DeviceMonitor.get().primaryAudio();
+        if (dev == null) {
+            Toast.makeText(this, R.string.ae_need_device, Toast.LENGTH_LONG).show();
+            return;
+        }
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(dp(20), dp(8), dp(20), 0);
+        final EditText q = new EditText(this);
+        q.setSingleLine(true);
+        q.setHint(R.string.ae_search_hint);
+        q.setText(dev.name);
+        box.addView(q);
+        final TextView status = text(getString(R.string.ae_loading), 13, GREY);
+        status.setPadding(dp(4), dp(8), dp(4), dp(4));
+        box.addView(status);
+        final LinearLayout results = new LinearLayout(this);
+        results.setOrientation(LinearLayout.VERTICAL);
+        ScrollView sv = new ScrollView(this);
+        sv.addView(results);
+        box.addView(sv, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(340)));
+
+        final AlertDialog dlg = new AlertDialog.Builder(this)
+                .setTitle(R.string.ae_title)
+                .setView(box)
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+
+        final java.util.List<AutoEq.Entry>[] all = new java.util.List[1];
+        final Runnable search = new Runnable() {
+            public void run() {
+                if (all[0] == null) return;
+                results.removeAllViews();
+                java.util.List<AutoEq.Entry> found = AutoEq.search(all[0], q.getText().toString(), 40);
+                status.setText(found.isEmpty() ? getString(R.string.ae_nothing) : "");
+                status.setVisibility(found.isEmpty() ? View.VISIBLE : View.GONE);
+                for (final AutoEq.Entry e : found) {
+                    TextView row = text(e.name, 15, Color.WHITE);
+                    row.setPadding(dp(12), dp(10), dp(12), dp(4));
+                    TextView src = text(e.source, 12, GREY);
+                    src.setPadding(dp(12), 0, dp(12), dp(10));
+                    LinearLayout item = new LinearLayout(MainActivity.this);
+                    item.setOrientation(LinearLayout.VERTICAL);
+                    item.setBackground(round(Color.rgb(0x2A, 0x2C, 0x33), 14));
+                    item.addView(row);
+                    item.addView(src);
+                    item.setOnClickListener(new View.OnClickListener() {
+                        public void onClick(View v) {
+                            dlg.dismiss();
+                            applyAutoEq(dev, e);
+                        }
+                    });
+                    LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                    lp.bottomMargin = dp(6);
+                    results.addView(item, lp);
+                }
+            }
+        };
+        q.addTextChangedListener(new TextWatcher() {
+            public void beforeTextChanged(CharSequence s, int a, int b, int c) { }
+
+            public void onTextChanged(CharSequence s, int a, int b, int c) { }
+
+            public void afterTextChanged(Editable s) {
+                ui.removeCallbacks(search);
+                ui.postDelayed(search, 250);
+            }
+        });
+        AutoEq.loadIndex(this, new AutoEq.IndexCallback() {
+            public void onIndex(java.util.List<AutoEq.Entry> list, String error) {
+                if (list == null) {
+                    status.setText(getString(R.string.ae_index_failed, error));
+                    return;
+                }
+                all[0] = list;
+                search.run();
+            }
+        });
+    }
+
+    private void applyAutoEq(final DeviceInfo dev, final AutoEq.Entry e) {
+        Toast.makeText(this, R.string.ae_loading, Toast.LENGTH_SHORT).show();
+        AutoEq.fetch(this, e, new AutoEq.CorrectionCallback() {
+            public void onCorrection(AutoEq.Correction c, String error) {
+                if (c == null) {
+                    Toast.makeText(MainActivity.this, getString(R.string.ae_fetch_failed, error), Toast.LENGTH_LONG).show();
+                    return;
+                }
+                AutoEq.save(MainActivity.this, dev.address, c);
+                AutoEq.setSuggestion(MainActivity.this, dev.address, null);
+                DeviceInfo primary = DeviceMonitor.get().primaryAudio();
+                if (primary != null && primary.address.equals(dev.address)) {
+                    AutoEq.applyFor(MainActivity.this, dev.address);
+                }
+                Toast.makeText(MainActivity.this, getString(R.string.ae_applied, c.name), Toast.LENGTH_SHORT).show();
+                refreshAutoEq();
+            }
+        });
     }
 
     // =====================================================================
@@ -1249,6 +1461,7 @@ public class MainActivity extends Activity {
         popupBtn.setVisibility(BudsPopup.allowed(this) ? View.GONE : View.VISIBLE);
         carAddress = sel == null ? null : sel.address;
         refreshCar();
+        refreshAutoEq();
     }
 
     private static int fwEqName(int i) {
@@ -1795,6 +2008,7 @@ public class MainActivity extends Activity {
         updating = true;
         mainSwitch.setChecked(eq.enabled);
         graph.setBands(eq.freqs(), eq.gains);
+        graph.setCorrection(eq.correctionBands());
         for (int i = 0; i < bandRow.getChildCount(); i++) {
             bandRow.getChildAt(i).setBackground(round(EqEngine.BAND_COUNTS[i] == eq.bandCount() ? ACCENT : CHIP, 24));
         }
@@ -1819,6 +2033,7 @@ public class MainActivity extends Activity {
         updating = false;
         rebuildUserPresets();
         updateStatus();
+        refreshAutoEq();
     }
 
     private String balanceLabel(int v) {

@@ -24,7 +24,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
  *  - «панч»: компрессор только для низких частот;
  *  - выравнивание громкости (мягкий компрессор на всём диапазоне);
  *  - усиление громкости с лимитером, баланс Л/П;
- *  - профили: свои настройки для каждого устройства.
+ *  - профили: свои настройки для каждого устройства;
+ *  - AutoEQ: коррекция наушников складывается с кривой пользователя (хранится отдельно).
  */
 public final class EqEngine {
     private static final String TAG = "EQ";
@@ -76,6 +77,10 @@ public final class EqEngine {
     public float balance;      // -1 (лево) … 1 (право)
     /** Добавка к балансу от фокуса машины (CarFocusView). В профиле не сохраняется. */
     public float carBalance;
+
+    /** AutoEQ: коррекция текущих наушников (null — нет) и она же в наших полосах. */
+    private AutoEq.Correction corr;
+    private float[] corrBands = new float[0];
     public boolean leveling;
     public boolean enabled;
 
@@ -228,11 +233,26 @@ public final class EqEngine {
         for (int s : sessions) attach(s);
     }
 
+    /** Итоговое усиление полосы: кривая пользователя + коррекция AutoEQ. */
+    private float bandGain(int i) {
+        float g = gains[i];
+        if (corr != null && corr.on && i < corrBands.length) g += corrBands[i];
+        return Math.max(-24f, Math.min(24f, g));
+    }
+
+    /** Запас под подъёмы коррекции, чтобы не упираться в лимитер (не больше 6 дБ). */
+    private float corrHeadroom() {
+        if (corr == null || !corr.on) return 0f;
+        float m = 0;
+        for (float v : corrBands) m = Math.max(m, v);
+        return -Math.min(6f, m);
+    }
+
     private void apply(DynamicsProcessing dp) {
         float[] cut = cutoffs(freqs(bands));
         DynamicsProcessing.Eq eq = new DynamicsProcessing.Eq(true, true, bands);
         for (int i = 0; i < bands; i++) {
-            eq.setBand(i, new DynamicsProcessing.EqBand(true, cut[i], gains[i]));
+            eq.setBand(i, new DynamicsProcessing.EqBand(true, cut[i], bandGain(i)));
         }
         dp.setPreEqAllChannelsTo(eq);
 
@@ -245,7 +265,7 @@ public final class EqEngine {
         // attack 1 мс, release 60 мс, 10:1, порог -1 dB — защита от хрипа и перегруза
         dp.setLimiterAllChannelsTo(new DynamicsProcessing.Limiter(true, true, 0, 1f, 60f, 10f, -1f, 0f));
 
-        float base = preamp + boost;
+        float base = preamp + boost + corrHeadroom();
         float bal = Math.max(-1f, Math.min(1f, balance + carBalance));
         dp.setInputGainbyChannel(0, base + (bal > 0 ? atten(bal) : 0f));
         dp.setInputGainbyChannel(1, base + (bal < 0 ? atten(-bal) : 0f));
@@ -303,7 +323,7 @@ public final class EqEngine {
         synchronized (this) {
             for (DynamicsProcessing dp : effects.values()) {
                 try {
-                    dp.setPreEqBandAllChannelsTo(band, new DynamicsProcessing.EqBand(true, cut, gains[band]));
+                    dp.setPreEqBandAllChannelsTo(band, new DynamicsProcessing.EqBand(true, cut, bandGain(band)));
                 } catch (Throwable t) {
                     Log.w(TAG, "band failed", t);
                 }
@@ -335,6 +355,7 @@ public final class EqEngine {
         if (n == bands) return;
         gains = resample(gains, freqs(bands), freqs(n));
         bands = n;
+        corrBands = AutoEq.toBands(corr, freqs(bands));
         rebuildAll();
         save();
         notifyChanged();
@@ -362,6 +383,27 @@ public final class EqEngine {
         balance = Math.max(-1f, Math.min(1f, b));
         applyAll();
         save();
+    }
+
+    // =====================================================================
+    // AutoEQ
+    // =====================================================================
+
+    /** Коррекция текущих наушников (null — убрать). В профиль не пишется. */
+    public void setCorrection(AutoEq.Correction c) {
+        corr = c;
+        corrBands = AutoEq.toBands(c, freqs(bands));
+        applyAll();
+        notifyChanged();
+    }
+
+    public AutoEq.Correction correction() {
+        return corr;
+    }
+
+    /** Коррекция в текущих полосах (для графика); пустой массив — нет коррекции. */
+    public float[] correctionBands() {
+        return corr != null && corr.on ? corrBands.clone() : new float[0];
     }
 
     /** Фокус машины: применяется сразу, в профиль не пишется. */
@@ -616,7 +658,7 @@ public final class EqEngine {
     public void addListener(Runnable r) { listeners.add(r); }
     public void removeListener(Runnable r) { listeners.remove(r); }
 
-    private void notifyChanged() {
+    void notifyChanged() {
         main.post(new Runnable() {
             public void run() {
                 for (Runnable r : listeners) r.run();
