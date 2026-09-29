@@ -71,6 +71,7 @@ public final class BudsPopup {
         if (useBuds) {
             if (deviceView != null) deviceView.setVisibility(View.GONE);
             budsView.setVisibility(View.VISIBLE);
+            budsView.setStyle(BudsView.styleFor(info));
             budsView.setState(buds);
         } else {
             budsView.setVisibility(View.GONE);

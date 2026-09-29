@@ -240,4 +240,7 @@
     <string name="ae_notif_title">AutoEQ found your headphones</string>
     <string name="ae_notif_text">%s — tap to apply the correction</string>
     <string name="ch_tips">Tips</string>
+    <!-- 5.2: AirPods -->
+    <string name="air_permission">Show AirPods battery</string>
+    <string name="air_permission_old">AirPods report their battery over Bluetooth LE. Before Android 12, Android only allows such a search with the “Location” permission — EQ does not use your location.</string>
 </resources>

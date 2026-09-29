@@ -11,8 +11,11 @@ import android.view.View;
 /**
  * Анимированный кейс с наушниками: крышка открывается,
  * наушники вылетают из кейса, когда их достают, и показывают заряд.
+ * Стили: «фасолины» Galaxy Buds, белые AirPods «с ножками».
  */
 public class BudsView extends View {
+
+    public static final int STYLE_BEAN = 0, STYLE_AIRPODS = 1;
 
     private static final int ACCENT = Color.rgb(0x3E, 0x7B, 0xFA);
     private static final int GREEN = Color.rgb(0x4C, 0xD9, 0x64);
@@ -20,6 +23,7 @@ public class BudsView extends View {
     private static final int RED = Color.rgb(0xFF, 0x5A, 0x5A);
 
     private BudsLink.State state = new BudsLink.State();
+    private int style = -1;
 
     // текущие (анимируемые) значения
     private float lid, outL, outR, alpha, wearL, wearR;
@@ -49,18 +53,11 @@ public class BudsView extends View {
     public BudsView(Context c) {
         super(c);
         d = getResources().getDisplayMetrics().density;
-        caseFill.setColor(Color.rgb(0x2B, 0x2D, 0x33));
         caseStroke.setStyle(Paint.Style.STROKE);
         caseStroke.setStrokeWidth(1.5f * d);
-        caseStroke.setColor(Color.rgb(0x55, 0x58, 0x60));
-        inner.setColor(Color.rgb(0x14, 0x15, 0x18));
-        lidInner.setColor(Color.rgb(0x20, 0x22, 0x27));
         lidRim.setStyle(Paint.Style.STROKE);
         lidRim.setStrokeWidth(1.5f * d);
-        lidRim.setColor(Color.rgb(0x33, 0x36, 0x3D));
-        budFill.setColor(Color.rgb(0xEE, 0xEE, 0xF0));
-        budShade.setColor(Color.rgb(0xC9, 0xCA, 0xCF));
-        grill.setColor(Color.rgb(0x6A, 0x6C, 0x72));
+        setStyle(STYLE_BEAN);
         ring.setStyle(Paint.Style.STROKE);
         ring.setStrokeWidth(2.5f * d);
         ring.setColor(GREEN);
@@ -71,6 +68,37 @@ public class BudsView extends View {
         small.setColor(Color.rgb(0xA0, 0xA3, 0xAA));
         small.setTextSize(11 * d);
         small.setTextAlign(Paint.Align.CENTER);
+    }
+
+    /** Внешний вид: STYLE_BEAN (Galaxy Buds) или STYLE_AIRPODS. */
+    public void setStyle(int st) {
+        if (st == style) return;
+        style = st;
+        if (st == STYLE_AIRPODS) {
+            caseFill.setColor(Color.rgb(0xF2, 0xF2, 0xF4));
+            caseStroke.setColor(Color.rgb(0xC4, 0xC6, 0xCC));
+            inner.setColor(Color.rgb(0xCF, 0xD1, 0xD6));
+            lidInner.setColor(Color.rgb(0xE3, 0xE4, 0xE8));
+            lidRim.setColor(Color.rgb(0xD0, 0xD2, 0xD8));
+            budFill.setColor(Color.rgb(0xFA, 0xFA, 0xFB));
+            budShade.setColor(Color.rgb(0xB9, 0xBB, 0xC2));
+            grill.setColor(Color.rgb(0x3A, 0x3C, 0x42));
+        } else {
+            caseFill.setColor(Color.rgb(0x2B, 0x2D, 0x33));
+            caseStroke.setColor(Color.rgb(0x55, 0x58, 0x60));
+            inner.setColor(Color.rgb(0x14, 0x15, 0x18));
+            lidInner.setColor(Color.rgb(0x20, 0x22, 0x27));
+            lidRim.setColor(Color.rgb(0x33, 0x36, 0x3D));
+            budFill.setColor(Color.rgb(0xEE, 0xEE, 0xF0));
+            budShade.setColor(Color.rgb(0xC9, 0xCA, 0xCF));
+            grill.setColor(Color.rgb(0x6A, 0x6C, 0x72));
+        }
+        invalidate();
+    }
+
+    /** Какой стиль рисовать для устройства. */
+    public static int styleFor(DeviceInfo info) {
+        return info != null && info.isAirPods() ? STYLE_AIRPODS : STYLE_BEAN;
     }
 
     public void setState(BudsLink.State s) {
@@ -99,28 +127,33 @@ public class BudsView extends View {
     private final Runnable tick = new Runnable() {
         public void run() {
             if (!running || !isAttachedToWindow()) { running = false; return; }
-            BudsLink.State s = state;
-            float tLid = s.lidOpen() ? 1f : 0f;
-            float tL = s.connected && !BudsLink.State.inCase(s.placeL) ? 1f : 0f;
-            float tR = s.connected && !BudsLink.State.inCase(s.placeR) ? 1f : 0f;
-            float tA = s.connected ? 1f : 0.45f;
-            // крышка открывается первой, наушники вылетают после неё
-            lid += (tLid - lid) * 0.12f;
-            // из кейса наушник вылетает, когда крышка открылась; если оба снаружи
-            // (крышку рисуем закрытой) или наушник уже снаружи — не держим его
-            boolean free = lid > 0.6f || tLid == 0f;
-            float gate = free || tL < outL || outL > 0.5f ? 1f : 0f;
-            outL += (tL * gate - outL) * 0.10f;
-            gate = free || tR < outR || outR > 0.5f ? 1f : 0f;
-            outR += (tR * gate - outR) * 0.10f;
-            alpha += (tA - alpha) * 0.1f;
-            wearL += ((s.placeL == BudsLink.P_WEARING ? 1f : 0f) - wearL) * 0.15f;
-            wearR += ((s.placeR == BudsLink.P_WEARING ? 1f : 0f) - wearR) * 0.15f;
-            time += 0.016f;
+            step();
             invalidate();
             postOnAnimation(this);
         }
     };
+
+    /** Шаг анимации (вынесен, чтобы картинку можно было отрисовать вне Android). */
+    void step() {
+        BudsLink.State s = state;
+        float tLid = s.lidOpen() ? 1f : 0f;
+        float tL = s.connected && !BudsLink.State.inCase(s.placeL) ? 1f : 0f;
+        float tR = s.connected && !BudsLink.State.inCase(s.placeR) ? 1f : 0f;
+        float tA = s.connected ? 1f : 0.45f;
+        // крышка открывается первой, наушники вылетают после неё
+        lid += (tLid - lid) * 0.12f;
+        // из кейса наушник вылетает, когда крышка открылась; если оба снаружи
+        // (крышку рисуем закрытой) или наушник уже снаружи — не держим его
+        boolean free = lid > 0.6f || tLid == 0f;
+        float gate = free || tL < outL || outL > 0.5f ? 1f : 0f;
+        outL += (tL * gate - outL) * 0.10f;
+        gate = free || tR < outR || outR > 0.5f ? 1f : 0f;
+        outR += (tR * gate - outR) * 0.10f;
+        alpha += (tA - alpha) * 0.1f;
+        wearL += ((s.placeL == BudsLink.P_WEARING ? 1f : 0f) - wearL) * 0.15f;
+        wearR += ((s.placeR == BudsLink.P_WEARING ? 1f : 0f) - wearR) * 0.15f;
+        time += 0.016f;
+    }
 
     @Override
     protected void onDraw(Canvas c) {
@@ -226,6 +259,10 @@ public class BudsView extends View {
     }
 
     private void drawBud(Canvas c, float x, float y, float bw, float bh, boolean right, float wear) {
+        if (style != STYLE_BEAN) {
+            drawStemBud(c, x, y, bw, bh, right, wear);
+            return;
+        }
         // корпус "фасолина"
         r.set(x - bw / 2, y - bh / 2, x + bw / 2, y + bh / 2);
         c.drawOval(r, budFill);
@@ -237,6 +274,39 @@ public class BudsView extends View {
         if (wear > 0.02f) {
             ring.setAlpha((int) (255 * wear));
             c.drawCircle(x, y, bw * 0.62f + (1 - wear) * 10 * d, ring);
+        }
+    }
+
+    /**
+     * Наушник «с ножкой» (AirPods): голова + ножка вниз, слегка наклонена наружу.
+     * В кейсе ножку закрывает передняя стенка — видна только голова, как в жизни.
+     */
+    private void drawStemBud(Canvas c, float x, float y, float bw, float bh, boolean right, float wear) {
+        float head = bw * 0.34f;
+        float stemW = bw * 0.2f, stemL = bh * 1.35f;
+        c.save();
+        c.rotate(right ? -9 : 9, x, y);
+        // ножка
+        r.set(x - stemW / 2, y, x + stemW / 2, y + stemL);
+        c.drawRoundRect(r, stemW / 2, stemW / 2, budFill);
+        // тень вдоль ножки
+        r.set(x + (right ? -stemW / 2 : stemW * 0.1f), y + head * 0.6f, x + (right ? -stemW * 0.1f : stemW / 2), y + stemL - stemW * 0.3f);
+        c.drawRoundRect(r, stemW / 4, stemW / 4, budShade);
+        // микрофон на кончике
+        r.set(x - stemW * 0.32f, y + stemL - stemW * 0.62f, x + stemW * 0.32f, y + stemL - stemW * 0.18f);
+        c.drawRoundRect(r, stemW / 4, stemW / 4, grill);
+        // голова
+        c.drawCircle(x, y, head, budFill);
+        r.set(x - head, y, x + head, y + head);
+        c.drawArc(r, 20, 140, false, budShade);
+        // сетка динамика смотрит к центру
+        float gx = x + (right ? -head * 0.35f : head * 0.35f);
+        r.set(gx - head * 0.28f, y - head * 0.42f, gx + head * 0.28f, y - head * 0.08f);
+        c.drawOval(r, grill);
+        c.restore();
+        if (wear > 0.02f) {
+            ring.setAlpha((int) (255 * wear));
+            c.drawCircle(x, y + head * 0.4f, bw * 0.62f + (1 - wear) * 10 * d, ring);
         }
     }
 

@@ -67,7 +67,7 @@ public class MainActivity extends Activity {
     private static final int DANGER = Color.rgb(0xE5, 0x48, 0x48);
     private static final int GREY = Color.rgb(0x80, 0x83, 0x8A);
 
-    private static final int REQ_PERMS = 1, REQ_AUDIO = 2, REQ_SAVE = 10, REQ_OPEN = 11;
+    private static final int REQ_PERMS = 1, REQ_AUDIO = 2, REQ_AIRPODS = 3, REQ_SAVE = 10, REQ_OPEN = 11;
 
     /** Вкладки: Устройство / Эквалайзер / Музыка / Настройки. */
     static final int TAB_DEVICE = 0, TAB_EQ = 1, TAB_MUSIC = 2, TAB_SETTINGS = 3, TAB_COUNT = 4;
@@ -134,7 +134,7 @@ public class MainActivity extends Activity {
     private DeviceView deviceView;
     private LinearLayout deviceChips;
     private HorizontalScrollView deviceChipsScroll;
-    private Button devSettingsBtn, findBtn, popupBtn;
+    private Button devSettingsBtn, findBtn, popupBtn, airPermBtn;
     private LinearLayout budsBox;
     private Button ncOff, ncAnc, ncAmb, touchBtn, fwEqBtn;
     private boolean finding;
@@ -175,6 +175,10 @@ public class MainActivity extends Activity {
         }
     };
 
+    private final AirPods.Listener airListener = new AirPods.Listener() {
+        public void onAirPods(BudsLink.State s) { refreshDevices(); }
+    };
+
     private final DeviceMonitor.Listener deviceListener = new DeviceMonitor.Listener() {
         public void onDevicesChanged(DeviceInfo added) {
             if (added != null) selected = added.address;
@@ -207,6 +211,10 @@ public class MainActivity extends Activity {
         }
         if (Build.VERSION.SDK_INT >= 31 && !granted("android.permission.BLUETOOTH_CONNECT")) {
             perms.add("android.permission.BLUETOOTH_CONNECT");
+        }
+        // «Устройства поблизости» одним окном: подключение + поиск (заряд AirPods)
+        if (Build.VERSION.SDK_INT >= 31 && !granted("android.permission.BLUETOOTH_SCAN")) {
+            perms.add("android.permission.BLUETOOTH_SCAN");
         }
         if (!perms.isEmpty()) requestPermissions(perms.toArray(new String[0]), REQ_PERMS);
         EqTileService.ensureService(this);
@@ -475,6 +483,10 @@ public class MainActivity extends Activity {
             }
         });
         actions.addView(popupBtn);
+        airPermBtn = chip(getString(R.string.air_permission), R.drawable.ic_bluetooth, ACCENT, new View.OnClickListener() {
+            public void onClick(View v) { askAirPodsPermission(); }
+        });
+        actions.addView(airPermBtn);
         root.addView(hscroll(actions));
 
         // Galaxy Buds: шумоподавление, сенсор, встроенный EQ
@@ -1360,6 +1372,7 @@ public class MainActivity extends Activity {
         super.onResume();
         visible = true;
         BudsLink.get().addListener(budsListener);
+        AirPods.get().addListener(airListener);
         DeviceMonitor.get().addListener(deviceListener);
         eq.addListener(eqListener);
         DeviceMonitor.get().refresh();
@@ -1383,7 +1396,11 @@ public class MainActivity extends Activity {
         np.stop();
         ui.removeCallbacks(npTicker);
         BudsLink.get().removeListener(budsListener);
+        AirPods.get().removeListener(airListener);
         DeviceMonitor.get().removeListener(deviceListener);
+        // экран закрыт — AirPods слушаем в экономном режиме (служба сама остановит без них)
+        DeviceInfo sel = DeviceMonitor.get().find(selected);
+        if (sel != null && sel.isAirPods()) AirPods.get().start(this, sel, false);
         eq.removeListener(eqListener);
         spectrum.stop();
         graph.setSpectrum(null);
@@ -1396,6 +1413,8 @@ public class MainActivity extends Activity {
         if (code == REQ_AUDIO) {
             if (granted("android.permission.RECORD_AUDIO")) startSpectrum();
             else setSpectrumWanted(false);
+        } else if (code == REQ_AIRPODS) {
+            refreshDevices();
         } else {
             DeviceMonitor.get().refresh();
         }
@@ -1432,10 +1451,23 @@ public class MainActivity extends Activity {
 
         BudsLink.State bs = BudsLink.get().state();
         boolean budsMode = sel != null && sel.isGalaxyBuds() && bs.connected && sel.address.equals(bs.address);
-        budsView.setVisibility(budsMode ? View.VISIBLE : View.GONE);
-        deviceView.setVisibility(budsMode ? View.GONE : View.VISIBLE);
-        if (budsMode) budsView.setState(bs);
-        else deviceView.setDevice(sel);
+        // AirPods: заряд из BLE-рекламы, пока экран открыт — быстрый поиск
+        boolean pods = sel != null && sel.isAirPods();
+        if (pods && visible) AirPods.get().start(this, sel, true);
+        BudsLink.State as = AirPods.get().state();
+        boolean airMode = pods && as.connected;
+        budsView.setVisibility(budsMode || airMode ? View.VISIBLE : View.GONE);
+        deviceView.setVisibility(budsMode || airMode ? View.GONE : View.VISIBLE);
+        if (budsMode) {
+            budsView.setStyle(BudsView.STYLE_BEAN);
+            budsView.setState(bs);
+        } else if (airMode) {
+            budsView.setStyle(BudsView.STYLE_AIRPODS);
+            budsView.setState(as);
+        } else {
+            deviceView.setDevice(sel);
+        }
+        airPermBtn.setVisibility(pods && !AirPods.hasPermission(this) ? View.VISIBLE : View.GONE);
 
         devSettingsBtn.setVisibility(sel != null ? View.VISIBLE : View.GONE);
         findBtn.setVisibility(budsMode ? View.VISIBLE : View.GONE);
@@ -1462,6 +1494,24 @@ public class MainActivity extends Activity {
         carAddress = sel == null ? null : sel.address;
         refreshCar();
         refreshAutoEq();
+    }
+
+    /** До Android 12 BLE-поиск требует геолокацию — объясняем, зачем. */
+    private void askAirPodsPermission() {
+        if (Build.VERSION.SDK_INT >= 31) {
+            requestPermissions(new String[]{AirPods.permission()}, REQ_AIRPODS);
+            return;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.air_permission)
+                .setMessage(R.string.air_permission_old)
+                .setPositiveButton(R.string.ok, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface d, int w) {
+                        requestPermissions(new String[]{AirPods.permission()}, REQ_AIRPODS);
+                    }
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
     }
 
     private static int fwEqName(int i) {

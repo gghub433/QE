@@ -41,6 +41,7 @@ public class EqService extends Service {
 
     private EqEngine eq;
     private BudsLink link;
+    private AirPods air;
     private DeviceMonitor monitor;
     private BudsPopup popup;
     private NotificationManager nm;
@@ -91,6 +92,10 @@ public class EqService extends Service {
         public void onBudsState(BudsLink.State s) { onBuds(s); }
     };
 
+    private final AirPods.Listener airListener = new AirPods.Listener() {
+        public void onAirPods(BudsLink.State s) { onBuds(s); }
+    };
+
     private final DeviceMonitor.Listener deviceListener = new DeviceMonitor.Listener() {
         public void onDevicesChanged(DeviceInfo added) { onDevices(added); }
     };
@@ -109,6 +114,7 @@ public class EqService extends Service {
         super.onCreate();
         eq = EqEngine.get(this);
         link = BudsLink.get();
+        air = AirPods.get();
         monitor = DeviceMonitor.get();
         popup = new BudsPopup(this);
         nm = getSystemService(NotificationManager.class);
@@ -144,6 +150,7 @@ public class EqService extends Service {
         }
 
         link.addListener(budsListener);
+        air.addListener(airListener);
         monitor.addListener(deviceListener);
         eq.addListener(eqListener);
         monitor.start(this);
@@ -171,6 +178,8 @@ public class EqService extends Service {
         np.stop();
         try { unregisterReceiver(sessionReceiver); } catch (Exception ignored) { }
         link.removeListener(budsListener);
+        air.removeListener(airListener);
+        air.stop();
         monitor.removeListener(deviceListener);
         eq.removeListener(eqListener);
         monitor.stop();
@@ -189,6 +198,7 @@ public class EqService extends Service {
     // =====================================================================
 
     private void onDevices(DeviceInfo added) {
+        updateAirPods();
         syncProfileAndAuto();
         checkLowBattery();
         if (added != null && added.isAudio()) {
@@ -217,8 +227,8 @@ public class EqService extends Service {
         if (!ds.popup || MainActivity.visible) return;
         main.removeCallbacks(showPending);
         pendingPopup = info.address;
-        // для Galaxy Buds ждём данные о заряде L/R/кейса, но не дольше 4,5 с
-        main.postDelayed(showPending, info.isGalaxyBuds() ? 4500 : 1200);
+        // для Galaxy Buds и AirPods ждём данные о заряде L/R/кейса, но не дольше 4,5 с
+        main.postDelayed(showPending, info.isGalaxyBuds() || info.isAirPods() ? 4500 : 1200);
     }
 
     private void showPopupFor(String addr) {
@@ -228,8 +238,25 @@ public class EqService extends Service {
     }
 
     private BudsLink.State budsFor(DeviceInfo info) {
+        if (info != null && info.isAirPods()) {
+            BudsLink.State a = air.state();
+            return a.connected ? a : null;
+        }
         BudsLink.State s = link.state();
         return info != null && info.isGalaxyBuds() && s.connected && info.address.equals(s.address) ? s : null;
+    }
+
+    /** Слушать эфир AirPods, пока они подключены (экономный режим; экран включает быстрый). */
+    private void updateAirPods() {
+        DeviceInfo pods = null;
+        for (DeviceInfo i : monitor.list()) {
+            if (i.isAirPods()) {
+                pods = i;
+                break;
+            }
+        }
+        if (pods != null) air.start(this, pods, MainActivity.visible);
+        else air.stop();
     }
 
     private void onBuds(BudsLink.State s) {

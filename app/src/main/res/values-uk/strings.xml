@@ -240,4 +240,7 @@
     <string name="ae_notif_title">AutoEQ впізнав твої навушники</string>
     <string name="ae_notif_text">%s — натисни, щоб застосувати корекцію</string>
     <string name="ch_tips">Підказки</string>
+    <!-- 5.2: AirPods -->
+    <string name="air_permission">Показувати заряд AirPods</string>
+    <string name="air_permission_old">AirPods повідомляють заряд через Bluetooth LE. До Android 12 такий пошук Android дозволяє лише з доступом до «Геолокації» — EQ твоє місцезнаходження не використовує.</string>
 </resources>

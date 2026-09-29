@@ -16,6 +16,8 @@ public final class DeviceInfo {
 
     /** RFCOMM-сервис Galaxy Buds (Buds+, Live, Pro, Buds2 и новее). */
     private static final String SAMSUNG_SPP = "2e73a4ad-332d-41fc-90e2-16bef06523f2";
+    /** Сервис Apple AAP — есть у всех AirPods и Beats. */
+    private static final String APPLE_AAP = "74ec2172-0bad-4d01-8f77-997b2be0722a";
 
     public final String address;
     public String name;
@@ -25,6 +27,8 @@ public final class DeviceInfo {
     public int battery = -1;
     public long connectedAt;
     public BluetoothDevice device;
+    /** У устройства есть сервис Apple (AirPods / Beats). */
+    public boolean apple;
 
     DeviceInfo(String address) {
         this.address = address;
@@ -40,6 +44,12 @@ public final class DeviceInfo {
         return type == T_GALAXY_BUDS || type == T_EARBUDS || type == T_HEADPHONES || type == T_HEADSET;
     }
 
+    /** AirPods: заряд берём из BLE-рекламы Apple (см. AirPods). */
+    public boolean isAirPods() {
+        return (apple || (name != null && name.toLowerCase(Locale.ROOT).contains("airpods")))
+                && type != T_CAR && type != T_SPEAKER;
+    }
+
     public boolean isGalaxyBuds() {
         return detectedType == T_GALAXY_BUDS;
     }
@@ -48,6 +58,7 @@ public final class DeviceInfo {
         DeviceInfo i = new DeviceInfo(d.getAddress());
         i.device = d;
         i.name = nameOf(d);
+        i.apple = hasUuid(d, APPLE_AAP);
         i.detectedType = detect(d, i.name);
         i.type = i.detectedType;
         i.battery = batteryOf(d);
@@ -86,6 +97,19 @@ public final class DeviceInfo {
         } catch (Throwable t) {
             return -1;
         }
+    }
+
+    private static boolean hasUuid(BluetoothDevice d, String uuid) {
+        try {
+            ParcelUuid[] uu = d.getUuids();
+            if (uu != null) {
+                for (ParcelUuid u : uu) {
+                    if (uuid.equalsIgnoreCase(u.toString())) return true;
+                }
+            }
+        } catch (SecurityException ignored) {
+        }
+        return false;
     }
 
     public static boolean isGalaxyBuds(BluetoothDevice d, String lowerName) {

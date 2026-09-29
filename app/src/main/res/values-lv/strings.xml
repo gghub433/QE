@@ -240,4 +240,7 @@
     <string name="ae_notif_title">AutoEQ atpazina tavas austiņas</string>
     <string name="ae_notif_text">%s — pieskaries, lai lietotu korekciju</string>
     <string name="ch_tips">Padomi</string>
+    <!-- 5.2: AirPods -->
+    <string name="air_permission">Rādīt AirPods uzlādi</string>
+    <string name="air_permission_old">AirPods ziņo uzlādi, izmantojot Bluetooth LE. Līdz Android 12 šādu meklēšanu Android atļauj tikai ar piekļuvi «Atrašanās vietai» — EQ tavu atrašanās vietu neizmanto.</string>
 </resources>
