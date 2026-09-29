@@ -105,7 +105,8 @@ public class MainActivity extends Activity {
     private CarFocusView carView;
     private TextView carStatus;
     private final Button[] carModeBtns = new Button[3];
-    private Button carRhdBtn, carOffBtn;
+    private Button carRhdBtn, carOffBtn, carEditBtn;
+    private boolean carEdit;
     private String carAddress;
 
     // Music Time
@@ -253,6 +254,7 @@ public class MainActivity extends Activity {
 
         buildDevices(roots[TAB_DEVICE]);
         buildCar(roots[TAB_DEVICE]);
+        buildPhone(roots[TAB_DEVICE]);
 
         buildEqualizer(roots[TAB_EQ]);
         buildAutoEq(roots[TAB_EQ]);
@@ -853,7 +855,7 @@ public class MainActivity extends Activity {
                 if (on) {
                     DeviceInfo p = DeviceMonitor.get().primaryAudio();
                     if (p != null) eq.switchProfile(p.address, p.name);
-                    else eq.switchProfile("phone", getString(R.string.phone_speaker));
+                    else eq.switchProfile("phone", PhoneInfo.get(MainActivity.this).speakerName(MainActivity.this));
                 }
                 refreshEq();
             }
@@ -1099,6 +1101,15 @@ public class MainActivity extends Activity {
                 CarFocusView.applyFocus(MainActivity.this);
                 refreshCar();
             }
+
+            public void onSpeakersChanged(float[] speakers) {
+                DeviceSettings ds = carSettings();
+                if (ds == null) return;
+                ds.carSpk = speakers;
+                ds.save(MainActivity.this);
+                CarFocusView.applyFocus(MainActivity.this);
+                refreshCar();
+            }
         });
         LinearLayout.LayoutParams vlp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(440));
         vlp.topMargin = dp(8);
@@ -1132,7 +1143,148 @@ public class MainActivity extends Activity {
         });
         modes.addView(carRhdBtn);
         carBox.addView(hscroll(modes));
+
+        // где реально стоят динамики + проверка каналов
+        carBox.addView(label(getString(R.string.car_speakers)));
+        LinearLayout sp = new LinearLayout(this);
+        carEditBtn = chip(getString(R.string.car_edit), R.drawable.ic_speaker, CHIP, new View.OnClickListener() {
+            public void onClick(View v) {
+                carEdit = !carEdit;
+                carView.setEditMode(carEdit);
+                refreshCar();
+            }
+        });
+        sp.addView(carEditBtn);
+        sp.addView(chip(getString(R.string.car_layout), R.drawable.ic_car, CHIP, new View.OnClickListener() {
+            public void onClick(View v) { chooseCarLayout(); }
+        }));
+        sp.addView(chip(getString(R.string.car_test), R.drawable.ic_volume_up, CHIP, new View.OnClickListener() {
+            public void onClick(View v) { testCarSpeakers(); }
+        }));
+        carBox.addView(hscroll(sp));
         root.addView(carBox);
+    }
+
+    private void chooseCarLayout() {
+        final DeviceSettings ds = carSettings();
+        if (ds == null) return;
+        int[] names = {R.string.car_layout_2, R.string.car_layout_4, R.string.car_layout_6,
+                R.string.car_layout_sub, R.string.car_layout_center};
+        String[] items = new String[names.length];
+        for (int i = 0; i < names.length; i++) items[i] = getString(names[i]);
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.car_layout)
+                .setItems(items, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface d, int which) {
+                        ds.carSpk = CarFocusView.LAYOUTS[which].clone();
+                        ds.save(MainActivity.this);
+                        CarFocusView.applyFocus(MainActivity.this);
+                        refreshCar();
+                    }
+                })
+                .show();
+    }
+
+    /** Три сигнала слева, потом три справа — человек говорит, откуда пришёл первый. */
+    private void testCarSpeakers() {
+        if (carSettings() == null || SpeakerTest.isPlaying()) return;
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.car_test)
+                .setMessage(R.string.car_test_msg)
+                .setPositiveButton(R.string.car_test_play, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface d, int w) { playCarTest(); }
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    private void playCarTest() {
+        SpeakerTest.play(this, new SpeakerTest.Done() {
+            public void onDone() {
+                if (isFinishing()) return;
+                String[] items = {getString(R.string.car_test_left), getString(R.string.car_test_right),
+                        getString(R.string.car_test_both), getString(R.string.car_test_again)};
+                new AlertDialog.Builder(MainActivity.this)
+                        .setTitle(R.string.car_test_q)
+                        .setItems(items, new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface d, int which) {
+                                if (which == 3) {
+                                    playCarTest();
+                                    return;
+                                }
+                                DeviceSettings ds = carSettings();
+                                if (ds == null) return;
+                                ds.carSwap = which == 1;
+                                ds.carMono = which == 2;
+                                ds.save(MainActivity.this);
+                                CarFocusView.applyFocus(MainActivity.this);
+                                Toast.makeText(MainActivity.this, which == 0 ? R.string.car_test_ok
+                                        : which == 1 ? R.string.car_swapped : R.string.car_mono, Toast.LENGTH_LONG).show();
+                                refreshCar();
+                            }
+                        })
+                        .show();
+            }
+        });
+    }
+
+    // =====================================================================
+    // Этот телефон: название, Android, что умеет и что мешает
+    // =====================================================================
+
+    private TextView phoneStatus;
+    private Button phoneBatteryBtn;
+
+    private void buildPhone(LinearLayout root) {
+        PhoneInfo ph = PhoneInfo.get(this);
+        root.addView(section(getString(R.string.ph_title)));
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(16), dp(14), dp(16), dp(8));
+        card.setBackground(round(CARD, 24));
+        TextView name = text(ph.name, 17, Color.WHITE);
+        name.getPaint().setFakeBoldText(true);
+        Drawable ic = icon(R.drawable.ic_phone, Color.WHITE);
+        ic.setBounds(0, 0, dp(22), dp(22));
+        name.setCompoundDrawablesRelative(ic, null, null, null);
+        name.setCompoundDrawablePadding(dp(10));
+        card.addView(name);
+        TextView os = text(getString(R.string.ph_android, ph.android, ph.sdk) + " · " + ph.brand + " " + ph.model, 12, GREY);
+        os.setPadding(dp(32), dp(2), 0, dp(8));
+        card.addView(os);
+        phoneStatus = text("", 13, Color.rgb(0xC8, 0xCA, 0xD0));
+        card.addView(phoneStatus);
+        if (ph.tipRes() != 0) {
+            TextView tip = text(getString(ph.tipRes()), 12, GREY);
+            tip.setPadding(0, dp(8), 0, 0);
+            card.addView(tip);
+        }
+        LinearLayout b = new LinearLayout(this);
+        b.setPadding(0, dp(10), 0, 0);
+        phoneBatteryBtn = chip(getString(R.string.ph_battery_btn), R.drawable.ic_battery_alert, ACCENT, new View.OnClickListener() {
+            public void onClick(View v) {
+                try {
+                    startActivity(new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                            Uri.parse("package:" + getPackageName())));
+                } catch (Exception e) {
+                    startActivity(new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS));
+                }
+            }
+        });
+        b.addView(phoneBatteryBtn);
+        card.addView(hscroll(b));
+        root.addView(card);
+    }
+
+    private void refreshPhone() {
+        if (phoneStatus == null) return;
+        PhoneInfo ph = PhoneInfo.get(this);
+        boolean free = PhoneInfo.batteryUnrestricted(this);
+        String s = getString(eq.globalOk ? R.string.status_global : R.string.ph_eq_players)
+                + "\n" + getString(ph.ble ? R.string.ph_ble_yes : R.string.ph_ble_no)
+                + "\n" + getString(free ? R.string.ph_battery_ok : R.string.ph_battery_warn);
+        phoneStatus.setText(s);
+        phoneBatteryBtn.setVisibility(free ? View.GONE : View.VISIBLE);
     }
 
     private DeviceSettings carSettings() {
@@ -1160,21 +1312,35 @@ public class MainActivity extends Activity {
         if (!show) return;
         DeviceSettings ds = DeviceSettings.get(this, dev.address);
         carView.setState(ds.carFocus, ds.carMode, ds.carRhd);
+        carView.setSpeakers(ds.speakers());
+        float bal = CarFocusView.balanceFor(ds.carFocus, ds.carMode, ds.speakers(), ds.carSwap, ds.carMono);
+        carView.setBalance(ds.carSwap ? -bal : bal);   // на картинке — реальные стороны
+        carEditBtn.setBackground(round(carEdit ? ACCENT : CHIP, 24));
+        carEditBtn.setText(carEdit ? R.string.car_edit_done : R.string.car_edit);
         carOffBtn.setBackground(round(ds.carFocus < 0 ? ACCENT : CHIP, 24));
         for (int i = 0; i < carModeBtns.length; i++) {
             carModeBtns[i].setBackground(round(ds.carFocus >= 0 && ds.carMode == i ? ACCENT : CHIP, 24));
         }
         carRhdBtn.setBackground(round(ds.carRhd ? ACCENT : CHIP, 24));
-        if (ds.carFocus < 0) {
-            carStatus.setText(R.string.car_status_off);
+        String s;
+        if (carEdit) {
+            s = getString(R.string.car_edit_hint);
+        } else if (ds.carFocus < 0) {
+            s = getString(R.string.car_status_off);
         } else {
-            int b = Math.round(CarFocusView.balanceFor(ds.carFocus, ds.carMode) * 100);
-            String s = getString(R.string.car_status,
-                    getString(CarFocusView.labelRes(ds.carFocus, ds.carRhd)), balanceLabel(b));
+            // подпись — по реальным сторонам салона (с учётом перепутанных каналов)
+            float phys = ds.carSwap ? -bal : bal;
+            s = getString(R.string.car_status,
+                    getString(CarFocusView.labelRes(ds.carFocus, ds.carRhd)), balanceLabel(Math.round(phys * 100)));
+            if (Math.abs(bal) > 0.005f) {
+                s += " · " + getString(R.string.car_db, Math.abs(CarFocusView.balanceDb(bal)));
+            }
             DeviceInfo primary = DeviceMonitor.get().primaryAudio();
             if (primary == null || !primary.address.equals(dev.address)) s += "\n" + getString(R.string.car_pending);
-            carStatus.setText(s);
         }
+        if (ds.carMono) s += "\n" + getString(R.string.car_mono);
+        else if (ds.carSwap) s += "\n" + getString(R.string.car_swapped);
+        carStatus.setText(s);
     }
 
     // =====================================================================
@@ -1760,6 +1926,7 @@ public class MainActivity extends Activity {
         popupBtn.setVisibility(BudsPopup.allowed(this) ? View.GONE : View.VISIBLE);
         carAddress = sel == null ? null : sel.address;
         refreshCar();
+        refreshPhone();
         refreshAutoEq();
     }
 

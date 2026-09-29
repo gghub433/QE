@@ -19,6 +19,10 @@ public final class DeviceSettings {
     public int carFocus = -1;
     public int carMode = CarFocusView.MODE_NORMAL;
     public boolean carRhd;
+    /** Машина: где стоят динамики (x, y парами, 0..1 по кузову; null — схема по умолчанию). */
+    public float[] carSpk;
+    /** Машина: проверка каналов — левый и правый перепутаны / магнитола играет моно. */
+    public boolean carSwap, carMono;
 
     private final String address;
 
@@ -44,10 +48,22 @@ public final class DeviceSettings {
                 s.carFocus = o.optInt("car", -1);
                 s.carMode = o.optInt("carMode", CarFocusView.MODE_NORMAL);
                 s.carRhd = o.optBoolean("rhd", false);
+                s.carSwap = o.optBoolean("swap", false);
+                s.carMono = o.optBoolean("mono", false);
+                org.json.JSONArray spk = o.optJSONArray("spk");
+                if (spk != null && spk.length() >= 2 && spk.length() % 2 == 0) {
+                    s.carSpk = new float[spk.length()];
+                    for (int i = 0; i < spk.length(); i++) s.carSpk[i] = (float) spk.getDouble(i);
+                }
             } catch (Exception ignored) {
             }
         }
         return s;
+    }
+
+    /** Динамики машины: свои или схема по умолчанию (4 в дверях + твитеры). */
+    public float[] speakers() {
+        return carSpk != null ? carSpk.clone() : CarFocusView.LAYOUTS[CarFocusView.DEFAULT_LAYOUT].clone();
     }
 
     public void save(Context c) {
@@ -61,6 +77,13 @@ public final class DeviceSettings {
             o.put("car", carFocus);
             o.put("carMode", carMode);
             o.put("rhd", carRhd);
+            o.put("swap", carSwap);
+            o.put("mono", carMono);
+            if (carSpk != null) {
+                org.json.JSONArray spk = new org.json.JSONArray();
+                for (float v : carSpk) spk.put(Math.round(v * 1000) / 1000.0);
+                o.put("spk", spk);
+            }
             prefs(c).edit().putString(address, o.toString()).apply();
         } catch (Exception ignored) {
         }

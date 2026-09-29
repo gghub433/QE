@@ -26,6 +26,8 @@
     <!-- Автообновление с GitHub Releases -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Кнопка «Не ограничивать» на карточке телефона: чтобы прошивка не усыпляла EQ в фоне -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <!-- Чтобы можно было выбрать приложение, которое открывать при подключении устройства -->
     <queries>

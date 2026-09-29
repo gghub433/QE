@@ -469,7 +469,7 @@ public class EqService extends Service {
         if (eq.autoMode) eq.setEnabled(p != null);
         if (eq.perDevice) {
             if (p != null) eq.switchProfile(p.address, p.name);
-            else eq.switchProfile("phone", getString(R.string.phone_speaker));
+            else eq.switchProfile("phone", PhoneInfo.get(this).speakerName(this));
         }
         CarFocusView.applyFocus(this);
         AutoEq.applyFor(this, p != null ? p.address : null);

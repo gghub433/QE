@@ -10,23 +10,43 @@ import android.view.MotionEvent;
 import android.view.View;
 
 /**
- * Салон машины сверху: 6 точек фокуса звука (передний ряд и задний ряд, слева / по центру / справа).
- * Телефон отдаёт в машину только стерео, поэтому фокус — это баланс Л/П:
- * звук смещается к выбранному месту. Руль рисуется слева или справа.
+ * Салон машины сверху: 6 точек фокуса звука (передний ряд и задний ряд, слева / по центру / справа)
+ * и динамики там, где они реально стоят (их можно перетащить).
+ * Телефон отдаёт в машину только стерео, поэтому фокус — это баланс Л/П, но посчитанный по физике:
+ * в выбранной точке ближние динамики звучат громче (закон 1/r²), и EQ приглушает этот канал,
+ * чтобы сцена выстроилась вокруг слушателя. Руль рисуется слева или справа.
  */
 public class CarFocusView extends View {
 
     public interface Listener {
         /** point = 0..5 или -1 (фокус выключен). */
         void onFocusChanged(int point);
+
+        /** В режиме расстановки перетащили динамик: новые координаты всех динамиков. */
+        void onSpeakersChanged(float[] speakers);
     }
 
     /** 0 перед-лево, 1 перед-центр, 2 перед-право, 3 зад-лево, 4 зад-центр (весь салон), 5 зад-право. */
     public static final int POINTS = 6;
     public static final int MODE_SOFT = 0, MODE_NORMAL = 1, MODE_STRONG = 2;
 
-    private static final float[] BASE = {-0.40f, 0f, 0.40f, -0.25f, 0f, 0.25f};
-    private static final float[] STRENGTH = {0.6f, 1f, 1.6f};
+    /** Сила поправки: доля от полной компенсации разницы громкости каналов. */
+    private static final float[] STRENGTH = {0.4f, 0.7f, 1.0f};
+    /** Точки фокуса (x, y относительно кузова: 0..1 слева направо и от носа к багажнику). */
+    private static final float[] POINT_POS = {
+            0.285f, 0.475f, 0.5f, 0.465f, 0.715f, 0.475f, 0.235f, 0.695f, 0.5f, 0.695f, 0.765f, 0.695f};
+    /** Размер салона для расчёта расстояний, м. */
+    private static final float CAR_W = 1.8f, CAR_L = 4.5f;
+
+    /** Схемы динамиков: 2 спереди, 4 в дверях, 4 + твитеры, + сабвуфер, + центр на панели. */
+    public static final float[][] LAYOUTS = {
+            {0.035f, 0.47f, 0.965f, 0.47f},
+            {0.035f, 0.47f, 0.965f, 0.47f, 0.035f, 0.66f, 0.965f, 0.66f},
+            {0.035f, 0.47f, 0.965f, 0.47f, 0.035f, 0.66f, 0.965f, 0.66f, 0.12f, 0.302f, 0.88f, 0.302f},
+            {0.035f, 0.47f, 0.965f, 0.47f, 0.035f, 0.66f, 0.965f, 0.66f, 0.12f, 0.302f, 0.88f, 0.302f, 0.5f, 0.9f},
+            {0.035f, 0.47f, 0.965f, 0.47f, 0.035f, 0.66f, 0.965f, 0.66f, 0.12f, 0.302f, 0.88f, 0.302f, 0.5f, 0.315f},
+    };
+    public static final int DEFAULT_LAYOUT = 2;
 
     private final int ACCENT = Theme.accent();
     private static final int BODY = Color.rgb(0x2B, 0x2D, 0x33);
@@ -37,11 +57,38 @@ public class CarFocusView extends View {
     private static final int SEAT_BACK = Color.rgb(0x4A, 0x4E, 0x58);
     private static final int GREY_TEXT = Color.rgb(0xA0, 0xA3, 0xAA);
 
-    /** Баланс для точки фокуса: -1 (лево) … 1 (право). */
-    public static float balanceFor(int point, int mode) {
-        if (point < 0 || point >= POINTS) return 0f;
-        float k = STRENGTH[Math.max(0, Math.min(STRENGTH.length - 1, mode))];
-        return Math.max(-0.9f, Math.min(0.9f, BASE[point] * k));
+    /** Канал динамика: -1 левый, 1 правый, 0 оба (центр, сабвуфер — баланс на них не влияет). */
+    static int side(float x) {
+        return Math.abs(x - 0.5f) < 0.08f ? 0 : x < 0.5f ? -1 : 1;
+    }
+
+    /**
+     * Баланс для точки фокуса (-1 … 1, &gt;0 — приглушить левый канал), посчитанный по динамикам:
+     * уровень канала в точке = сумма 1/r² его динамиков; громкую сторону приглушаем на разницу в дБ
+     * (с долей по режиму). swap — каналы в машине перепутаны, mono — магнитола в моно (баланс бесполезен).
+     */
+    public static float balanceFor(int point, int mode, float[] spk, boolean swap, boolean mono) {
+        if (point < 0 || point >= POINTS || mono || spk == null) return 0f;
+        float px = POINT_POS[point * 2], py = POINT_POS[point * 2 + 1];
+        double eL = 0, eR = 0;
+        for (int i = 0; i + 1 < spk.length; i += 2) {
+            int s = side(spk[i]);
+            if (s == 0) continue;
+            double dx = (spk[i] - px) * CAR_W, dy = (spk[i + 1] - py) * CAR_L;
+            double e = 1.0 / Math.max(0.09, dx * dx + dy * dy);   // не ближе 30 см
+            if (s < 0) eL += e;
+            else eR += e;
+        }
+        if (eL <= 0 || eR <= 0) return 0f;   // динамики только с одной стороны
+        double db = 10 * Math.log10(eL / eR) * STRENGTH[Math.max(0, Math.min(STRENGTH.length - 1, mode))];
+        float b = (float) Math.min(0.9, 1 - Math.pow(10, -Math.abs(db) / 20));
+        float bal = db > 0 ? b : -b;
+        return swap ? -bal : bal;
+    }
+
+    /** Разница громкости каналов в точке, дБ (для подписи). */
+    public static float balanceDb(float bal) {
+        return (float) (20 * Math.log10(Math.max(0.1, 1 - Math.abs(bal))));
     }
 
     /** Название точки с учётом того, с какой стороны руль. */
@@ -68,7 +115,7 @@ public class CarFocusView extends View {
         float b = 0f;
         if (p != null && p.type == DeviceInfo.T_CAR) {
             DeviceSettings ds = DeviceSettings.get(c, p.address);
-            b = balanceFor(ds.carFocus, ds.carMode);
+            b = balanceFor(ds.carFocus, ds.carMode, ds.speakers(), ds.carSwap, ds.carMono);
         }
         eq.setCarBalance(b);
     }
@@ -83,6 +130,13 @@ public class CarFocusView extends View {
     private float pointR;
     private int pressed = -1;
     private boolean running;
+    /** Динамики (x, y парами, относительно кузова) и их расстановка пальцем. */
+    private float[] spk = LAYOUTS[DEFAULT_LAYOUT].clone();
+    private boolean editMode;
+    private int dragging = -1;
+    /** Громкость каналов после фокуса (для яркости «звука» от динамиков). */
+    private float gainL = 1f, gainR = 1f;
+    private float carLeft, carTop, carWpx, carHpx;
 
     private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint stroke = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -107,6 +161,24 @@ public class CarFocusView extends View {
         mode = focusMode;
         rhd = rightHand;
         startLoop();
+        invalidate();
+    }
+
+    public void setSpeakers(float[] speakers) {
+        if (dragging >= 0) return;
+        spk = speakers.clone();
+        invalidate();
+    }
+
+    public void setEditMode(boolean on) {
+        editMode = on;
+        invalidate();
+    }
+
+    /** Итоговый баланс машины: ближний канал рисуем тусклее. */
+    public void setBalance(float bal) {
+        gainL = bal > 0 ? 1f - bal : 1f;
+        gainR = bal < 0 ? 1f + bal : 1f;
         invalidate();
     }
 
@@ -168,6 +240,10 @@ public class CarFocusView extends View {
         float cx = w / 2f, top = (h - carH) / 2f, bottom = top + carH;
         float left = cx - carW / 2f, right = cx + carW / 2f;
         pointR = carW * 0.068f;
+        carLeft = left;
+        carTop = top;
+        carWpx = carW;
+        carHpx = carH;
 
         // точки фокуса: центры сидений
         float frontY = top + carH * 0.475f, rearY = top + carH * 0.695f;
@@ -305,11 +381,23 @@ public class CarFocusView extends View {
         c.drawLine(left + carW * 0.10f + 2 * third, benchTop + carH * 0.01f,
                 left + carW * 0.10f + 2 * third, benchTop + carH * 0.14f, stroke);
 
-        // динамики в дверях + твитеры у лобового
-        float[] spk = speakers(left, right, top, carH, carW);
+        // динамики — там, где они стоят в этой машине
+        float[] abs = new float[spk.length];
+        for (int i = 0; i + 1 < spk.length; i += 2) {
+            abs[i] = left + spk[i] * carW;
+            abs[i + 1] = top + spk[i + 1] * carH;
+        }
         int fx = focusIndexForDraw();
-        for (int i = 0; i < spk.length; i += 2) {
-            drawSpeaker(c, spk[i], spk[i + 1], carW * (i < 8 ? 0.045f : 0.028f));
+        for (int i = 0; i + 1 < spk.length; i += 2) {
+            int s = side(spk[i]);
+            float size = s == 0 ? (spk[i + 1] > 0.8f ? 0.075f : 0.035f) : spk[i + 1] < 0.4f ? 0.028f : 0.045f;
+            drawSpeaker(c, abs[i], abs[i + 1], carW * size);
+            if (editMode) {
+                stroke.setColor(ACCENT);
+                stroke.setAlpha(i / 2 == dragging ? 255 : 170);
+                stroke.setStrokeWidth(2 * d);
+                c.drawCircle(abs[i], abs[i + 1], carW * size + 5 * d, stroke);
+            }
         }
 
         // «звук» летит от динамиков к точке фокуса
@@ -317,16 +405,19 @@ public class CarFocusView extends View {
             float px = pts[fx * 2], py = pts[fx * 2 + 1];
             float strength = sel[fx];
             stroke.setColor(ACCENT);
-            stroke.setAlpha((int) (45 * strength));
             stroke.setStrokeWidth(carW * 0.012f);
-            for (int i = 0; i < spk.length; i += 2) c.drawLine(spk[i], spk[i + 1], px, py, stroke);
-            for (int i = 0; i < spk.length; i += 2) {
+            for (int i = 0; i + 1 < abs.length; i += 2) {
+                stroke.setAlpha((int) (45 * strength * level(spk[i])));
+                c.drawLine(abs[i], abs[i + 1], px, py, stroke);
+            }
+            for (int i = 0; i + 1 < abs.length; i += 2) {
+                float lv = level(spk[i]);
                 for (int k = 0; k < 3; k++) {
                     float ph = (time * 0.7f + k / 3f + i * 0.07f) % 1f;
-                    float x = spk[i] + (px - spk[i]) * ph;
-                    float y = spk[i + 1] + (py - spk[i + 1]) * ph;
+                    float x = abs[i] + (px - abs[i]) * ph;
+                    float y = abs[i + 1] + (py - abs[i + 1]) * ph;
                     fill.setColor(ACCENT);
-                    fill.setAlpha((int) (200 * strength * (1f - ph) * Math.min(1f, ph * 4f)));
+                    fill.setAlpha((int) (200 * strength * lv * (1f - ph) * Math.min(1f, ph * 4f)));
                     c.drawCircle(x, y, carW * 0.014f, fill);
                 }
             }
@@ -392,16 +483,10 @@ public class CarFocusView extends View {
         pts[i * 2 + 1] = y;
     }
 
-    /** Координаты динамиков: 4 в дверях, 2 твитера у лобового стекла. */
-    private static float[] speakers(float left, float right, float top, float carH, float carW) {
-        return new float[]{
-                left + carW * 0.035f, top + carH * 0.47f,
-                right - carW * 0.035f, top + carH * 0.47f,
-                left + carW * 0.035f, top + carH * 0.66f,
-                right - carW * 0.035f, top + carH * 0.66f,
-                left + carW * 0.12f, top + carH * 0.302f,
-                right - carW * 0.12f, top + carH * 0.302f,
-        };
+    /** Яркость звука от динамика: его канал после баланса (центр и сабвуфер — всегда полный). */
+    private float level(float x) {
+        int s = side(x);
+        return s < 0 ? 0.25f + 0.75f * gainL : s > 0 ? 0.25f + 0.75f * gainR : 1f;
     }
 
     private void drawSpeaker(Canvas c, float x, float y, float rad) {
@@ -447,8 +532,47 @@ public class CarFocusView extends View {
         return best;
     }
 
+    private int speakerAt(float x, float y) {
+        int best = -1;
+        float bestD = carWpx * 0.14f + 12 * d;
+        for (int i = 0; i + 1 < spk.length; i += 2) {
+            float dx = x - (carLeft + spk[i] * carWpx), dy = y - (carTop + spk[i + 1] * carHpx);
+            float dist = (float) Math.sqrt(dx * dx + dy * dy);
+            if (dist < bestD) {
+                bestD = dist;
+                best = i / 2;
+            }
+        }
+        return best;
+    }
+
+    private boolean dragTouch(MotionEvent e) {
+        switch (e.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN:
+                dragging = speakerAt(e.getX(), e.getY());
+                if (dragging >= 0 && getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);
+                invalidate();
+                return dragging >= 0;
+            case MotionEvent.ACTION_MOVE:
+                if (dragging < 0 || carWpx <= 0) return false;
+                spk[dragging * 2] = Math.max(0.02f, Math.min(0.98f, (e.getX() - carLeft) / carWpx));
+                spk[dragging * 2 + 1] = Math.max(0.02f, Math.min(0.98f, (e.getY() - carTop) / carHpx));
+                invalidate();
+                return true;
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_CANCEL:
+                if (dragging >= 0 && listener != null) listener.onSpeakersChanged(spk.clone());
+                dragging = -1;
+                invalidate();
+                return true;
+            default:
+                return dragging >= 0;
+        }
+    }
+
     @Override
     public boolean onTouchEvent(MotionEvent e) {
+        if (editMode) return dragTouch(e);
         switch (e.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
                 pressed = pointAt(e.getX(), e.getY());

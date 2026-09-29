@@ -78,6 +78,14 @@ public final class EqEngine {
     /** Добавка к балансу от фокуса машины (CarFocusView). В профиле не сохраняется. */
     public float carBalance;
 
+    /** Обход эффекта: A/B-сравнение (ровно, но та же громкость) и тест динамиков (совсем без обработки). */
+    public static final int BYPASS_NONE = 0, BYPASS_AB = 1, BYPASS_TEST = 2;
+    private int bypass = BYPASS_NONE;
+
+    /** Сценарии поверх звука (ночь: тише и мягче верх, спорт: панч). В профиль не пишутся. */
+    private float scnGain, scnTreble, scnPunch;
+    public String scnLabel = "";
+
     /** AutoEQ: коррекция текущих наушников (null — нет) и она же в наших полосах. */
     private AutoEq.Correction corr;
     private float[] corrBands = new float[0];
@@ -233,11 +241,40 @@ public final class EqEngine {
         for (int s : sessions) attach(s);
     }
 
-    /** Итоговое усиление полосы: кривая пользователя + коррекция AutoEQ. */
+    /** Итоговое усиление полосы: кривая пользователя + коррекция AutoEQ + сценарий. */
     private float bandGain(int i) {
+        return bypass != BYPASS_NONE ? 0f : processedGain(i);
+    }
+
+    private float processedGain(int i) {
         float g = gains[i];
         if (corr != null && corr.on && i < corrBands.length) g += corrBands[i];
+        if (scnTreble != 0f) g += scnTreble * trebleWeight(freqs(bands)[i]);
         return Math.max(-24f, Math.min(24f, g));
+    }
+
+    /** Доля «верха»: 0 ниже 2 кГц, 1 выше 8 кГц — для мягкого ночного звука. */
+    private static float trebleWeight(float f) {
+        if (f <= 2000) return 0f;
+        if (f >= 8000) return 1f;
+        return (float) ((Math.log(f) - Math.log(2000)) / (Math.log(8000) - Math.log(2000)));
+    }
+
+    /**
+     * A/B: ровный звук должен быть так же громок, как обработанный, иначе «громче» кажется «лучше».
+     * Берём среднее усиление полос в слышимой середине (60 Гц … 10 кГц).
+     */
+    private float abCompensation() {
+        float[] f = freqs(bands);
+        double sum = 0;
+        int n = 0;
+        for (int i = 0; i < bands; i++) {
+            if (f[i] < 60 || f[i] > 10000) continue;
+            sum += processedGain(i);
+            n++;
+        }
+        float mean = n > 0 ? (float) (sum / n) : 0f;
+        return Math.max(-12f, Math.min(12f, mean + corrHeadroom() + scnGain));
     }
 
     /** Запас под подъёмы коррекции, чтобы не упираться в лимитер (не больше 6 дБ). */
@@ -256,17 +293,22 @@ public final class EqEngine {
         }
         dp.setPreEqAllChannelsTo(eq);
 
-        boolean mbcOn = punch > 0.01f || leveling;
+        float p = bypass != BYPASS_NONE ? 0f : Math.max(punch, scnPunch);
+        boolean lvl = bypass == BYPASS_NONE && leveling;
+        boolean mbcOn = p > 0.01f || lvl;
         DynamicsProcessing.Mbc mbc = new DynamicsProcessing.Mbc(true, mbcOn, 2);
-        mbc.setBand(0, bassBand());
-        mbc.setBand(1, restBand());
+        mbc.setBand(0, bassBand(p, lvl));
+        mbc.setBand(1, lvl ? levelBand(22000f) : neutralBand(22000f));
         dp.setMbcAllChannelsTo(mbc);
 
         // attack 1 мс, release 60 мс, 10:1, порог -1 dB — защита от хрипа и перегруза
         dp.setLimiterAllChannelsTo(new DynamicsProcessing.Limiter(true, true, 0, 1f, 60f, 10f, -1f, 0f));
 
-        float base = preamp + boost + corrHeadroom();
-        float bal = Math.max(-1f, Math.min(1f, balance + carBalance));
+        float base = preamp + boost;
+        if (bypass == BYPASS_NONE) base += corrHeadroom() + scnGain;
+        else if (bypass == BYPASS_AB) base += abCompensation();
+        // тест динамиков — без баланса и фокуса, иначе он сам себя исказит
+        float bal = bypass == BYPASS_TEST ? 0f : Math.max(-1f, Math.min(1f, balance + carBalance));
         dp.setInputGainbyChannel(0, base + (bal > 0 ? atten(bal) : 0f));
         dp.setInputGainbyChannel(1, base + (bal < 0 ? atten(-bal) : 0f));
         dp.setEnabled(enabled);
@@ -277,7 +319,7 @@ public final class EqEngine {
     }
 
     /** Низкие частоты (до 150 Гц): «панч» или выравнивание. */
-    private DynamicsProcessing.MbcBand bassBand() {
+    private DynamicsProcessing.MbcBand bassBand(float punch, boolean leveling) {
         if (punch > 0.01f) {
             float ratio = 1f + 3f * punch;      // до 4:1
             float threshold = -12f - 18f * punch; // -12 … -30 dB
@@ -287,10 +329,6 @@ public final class EqEngine {
         }
         if (leveling) return levelBand(150f);
         return neutralBand(150f);
-    }
-
-    private DynamicsProcessing.MbcBand restBand() {
-        return leveling ? levelBand(22000f) : neutralBand(22000f);
     }
 
     private static DynamicsProcessing.MbcBand levelBand(float cutoff) {
@@ -404,6 +442,32 @@ public final class EqEngine {
     /** Коррекция в текущих полосах (для графика); пустой массив — нет коррекции. */
     public float[] correctionBands() {
         return corr != null && corr.on ? corrBands.clone() : new float[0];
+    }
+
+    // =====================================================================
+    // Обход (A/B, тест динамиков) и сценарии
+    // =====================================================================
+
+    public void setBypass(int mode) {
+        if (mode == bypass) return;
+        bypass = mode;
+        applyAll();
+    }
+
+    public int bypass() {
+        return bypass;
+    }
+
+    /** Сценарий поверх звука: gain — общий уровень, treble — «верх», punchMin — минимум панча. */
+    public void setScenario(float gain, float treble, float punchMin, String label) {
+        String l = label == null ? "" : label;
+        if (gain == scnGain && treble == scnTreble && punchMin == scnPunch && l.equals(scnLabel)) return;
+        scnGain = gain;
+        scnTreble = treble;
+        scnPunch = punchMin;
+        scnLabel = l;
+        applyAll();
+        notifyChanged();
     }
 
     /** Фокус машины: применяется сразу, в профиль не пишется. */
