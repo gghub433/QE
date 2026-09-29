@@ -15,6 +15,10 @@ public final class DeviceSettings {
     /** Пакет приложения, которое открыть при подключении ("" = ничего). */
     public String app = "";
     public int lowBattery = 15;
+    /** Машина: точка фокуса звука 0..5 (-1 = выкл), сила фокуса (CarFocusView.MODE_*), руль справа. */
+    public int carFocus = -1;
+    public int carMode = CarFocusView.MODE_NORMAL;
+    public boolean carRhd;
 
     private final String address;
 
@@ -37,6 +41,9 @@ public final class DeviceSettings {
                 s.popup = o.optBoolean("popup", true);
                 s.app = o.optString("app", "");
                 s.lowBattery = o.optInt("low", 15);
+                s.carFocus = o.optInt("car", -1);
+                s.carMode = o.optInt("carMode", CarFocusView.MODE_NORMAL);
+                s.carRhd = o.optBoolean("rhd", false);
             } catch (Exception ignored) {
             }
         }
@@ -51,6 +58,9 @@ public final class DeviceSettings {
             o.put("popup", popup);
             o.put("app", app);
             o.put("low", lowBattery);
+            o.put("car", carFocus);
+            o.put("carMode", carMode);
+            o.put("rhd", carRhd);
             prefs(c).edit().putString(address, o.toString()).apply();
         } catch (Exception ignored) {
         }

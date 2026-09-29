@@ -1,0 +1,19 @@
+# Сборка
+build/
+build-termux/
+app/build/
+.gradle/
+EQ.apk
+*.apk
+*.aab
+
+# Ключи подписи и токены — никогда не коммитить
+*.jks
+*.keystore
+.eq-github-token
+local.properties
+
+# IDE
+.idea/
+*.iml
+.DS_Store

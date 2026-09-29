@@ -74,6 +74,8 @@ public final class EqEngine {
     public float punch;        // 0 … 1
     public float boost;        // 0 … 12 dB
     public float balance;      // -1 (лево) … 1 (право)
+    /** Добавка к балансу от фокуса машины (CarFocusView). В профиле не сохраняется. */
+    public float carBalance;
     public boolean leveling;
     public boolean enabled;
 
@@ -244,8 +246,9 @@ public final class EqEngine {
         dp.setLimiterAllChannelsTo(new DynamicsProcessing.Limiter(true, true, 0, 1f, 60f, 10f, -1f, 0f));
 
         float base = preamp + boost;
-        dp.setInputGainbyChannel(0, base + (balance > 0 ? atten(balance) : 0f));
-        dp.setInputGainbyChannel(1, base + (balance < 0 ? atten(-balance) : 0f));
+        float bal = Math.max(-1f, Math.min(1f, balance + carBalance));
+        dp.setInputGainbyChannel(0, base + (bal > 0 ? atten(bal) : 0f));
+        dp.setInputGainbyChannel(1, base + (bal < 0 ? atten(-bal) : 0f));
         dp.setEnabled(enabled);
     }
 
@@ -359,6 +362,15 @@ public final class EqEngine {
         balance = Math.max(-1f, Math.min(1f, b));
         applyAll();
         save();
+    }
+
+    /** Фокус машины: применяется сразу, в профиль не пишется. */
+    public void setCarBalance(float b) {
+        b = Math.max(-0.9f, Math.min(0.9f, b));
+        if (Math.abs(b - carBalance) < 0.001f) return;
+        carBalance = b;
+        applyAll();
+        notifyChanged();
     }
 
     public void setLeveling(boolean on) {

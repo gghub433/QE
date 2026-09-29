@@ -128,6 +128,7 @@ public final class BudsPopup {
         open.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 Intent i = new Intent(ctx, MainActivity.class);
+                i.putExtra(MainActivity.EXTRA_TAB, MainActivity.TAB_EQ);
                 i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 ctx.startActivity(i);
                 hide();

@@ -97,6 +97,10 @@ public final class NowPlaying {
         }
     }
 
+    public boolean isStarted() {
+        return started;
+    }
+
     public void stop() {
         if (msm != null && started) {
             try {

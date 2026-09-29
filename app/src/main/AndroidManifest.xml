@@ -10,6 +10,11 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <!-- Только для визуализатора спектра: так Android называет доступ к звуку для визуализаторов -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Автозапуск после включения телефона и после обновления -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Автообновление с GitHub Releases -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!-- Чтобы можно было выбрать приложение, которое открывать при подключении устройства -->
     <queries>
@@ -82,6 +87,21 @@
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
             </intent-filter>
         </service>
+
+        <!-- Автозапуск службы после перезагрузки и после обновления приложения -->
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Ответ системного установщика при автообновлении -->
+        <receiver
+            android:name=".UpdateReceiver"
+            android:exported="false" />
 
         <service
             android:name=".PresetTileService"

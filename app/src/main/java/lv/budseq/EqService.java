@@ -16,6 +16,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.provider.Settings;
 
 import java.util.HashSet;
@@ -27,12 +28,15 @@ import java.util.Set;
  *  - держит эквалайзер (весь звук телефона + сессии плееров);
  *  - следит за Bluetooth-устройствами: всплывающее окно, заряд в уведомлении,
  *    предупреждение о низком заряде, громкость и приложение при подключении;
- *  - автовключение и свои настройки для каждого устройства.
+ *  - автовключение и свои настройки для каждого устройства, фокус звука в машине;
+ *  - Music Time: считает, сколько и кого слушаешь;
+ *  - раз в 12 часов проверяет обновления на GitHub.
  */
 public class EqService extends Service {
     private static final String CHANNEL = "eq";
     private static final String CHANNEL_ALERT = "alerts";
     private static final int NOTIF_MAIN = 1, NOTIF_APP = 3, NOTIF_LOW_BASE = 100;
+    private static final long STATS_TICK_MS = 15000, UPDATE_TICK_MS = 6L * 60 * 60 * 1000;
 
     private EqEngine eq;
     private BudsLink link;
@@ -42,6 +46,24 @@ public class EqService extends Service {
     private final Handler main = new Handler(Looper.getMainLooper());
     private final Set<String> lowWarned = new HashSet<>();
     private String pendingPopup;
+    private NowPlaying np;
+    private AudioManager am;
+    private long lastStatsTick;
+
+    /** Music Time: раз в 15 с — играет ли музыка и кто. */
+    private final Runnable statsTick = new Runnable() {
+        public void run() {
+            tickStats();
+            main.postDelayed(this, STATS_TICK_MS);
+        }
+    };
+
+    private final Runnable updateTick = new Runnable() {
+        public void run() {
+            Updater.autoCheck(EqService.this);
+            main.postDelayed(this, UPDATE_TICK_MS);
+        }
+    };
 
     private final Runnable showPending = new Runnable() {
         public void run() {
@@ -89,6 +111,10 @@ public class EqService extends Service {
         monitor = DeviceMonitor.get();
         popup = new BudsPopup(this);
         nm = getSystemService(NotificationManager.class);
+        am = (AudioManager) getSystemService(AUDIO_SERVICE);
+        np = new NowPlaying(this, new NowPlaying.Listener() {
+            public void onNowPlayingChanged() { }
+        });
 
         nm.createNotificationChannel(
                 new NotificationChannel(CHANNEL, getString(R.string.ch_eq), NotificationManager.IMPORTANCE_LOW));
@@ -120,6 +146,11 @@ public class EqService extends Service {
         monitor.start(this);
         syncProfileAndAuto();
         updateNotification();
+
+        np.start();
+        lastStatsTick = SystemClock.elapsedRealtime();
+        main.postDelayed(statsTick, STATS_TICK_MS);
+        main.postDelayed(updateTick, 20000); // не мешаем запуску
     }
 
     @Override
@@ -130,6 +161,11 @@ public class EqService extends Service {
 
     @Override
     public void onDestroy() {
+        main.removeCallbacks(statsTick);
+        main.removeCallbacks(updateTick);
+        tickStats();
+        ListenStats.get(this).saveNow();
+        np.stop();
         try { unregisterReceiver(sessionReceiver); } catch (Exception ignored) { }
         link.removeListener(budsListener);
         monitor.removeListener(deviceListener);
@@ -220,7 +256,7 @@ public class EqService extends Service {
         updateNotification();
     }
 
-    /** Автовключение и профиль под текущее звуковое устройство. */
+    /** Автовключение, профиль и фокус машины под текущее звуковое устройство. */
     private void syncProfileAndAuto() {
         DeviceInfo p = monitor.primaryAudio();
         if (eq.autoMode) eq.setEnabled(p != null);
@@ -228,6 +264,37 @@ public class EqService extends Service {
             if (p != null) eq.switchProfile(p.address, p.name);
             else eq.switchProfile("phone", getString(R.string.phone_speaker));
         }
+        CarFocusView.applyFocus(this);
+    }
+
+    // =====================================================================
+    // Music Time
+    // =====================================================================
+
+    private void tickStats() {
+        long now = SystemClock.elapsedRealtime();
+        long dt = (now - lastStatsTick) / 1000;
+        lastStatsTick = now;
+        if (dt <= 0) return;
+        // телефон спал — не засчитываем часы сна (плеер во время игры не даёт уснуть)
+        dt = Math.min(dt, 2 * STATS_TICK_MS / 1000);
+
+        if (!np.isStarted() && NowPlaying.hasAccess(this)) np.start(); // доступ выдали позже
+        String pkg = null, artist = null;
+        boolean playing;
+        if (np.active()) {
+            playing = np.playing();
+            pkg = np.packageName();
+            artist = np.artist();
+        } else {
+            // без доступа к уведомлениям — только общее время
+            try {
+                playing = am.isMusicActive();
+            } catch (Exception e) {
+                playing = false;
+            }
+        }
+        if (playing) ListenStats.get(this).add(dt, pkg, artist);
     }
 
     private void checkLowBattery() {

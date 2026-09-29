@@ -13,6 +13,7 @@ import android.content.pm.ResolveInfo;
 import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.Icon;
@@ -42,11 +43,14 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -63,6 +67,12 @@ public class MainActivity extends Activity {
 
     private static final int REQ_PERMS = 1, REQ_AUDIO = 2, REQ_SAVE = 10, REQ_OPEN = 11;
 
+    /** Вкладки: Устройство / Эквалайзер / Музыка / Настройки. */
+    static final int TAB_DEVICE = 0, TAB_EQ = 1, TAB_MUSIC = 2, TAB_SETTINGS = 3, TAB_COUNT = 4;
+    static final String EXTRA_TAB = "tab", EXTRA_CHECK_UPDATE = "check_update";
+    private static final int[] TAB_TITLES = {R.string.tab_device, R.string.tab_eq, R.string.tab_music, R.string.tab_settings};
+    private static final int[] TAB_ICONS = {R.drawable.ic_headset, R.drawable.ic_equalizer, R.drawable.ic_music, R.drawable.ic_settings};
+
     /** Популярные музыкальные приложения — показываются первыми в выборе. */
     private static final List<String> MUSIC_APPS = Arrays.asList(
             "com.spotify.music", "com.google.android.apps.youtube.music", "com.google.android.youtube",
@@ -78,6 +88,36 @@ public class MainActivity extends Activity {
     private final Spectrum spectrum = new Spectrum();
     private boolean updating;
     private String pendingExport;
+
+    // вкладки
+    private final ScrollView[] pages = new ScrollView[TAB_COUNT];
+    private final ImageView[] navIcons = new ImageView[TAB_COUNT];
+    private final TextView[] navLabels = new TextView[TAB_COUNT];
+    private TextView headerTitle;
+    private int tab = TAB_DEVICE;
+    private Object backCallback;   // OnBackInvokedCallback (Android 13+), хранится как Object
+
+    // машина
+    private LinearLayout carBox;
+    private CarFocusView carView;
+    private TextView carStatus;
+    private final Button[] carModeBtns = new Button[3];
+    private Button carRhdBtn, carOffBtn;
+    private String carAddress;
+
+    // Music Time
+    private MusicTimeView mtView;
+    private TextView mtToday, mtWeek, mtHint;
+    private LinearLayout mtTopBox;
+    private int mtTicks;
+    private WaveView wave;
+
+    // настройки
+    private Button langBtn, popupBtn2;
+    private Switch autostartSwitch, updAutoSwitch;
+    private TextView updStatus, carNote;
+    private Button updCheckBtn, updInstallBtn;
+    private Updater.Release updRelease;
 
     // устройства
     private String selected;
@@ -115,6 +155,7 @@ public class MainActivity extends Activity {
     private final Runnable npTicker = new Runnable() {
         public void run() {
             updateProgress();
+            if (tab == TAB_MUSIC && ++mtTicks % 20 == 0) refreshMusicTime();
             ui.postDelayed(this, 1000);
         }
     };
@@ -163,39 +204,72 @@ public class MainActivity extends Activity {
         EqTileService.ensureService(this);
 
         getWindow().setStatusBarColor(Color.BLACK);
-        getWindow().setNavigationBarColor(Color.BLACK);
+        getWindow().setNavigationBarColor(NAV_BG);
 
-        ScrollView scroll = new ScrollView(this);
-        scroll.setBackgroundColor(Color.BLACK);
-        scroll.setFitsSystemWindows(true); // Android 15+: не залезать под строку состояния
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(16), dp(20), dp(16), dp(32));
-        scroll.addView(root);
+        // экран: заголовок + 4 вкладки + нижняя панель
+        LinearLayout frame = new LinearLayout(this);
+        frame.setOrientation(LinearLayout.VERTICAL);
+        frame.setBackgroundColor(Color.BLACK);
+        frame.setFitsSystemWindows(true); // Android 15+: не залезать под строку состояния и навигацию
 
-        buildHeader(root);
-        buildDevices(root);
-        buildNowPlaying(root);
-        buildEqualizer(root);
-        buildSound(root);
-        buildPresets(root);
-        buildAutomation(root);
+        buildHeader(frame);
 
+        FrameLayout pagesBox = new FrameLayout(this);
+        LinearLayout[] roots = new LinearLayout[TAB_COUNT];
+        for (int i = 0; i < TAB_COUNT; i++) {
+            ScrollView sv = new ScrollView(this);
+            sv.setVisibility(View.GONE);
+            LinearLayout root = new LinearLayout(this);
+            root.setOrientation(LinearLayout.VERTICAL);
+            root.setPadding(dp(16), dp(4), dp(16), dp(28));
+            sv.addView(root);
+            pagesBox.addView(sv, new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            pages[i] = sv;
+            roots[i] = root;
+        }
+
+        buildDevices(roots[TAB_DEVICE]);
+        buildCar(roots[TAB_DEVICE]);
+
+        buildEqualizer(roots[TAB_EQ]);
+        buildSound(roots[TAB_EQ]);
+        buildPresets(roots[TAB_EQ]);
         TextView tip = text(getString(R.string.tip_wearable), 12, GREY);
         tip.setPadding(dp(4), dp(20), dp(4), 0);
-        root.addView(tip);
+        roots[TAB_EQ].addView(tip);
 
-        setContentView(scroll);
+        buildNowPlaying(roots[TAB_MUSIC]);
+        buildMusicTime(roots[TAB_MUSIC]);
+
+        buildSettings(roots[TAB_SETTINGS]);
+
+        frame.addView(pagesBox, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
+        frame.addView(buildNav());
+        setContentView(frame);
+
         refreshEq();
         refreshDevices();
-        handleEffectIntent(getIntent());
+        selectTab(getIntent().getIntExtra(EXTRA_TAB, settings.getInt("tab", TAB_DEVICE)), false);
+        handleIntent(getIntent());
     }
 
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
-        handleEffectIntent(intent);
+        if (intent.hasExtra(EXTRA_TAB)) selectTab(intent.getIntExtra(EXTRA_TAB, tab), true);
+        handleIntent(intent);
+    }
+
+    private void handleIntent(Intent i) {
+        if (i == null) return;
+        handleEffectIntent(i);
+        if (i.getBooleanExtra(EXTRA_CHECK_UPDATE, false)) {
+            i.removeExtra(EXTRA_CHECK_UPDATE);
+            selectTab(TAB_SETTINGS, false);
+            checkUpdates(true);
+        }
     }
 
     /** Spotify (или другой плеер) → «Эквалайзер»: подключаемся прямо к его звуку. */
@@ -208,25 +282,21 @@ public class MainActivity extends Activity {
         String who = pkg == null || pkg.isEmpty() ? getString(R.string.player_generic) : appLabel(pkg);
         Toast.makeText(this, getString(R.string.eq_attached, who), Toast.LENGTH_LONG).show();
         setResult(RESULT_OK);
+        selectTab(TAB_EQ, false);
         updateStatus();
     }
 
     private void buildHeader(LinearLayout root) {
         LinearLayout head = new LinearLayout(this);
         head.setGravity(Gravity.CENTER_VERTICAL);
-        head.addView(text(getString(R.string.eq_title), 26, Color.WHITE),
-                new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        head.setPadding(dp(20), dp(12), dp(16), dp(8));
+        headerTitle = text(getString(R.string.tab_device), 26, Color.WHITE);
+        headerTitle.getPaint().setFakeBoldText(true);
+        head.addView(headerTitle, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
 
-        ImageButton langBtn = new ImageButton(this);
-        langBtn.setImageDrawable(icon(R.drawable.ic_language, Color.WHITE));
-        langBtn.setBackground(round(CARD, 22));
-        langBtn.setContentDescription(getString(R.string.language));
-        langBtn.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) { showLanguageDialog(); }
-        });
-        LinearLayout.LayoutParams llp = new LinearLayout.LayoutParams(dp(44), dp(44));
-        llp.rightMargin = dp(12);
-        head.addView(langBtn, llp);
+        TextView eqLabel = text(getString(R.string.app_name), 14, GREY);
+        eqLabel.setPadding(0, 0, dp(6), 0);
+        head.addView(eqLabel);
 
         mainSwitch = styledSwitch();
         mainSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
@@ -236,6 +306,124 @@ public class MainActivity extends Activity {
         });
         head.addView(mainSwitch);
         root.addView(head);
+    }
+
+    // =====================================================================
+    // Вкладки
+    // =====================================================================
+
+    // как фон экрана: на Android 15+ под панелью навигации видно фон окна — без «ступеньки»
+    private static final int NAV_BG = Color.BLACK;
+
+    private View buildNav() {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        View line = new View(this);
+        line.setBackgroundColor(CARD);
+        box.addView(line, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Math.max(1, dp(1))));
+
+        LinearLayout nav = new LinearLayout(this);
+        nav.setBackgroundColor(NAV_BG);
+        nav.setPadding(dp(4), dp(8), dp(4), dp(8));
+        for (int i = 0; i < TAB_COUNT; i++) {
+            final int index = i;
+            LinearLayout item = new LinearLayout(this);
+            item.setOrientation(LinearLayout.VERTICAL);
+            item.setGravity(Gravity.CENTER_HORIZONTAL);
+            item.setContentDescription(getString(TAB_TITLES[i]));
+            ImageView ic = new ImageView(this);
+            ic.setScaleType(ImageView.ScaleType.CENTER);
+            item.addView(ic, new LinearLayout.LayoutParams(dp(60), dp(32)));
+            TextView t = text(getString(TAB_TITLES[i]), 12, GREY);
+            t.setSingleLine(true);
+            t.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            t.setGravity(Gravity.CENTER);
+            t.setPadding(dp(2), dp(4), dp(2), 0);
+            item.addView(t, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT));
+            item.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) { selectTab(index, true); }
+            });
+            navIcons[i] = ic;
+            navLabels[i] = t;
+            nav.addView(item, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        }
+        box.addView(nav);
+        return box;
+    }
+
+    private void selectTab(int t, boolean animate) {
+        if (t < 0 || t >= TAB_COUNT) t = TAB_DEVICE;
+        int prev = tab;
+        tab = t;
+        for (int i = 0; i < TAB_COUNT; i++) {
+            boolean on = i == t;
+            pages[i].setVisibility(on ? View.VISIBLE : View.GONE);
+            navIcons[i].setImageDrawable(icon(TAB_ICONS[i], on ? Color.WHITE : GREY));
+            navIcons[i].setBackground(on ? round(ACCENT, 16) : null);
+            navLabels[i].setTextColor(on ? Color.WHITE : GREY);
+            navLabels[i].setTypeface(on ? Typeface.DEFAULT_BOLD : Typeface.DEFAULT);
+        }
+        headerTitle.setText(TAB_TITLES[t]);
+        settings.edit().putInt("tab", t).apply();
+        if (animate && prev != t) {
+            pages[t].setAlpha(0f);
+            pages[t].setTranslationY(dp(10));
+            pages[t].animate().alpha(1f).translationY(0).setDuration(180).start();
+        }
+        // спектр нужен только на вкладке эквалайзера
+        if (t == TAB_EQ) {
+            if (visible && spectrumWanted() && granted("android.permission.RECORD_AUDIO")) startSpectrum();
+        } else {
+            spectrum.stop();
+            graph.setSpectrum(null);
+        }
+        if (t == TAB_MUSIC) refreshMusicTime();
+        if (t == TAB_SETTINGS) refreshSettings();
+        updateBackCallback();
+    }
+
+    /** «Назад» с любой вкладки ведёт на первую, с первой — выход. */
+    private void updateBackCallback() {
+        if (Build.VERSION.SDK_INT < 33) return; // там работает onBackPressed()
+        boolean need = tab != TAB_DEVICE;
+        if (need && backCallback == null) {
+            backCallback = Back33.register(this, new Runnable() {
+                public void run() { selectTab(TAB_DEVICE, true); }
+            });
+        } else if (!need && backCallback != null) {
+            Back33.unregister(this, backCallback);
+            backCallback = null;
+        }
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (tab != TAB_DEVICE) {
+            selectTab(TAB_DEVICE, true);
+            return;
+        }
+        super.onBackPressed();
+    }
+
+    /**
+     * Android 13+: с targetSdk 36 onBackPressed() больше не вызывается — нужен OnBackInvokedCallback.
+     * Отдельный класс, чтобы на Android 9–12 не грузились классы, которых там нет.
+     */
+    private static final class Back33 {
+        static Object register(Activity a, final Runnable r) {
+            android.window.OnBackInvokedCallback cb = new android.window.OnBackInvokedCallback() {
+                public void onBackInvoked() { r.run(); }
+            };
+            a.getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
+                    android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT, cb);
+            return cb;
+        }
+
+        static void unregister(Activity a, Object cb) {
+            a.getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(
+                    (android.window.OnBackInvokedCallback) cb);
+        }
     }
 
     private void buildDevices(LinearLayout root) {
@@ -433,6 +621,8 @@ public class MainActivity extends Activity {
                 if (fromUser) eq.setBalance(v / 100f);
             }
         });
+        carNote = hintText("");
+        root.addView(carNote);
 
         levelSwitch = styledSwitch();
         root.addView(switchRow(getString(R.string.leveling), getString(R.string.leveling_hint), levelSwitch));
@@ -519,12 +709,434 @@ public class MainActivity extends Activity {
             }
         });
 
+        autostartSwitch = styledSwitch();
+        root.addView(switchRow(getString(R.string.autostart), getString(R.string.autostart_hint), autostartSwitch));
+        autostartSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            public void onCheckedChanged(CompoundButton v, boolean on) {
+                if (!updating) BootReceiver.setEnabled(MainActivity.this, on);
+            }
+        });
+
         LinearLayout tiles = new LinearLayout(this);
         tiles.setPadding(0, dp(12), 0, 0);
         tiles.addView(chip(getString(R.string.add_tile), R.drawable.ic_tiles, CHIP, new View.OnClickListener() {
             public void onClick(View v) { addTiles(); }
         }));
         root.addView(hscroll(tiles));
+    }
+
+    // =====================================================================
+    // Машина: фокус звука
+    // =====================================================================
+
+    private void buildCar(LinearLayout root) {
+        carBox = new LinearLayout(this);
+        carBox.setOrientation(LinearLayout.VERTICAL);
+        carBox.addView(section(getString(R.string.car_title)));
+        carBox.addView(hintText(getString(R.string.car_hint)));
+
+        carView = new CarFocusView(this);
+        carView.setBackground(round(CARD, 24));
+        carView.setListener(new CarFocusView.Listener() {
+            public void onFocusChanged(int point) {
+                DeviceSettings ds = carSettings();
+                if (ds == null) return;
+                ds.carFocus = point;
+                ds.save(MainActivity.this);
+                CarFocusView.applyFocus(MainActivity.this);
+                refreshCar();
+            }
+        });
+        LinearLayout.LayoutParams vlp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(440));
+        vlp.topMargin = dp(8);
+        carBox.addView(carView, vlp);
+
+        carStatus = text("", 14, Color.WHITE);
+        carStatus.setPadding(dp(4), dp(10), dp(4), dp(6));
+        carBox.addView(carStatus);
+
+        LinearLayout modes = new LinearLayout(this);
+        carOffBtn = chip(getString(R.string.off), 0, CHIP, new View.OnClickListener() {
+            public void onClick(View v) { setCarFocus(-1, -1); }
+        });
+        modes.addView(carOffBtn);
+        int[] names = {R.string.car_soft, R.string.car_normal, R.string.car_strong};
+        for (int i = 0; i < 3; i++) {
+            final int mode = i;
+            carModeBtns[i] = chip(getString(names[i]), 0, CHIP, new View.OnClickListener() {
+                public void onClick(View v) { setCarFocus(-2, mode); }
+            });
+            modes.addView(carModeBtns[i]);
+        }
+        carRhdBtn = chip(getString(R.string.car_rhd), R.drawable.ic_car, CHIP, new View.OnClickListener() {
+            public void onClick(View v) {
+                DeviceSettings ds = carSettings();
+                if (ds == null) return;
+                ds.carRhd = !ds.carRhd;
+                ds.save(MainActivity.this);
+                refreshCar();
+            }
+        });
+        modes.addView(carRhdBtn);
+        carBox.addView(hscroll(modes));
+        root.addView(carBox);
+    }
+
+    private DeviceSettings carSettings() {
+        return carAddress == null ? null : DeviceSettings.get(this, carAddress);
+    }
+
+    /** point: -1 выключить, -2 не менять; mode: -1 не менять. */
+    private void setCarFocus(int point, int mode) {
+        DeviceSettings ds = carSettings();
+        if (ds == null) return;
+        if (point != -2) ds.carFocus = point;
+        if (mode >= 0) {
+            ds.carMode = mode;
+            if (ds.carFocus < 0) ds.carFocus = ds.carRhd ? 2 : 0; // сила без точки — фокус на водителя
+        }
+        ds.save(this);
+        CarFocusView.applyFocus(this);
+        refreshCar();
+    }
+
+    private void refreshCar() {
+        DeviceInfo dev = DeviceMonitor.get().find(carAddress);
+        boolean show = dev != null && dev.type == DeviceInfo.T_CAR;
+        carBox.setVisibility(show ? View.VISIBLE : View.GONE);
+        if (!show) return;
+        DeviceSettings ds = DeviceSettings.get(this, dev.address);
+        carView.setState(ds.carFocus, ds.carMode, ds.carRhd);
+        carOffBtn.setBackground(round(ds.carFocus < 0 ? ACCENT : CHIP, 24));
+        for (int i = 0; i < carModeBtns.length; i++) {
+            carModeBtns[i].setBackground(round(ds.carFocus >= 0 && ds.carMode == i ? ACCENT : CHIP, 24));
+        }
+        carRhdBtn.setBackground(round(ds.carRhd ? ACCENT : CHIP, 24));
+        if (ds.carFocus < 0) {
+            carStatus.setText(R.string.car_status_off);
+        } else {
+            int b = Math.round(CarFocusView.balanceFor(ds.carFocus, ds.carMode) * 100);
+            String s = getString(R.string.car_status,
+                    getString(CarFocusView.labelRes(ds.carFocus, ds.carRhd)), balanceLabel(b));
+            DeviceInfo primary = DeviceMonitor.get().primaryAudio();
+            if (primary == null || !primary.address.equals(dev.address)) s += "\n" + getString(R.string.car_pending);
+            carStatus.setText(s);
+        }
+    }
+
+    // =====================================================================
+    // Music Time
+    // =====================================================================
+
+    private void buildMusicTime(LinearLayout root) {
+        root.addView(section(getString(R.string.music_time)));
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(16), dp(14), dp(16), dp(14));
+        card.setBackground(round(CARD, 24));
+
+        LinearLayout head = new LinearLayout(this);
+        head.setGravity(Gravity.BOTTOM);
+        mtToday = text("", 28, Color.WHITE);
+        mtToday.getPaint().setFakeBoldText(true);
+        head.addView(mtToday);
+        TextView todayLbl = text(getString(R.string.mt_today), 14, GREY);
+        todayLbl.setPadding(dp(8), 0, 0, dp(5));
+        head.addView(todayLbl);
+        card.addView(head);
+        mtWeek = text("", 13, Color.rgb(0xC8, 0xCA, 0xD0));
+        mtWeek.setPadding(0, dp(2), 0, 0);
+        card.addView(mtWeek);
+
+        mtView = new MusicTimeView(this);
+        LinearLayout.LayoutParams vlp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(160));
+        vlp.topMargin = dp(8);
+        card.addView(mtView, vlp);
+
+        mtTopBox = new LinearLayout(this);
+        mtTopBox.setOrientation(LinearLayout.VERTICAL);
+        card.addView(mtTopBox);
+        root.addView(card);
+
+        mtHint = hintText("");
+        mtHint.setPadding(dp(4), dp(8), dp(4), 0);
+        root.addView(mtHint);
+
+        LinearLayout actions = new LinearLayout(this);
+        actions.setPadding(0, dp(8), 0, 0);
+        actions.addView(chip(getString(R.string.mt_reset), R.drawable.ic_stop, CHIP, new View.OnClickListener() {
+            public void onClick(View v) {
+                new AlertDialog.Builder(MainActivity.this)
+                        .setTitle(R.string.mt_reset_q)
+                        .setPositiveButton(R.string.delete, new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface d, int w) {
+                                ListenStats.get(MainActivity.this).reset();
+                                refreshMusicTime();
+                            }
+                        })
+                        .setNegativeButton(R.string.cancel, null)
+                        .show();
+            }
+        }));
+        root.addView(hscroll(actions));
+    }
+
+    private String duration(long s) {
+        long h = s / 3600, m = (s % 3600) / 60;
+        return h > 0 ? getString(R.string.time_hm, h, m) : getString(R.string.time_m, m);
+    }
+
+    private void refreshMusicTime() {
+        if (mtView == null) return;
+        ListenStats st = ListenStats.get(this);
+        long[] days = st.lastDays(7);
+        String[] labels = new String[7];
+        Locale loc = getResources().getConfiguration().getLocales().get(0);
+        SimpleDateFormat fmt = new SimpleDateFormat("EE", loc);
+        Calendar cal = Calendar.getInstance();
+        cal.add(Calendar.DAY_OF_YEAR, -6);
+        long week = 0;
+        for (int i = 0; i < 7; i++) {
+            labels[i] = fmt.format(cal.getTime());
+            cal.add(Calendar.DAY_OF_YEAR, 1);
+            week += days[i];
+        }
+        mtView.setData(days, labels);
+        mtToday.setText(duration(days[6]));
+        mtWeek.setText(getString(R.string.mt_week, duration(week), duration(week / 7)));
+
+        mtTopBox.removeAllViews();
+        List<ListenStats.Entry> artists = st.topArtists(5);
+        if (!artists.isEmpty()) {
+            mtTopBox.addView(label(getString(R.string.mt_top_artists)));
+            long max = artists.get(0).seconds;
+            for (int i = 0; i < artists.size(); i++) {
+                ListenStats.Entry e = artists.get(i);
+                mtTopBox.addView(statRow((i + 1) + ".  " + e.name, e.seconds, max, null));
+            }
+        }
+        List<ListenStats.Entry> apps = st.topApps(3);
+        if (!apps.isEmpty()) {
+            mtTopBox.addView(label(getString(R.string.mt_top_apps)));
+            long max = apps.get(0).seconds;
+            for (ListenStats.Entry e : apps) {
+                Drawable ic = null;
+                try {
+                    ic = getPackageManager().getApplicationIcon(e.name);
+                } catch (Exception ignored) {
+                }
+                mtTopBox.addView(statRow(appLabel(e.name), e.seconds, max, ic));
+            }
+        }
+        if (st.isEmpty()) {
+            mtHint.setText(R.string.mt_empty);
+        } else if (!NowPlaying.hasAccess(this)) {
+            mtHint.setText(R.string.mt_no_access);
+        } else {
+            mtHint.setText(R.string.mt_hint);
+        }
+    }
+
+    /** Строка «имя … время» с полоской доли от лидера. */
+    private View statRow(String name, long secs, long max, Drawable ic) {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(0, dp(4), 0, dp(4));
+        LinearLayout row = new LinearLayout(this);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        TextView n = text(name, 14, Color.WHITE);
+        n.setSingleLine(true);
+        n.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        if (ic != null) {
+            ic.setBounds(0, 0, dp(18), dp(18));
+            n.setCompoundDrawablesRelative(ic, null, null, null);
+            n.setCompoundDrawablePadding(dp(8));
+        }
+        row.addView(n, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        TextView t = text(duration(secs), 13, GREY);
+        t.setPadding(dp(8), 0, 0, 0);
+        row.addView(t);
+        box.addView(row);
+        View bar = new View(this);
+        bar.setBackground(round(Color.rgb(0x4A, 0x5E, 0x8C), 2));
+        LinearLayout barRow = new LinearLayout(this);
+        barRow.setPadding(0, dp(4), 0, 0);
+        float part = max > 0 ? Math.max(0.03f, secs / (float) max) : 0f;
+        barRow.addView(bar, new LinearLayout.LayoutParams(0, dp(3), part));
+        barRow.addView(new View(this), new LinearLayout.LayoutParams(0, dp(3), 1f - part + 0.0001f));
+        box.addView(barRow, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(7)));
+        return box;
+    }
+
+    // =====================================================================
+    // Настройки: язык, автоматизация, всплывающее окно, обновления
+    // =====================================================================
+
+    private void buildSettings(LinearLayout root) {
+        root.addView(section(getString(R.string.language)));
+        langBtn = chip("", R.drawable.ic_language, CHIP, new View.OnClickListener() {
+            public void onClick(View v) { showLanguageDialog(); }
+        });
+        LinearLayout lang = new LinearLayout(this);
+        lang.addView(langBtn);
+        root.addView(hscroll(lang));
+
+        buildAutomation(root);
+
+        root.addView(section(getString(R.string.popup_on)));
+        root.addView(hintText(getString(R.string.popup_hint)));
+        LinearLayout pop = new LinearLayout(this);
+        pop.setPadding(0, dp(8), 0, 0);
+        popupBtn2 = chip("", R.drawable.ic_layers, CHIP, new View.OnClickListener() {
+            public void onClick(View v) {
+                startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.parse("package:" + getPackageName())));
+            }
+        });
+        pop.addView(popupBtn2);
+        root.addView(hscroll(pop));
+
+        // обновления
+        root.addView(section(getString(R.string.upd_title)));
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(16), dp(14), dp(16), dp(6));
+        card.setBackground(round(CARD, 24));
+        TextView ver = text(getString(R.string.upd_version, Updater.currentVersion(this)), 16, Color.WHITE);
+        ver.getPaint().setFakeBoldText(true);
+        card.addView(ver);
+        updStatus = text(getString(R.string.upd_hint), 13, Color.rgb(0xC8, 0xCA, 0xD0));
+        updStatus.setPadding(0, dp(4), 0, dp(10));
+        card.addView(updStatus);
+        LinearLayout ub = new LinearLayout(this);
+        updCheckBtn = chip(getString(R.string.upd_check), R.drawable.ic_download, CHIP, new View.OnClickListener() {
+            public void onClick(View v) { checkUpdates(true); }
+        });
+        ub.addView(updCheckBtn);
+        updInstallBtn = chip(getString(R.string.upd_install), R.drawable.ic_check, ACCENT, new View.OnClickListener() {
+            public void onClick(View v) {
+                if (updRelease != null) startUpdate(updRelease);
+            }
+        });
+        updInstallBtn.setVisibility(View.GONE);
+        ub.addView(updInstallBtn);
+        card.addView(hscroll(ub));
+        updAutoSwitch = styledSwitch();
+        LinearLayout autoRow = switchRow(getString(R.string.upd_auto), getString(R.string.upd_auto_hint), updAutoSwitch);
+        autoRow.setPadding(0, dp(4), 0, dp(8));
+        card.addView(autoRow);
+        updAutoSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            public void onCheckedChanged(CompoundButton v, boolean on) {
+                if (!updating) Updater.setAutoEnabled(MainActivity.this, on);
+            }
+        });
+        root.addView(card);
+
+        root.addView(section(getString(R.string.sec_about)));
+        root.addView(hintText(getString(R.string.tagline) + " · " + getString(R.string.upd_version,
+                Updater.currentVersion(this))));
+    }
+
+    private void refreshSettings() {
+        if (langBtn == null) return;
+        String cur = Lang.get(this);
+        String name = getString(R.string.lang_system);
+        for (int i = 1; i < Lang.CODES.length; i++) {
+            if (Lang.CODES[i].equals(cur)) name = Lang.NATIVE[i];
+        }
+        langBtn.setText(name);
+        updatePopupButtons();
+        updating = true;
+        autostartSwitch.setChecked(BootReceiver.enabled(this));
+        updAutoSwitch.setChecked(Updater.autoEnabled(this));
+        updating = false;
+    }
+
+    private void updatePopupButtons() {
+        boolean on = BudsPopup.allowed(this);
+        popupBtn.setText(on ? R.string.popup_on : R.string.popup_enable);
+        setChipIcon(popupBtn, on ? R.drawable.ic_check : R.drawable.ic_layers);
+        popupBtn2.setText(on ? R.string.popup_on : R.string.popup_enable);
+        setChipIcon(popupBtn2, on ? R.drawable.ic_check : R.drawable.ic_layers);
+        popupBtn2.setBackground(round(on ? CHIP : ACCENT, 24));
+    }
+
+    // ---------- обновления ----------
+
+    private void checkUpdates(final boolean showDialog) {
+        updStatus.setText(R.string.upd_checking);
+        updCheckBtn.setEnabled(false);
+        Updater.check(this, new Updater.CheckCallback() {
+            public void onChecked(Updater.Release newer, String error) {
+                if (isFinishing() || isDestroyed()) return;
+                updCheckBtn.setEnabled(true);
+                updRelease = newer;
+                updInstallBtn.setVisibility(newer != null && newer.apkUrl != null ? View.VISIBLE : View.GONE);
+                if (error != null) {
+                    updStatus.setText(getString(R.string.upd_failed, error));
+                } else if (newer == null) {
+                    updStatus.setText(R.string.upd_latest);
+                } else if (newer.apkUrl == null) {
+                    updStatus.setText(getString(R.string.upd_no_apk, newer.version));
+                } else {
+                    updStatus.setText(getString(R.string.upd_available, newer.version));
+                    if (showDialog) showUpdateDialog(newer);
+                }
+            }
+        });
+    }
+
+    private void showUpdateDialog(final Updater.Release r) {
+        String notes = r.notes.length() > 1500 ? r.notes.substring(0, 1500) + "…" : r.notes;
+        new AlertDialog.Builder(this)
+                .setTitle(getString(R.string.upd_available, r.version))
+                .setMessage(notes.isEmpty() ? getString(R.string.upd_no_notes) : notes)
+                .setPositiveButton(R.string.upd_install, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface d, int w) { startUpdate(r); }
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    private void startUpdate(final Updater.Release r) {
+        if (Updater.isBusy()) return;
+        if (!Updater.canInstall(this)) {
+            new AlertDialog.Builder(this)
+                    .setTitle(R.string.upd_title)
+                    .setMessage(R.string.upd_permission)
+                    .setPositiveButton(R.string.open_settings, new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface d, int w) {
+                            startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                                    Uri.parse("package:" + getPackageName())));
+                        }
+                    })
+                    .setNegativeButton(R.string.cancel, null)
+                    .show();
+            return;
+        }
+        updInstallBtn.setEnabled(false);
+        updStatus.setText(getString(R.string.upd_downloading, 0));
+        Updater.download(this, r, new Updater.DownloadCallback() {
+            public void onProgress(int percent) {
+                updStatus.setText(getString(R.string.upd_downloading, percent));
+            }
+
+            public void onDone(File apk, String error) {
+                if (isFinishing() || isDestroyed()) return;
+                updInstallBtn.setEnabled(true);
+                if (error != null) {
+                    updStatus.setText(getString(R.string.upd_failed, error));
+                    return;
+                }
+                updStatus.setText(R.string.upd_installing);
+                ListenStats.get(MainActivity.this).saveNow(); // установка перезапустит приложение
+                try {
+                    Updater.install(MainActivity.this, apk);
+                } catch (Exception e) {
+                    updStatus.setText(getString(R.string.upd_failed, String.valueOf(e.getMessage())));
+                }
+            }
+        });
     }
 
     // =====================================================================
@@ -541,13 +1153,12 @@ public class MainActivity extends Activity {
         DeviceMonitor.get().refresh();
         refreshDevices();
         refreshEq();
-        boolean on = BudsPopup.allowed(this);
-        popupBtn.setText(on ? R.string.popup_on : R.string.popup_enable);
-        setChipIcon(popupBtn, on ? R.drawable.ic_check : R.drawable.ic_layers);
+        refreshSettings();
+        if (tab == TAB_MUSIC) refreshMusicTime();
         ui.postDelayed(new Runnable() {
             public void run() { updateStatus(); }
         }, 600);
-        if (spectrumWanted() && granted("android.permission.RECORD_AUDIO")) startSpectrum();
+        if (tab == TAB_EQ && spectrumWanted() && granted("android.permission.RECORD_AUDIO")) startSpectrum();
         np.start();
         refreshNowPlaying();
         ui.removeCallbacks(npTicker);
@@ -633,6 +1244,11 @@ public class MainActivity extends Activity {
         touchBtn.setBackground(round(locked ? ACCENT : CHIP, 24));
         String fw = bs.fwEq >= 0 && bs.fwEq <= 5 ? getString(fwEqName(bs.fwEq)) : "—";
         fwEqBtn.setText(getString(R.string.fw_eq, fw));
+
+        // кнопка разрешения окна — только пока его нет (всегда есть на вкладке «Настройки»)
+        popupBtn.setVisibility(BudsPopup.allowed(this) ? View.GONE : View.VISIBLE);
+        carAddress = sel == null ? null : sel.address;
+        refreshCar();
     }
 
     private static int fwEqName(int i) {
@@ -932,6 +1548,11 @@ public class MainActivity extends Activity {
         top.addView(texts, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
         npCard.addView(top);
 
+        wave = new WaveView(this);
+        LinearLayout.LayoutParams wlp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(52));
+        wlp.topMargin = dp(8);
+        npCard.addView(wave, wlp);
+
         // прогресс
         npSeek = new SeekBar(this);
         tint(npSeek);
@@ -1105,6 +1726,8 @@ public class MainActivity extends Activity {
         }
 
         npPlay.setImageDrawable(icon(np.playing() ? R.drawable.ic_pause : R.drawable.ic_play, Color.WHITE));
+        wave.setPlaying(np.playing());
+        wave.setColor(art != null ? waveColor(art) : 0);
         long dur = np.duration();
         npSeek.setVisibility(dur > 0 ? View.VISIBLE : View.GONE);
         npTime.setVisibility(dur > 0 ? View.VISIBLE : View.GONE);
@@ -1141,6 +1764,21 @@ public class MainActivity extends Activity {
         }
     }
 
+    /** Яркий цвет из обложки — для волны. */
+    private static int waveColor(Bitmap b) {
+        try {
+            Bitmap one = Bitmap.createScaledBitmap(b, 1, 1, true);
+            float[] hsv = new float[3];
+            Color.colorToHSV(one.getPixel(0, 0), hsv);
+            if (hsv[1] < 0.2f) return 0; // серая обложка — берём акцент
+            hsv[1] = Math.max(0.55f, hsv[1]);
+            hsv[2] = Math.max(0.9f, hsv[2]);
+            return Color.HSVToColor(hsv);
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
     private ImageButton roundButton(int iconRes, int sizeDp, int bg, int descRes, View.OnClickListener click) {
         ImageButton b = new ImageButton(this);
         b.setImageDrawable(icon(iconRes, Color.WHITE));
@@ -1169,6 +1807,9 @@ public class MainActivity extends Activity {
         balanceBar.setProgress(Math.round(eq.balance * 100) + 100);
         balanceVal.setText(balanceLabel(Math.round(eq.balance * 100)));
         levelSwitch.setChecked(eq.leveling);
+        int car = Math.round(eq.carBalance * 100);
+        carNote.setVisibility(car != 0 ? View.VISIBLE : View.GONE);
+        carNote.setText(getString(R.string.car_note, balanceLabel(car)));
         autoSwitch.setChecked(eq.autoMode);
         perDeviceSwitch.setChecked(eq.perDevice);
         profileText.setVisibility(eq.perDevice ? View.VISIBLE : View.GONE);

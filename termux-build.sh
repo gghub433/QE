@@ -4,6 +4,10 @@
 set -e
 cd "$(dirname "$0")"
 
+# Версия — та же, что в app/build.gradle (поднимать в обоих местах)
+VERSION_CODE=9
+VERSION_NAME=5.0
+
 SDK="$HOME/android-sdk"
 JAR="$SDK/android-36.jar"
 KS="$HOME/.budseq-debug.keystore"
@@ -49,7 +53,7 @@ sed -e 's|<manifest xmlns|<manifest package="lv.budseq" xmlns|' \
 aapt2 compile --dir app/src/main/res -o "$B/res.zip"
 aapt2 link -o "$B/base.apk" -I "$JAR" --manifest "$B/AndroidManifest.xml" \
     --min-sdk-version 28 --target-sdk-version 36 \
-    --version-code 8 --version-name 4.4 --java "$B/gen" "$B/res.zip"
+    --version-code "$VERSION_CODE" --version-name "$VERSION_NAME" --java "$B/gen" "$B/res.zip"
 
 echo "=== 5/7 Компиляция Java ==="
 javac -source 8 -target 8 -nowarn -Xlint:-options -encoding UTF-8 -bootclasspath "$JAR" \

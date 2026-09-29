@@ -2,6 +2,11 @@ plugins {
     id 'com.android.application'
 }
 
+// Подпись релиза для GitHub Actions: ключ приходит из секретов (см. README → «Автообновление»).
+// Без ключа релиз подписывается debug-ключом раннера — такой APK не встанет поверх твоей сборки.
+def ksPath = System.getenv('EQ_KEYSTORE')
+def hasKeystore = ksPath != null && new File(ksPath).exists()
+
 android {
     namespace 'lv.budseq'
     compileSdk 36
@@ -10,12 +15,35 @@ android {
         applicationId 'lv.budseq'
         minSdk 28
         targetSdk 36
-        versionCode 8
-        versionName '4.4'
+        versionCode 9
+        versionName '5.0'
+    }
+
+    signingConfigs {
+        release {
+            if (hasKeystore) {
+                storeFile file(ksPath)
+                storePassword System.getenv('EQ_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('EQ_KEY_ALIAS')
+                keyPassword System.getenv('EQ_KEY_PASSWORD')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig hasKeystore ? signingConfigs.release : signingConfigs.debug
+        }
     }
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
     }
 }
