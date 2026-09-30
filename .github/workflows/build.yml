@@ -48,6 +48,8 @@ jobs:
           VER=$(sed -n "s/.*versionName *'\([^']*\)'.*/\1/p" app/build.gradle | head -1)
           echo "VER=$VER" >> "$GITHUB_ENV"
           cp app/build/outputs/apk/release/app-release.apk "EQ-$VER.apk"
+          # постоянное имя для ссылки releases/latest/download/EQ.apk
+          cp "EQ-$VER.apk" EQ.apk
 
       - uses: actions/upload-artifact@v4
         with:
@@ -66,4 +68,6 @@ jobs:
         with:
           name: EQ ${{ env.VER }}
           body_path: notes.md
-          files: EQ-${{ env.VER }}.apk
+          files: |
+            EQ-${{ env.VER }}.apk
+            EQ.apk

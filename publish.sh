@@ -66,13 +66,22 @@ if [ -z "$ID" ]; then
     exit 1
 fi
 
-echo "=== Загрузка EQ-$VER.apk ==="
-OUT_JSON="${TMPDIR:-/tmp}/eq-upload.json"
-CODE=$(curl -sS -o "$OUT_JSON" -w '%{http_code}' -X POST -H "$AUTH" -H "$ACCEPT" \
-    -H "Content-Type: application/vnd.android.package-archive" \
-    --data-binary @EQ.apk "https://uploads.github.com/repos/$REPO/releases/$ID/assets?name=EQ-$VER.apk")
-case "$CODE" in
-    201) echo "Готово: https://github.com/$REPO/releases/tag/$TAG" ;;
-    422) echo "В релизе уже есть EQ-$VER.apk. Подними versionName в app/build.gradle и termux-build.sh или удали файл в релизе." ;;
-    *)   echo "Ошибка загрузки (HTTP $CODE):"; head -20 "$OUT_JSON"; exit 1 ;;
-esac
+# Два одинаковых файла: EQ-X.Y.apk (история версий) и EQ.apk — постоянная ссылка
+# https://github.com/<репозиторий>/releases/latest/download/EQ.apk всегда качает последнюю версию
+upload() {
+    echo "=== Загрузка $1 ==="
+    OUT_JSON="${TMPDIR:-/tmp}/eq-upload.json"
+    CODE=$(curl -sS -o "$OUT_JSON" -w '%{http_code}' -X POST -H "$AUTH" -H "$ACCEPT" \
+        -H "Content-Type: application/vnd.android.package-archive" \
+        --data-binary @EQ.apk "https://uploads.github.com/repos/$REPO/releases/$ID/assets?name=$1")
+    case "$CODE" in
+        201) echo "Загружен $1" ;;
+        422) echo "В релизе уже есть $1. Подними versionName в app/build.gradle и termux-build.sh или удали файл в релизе." ;;
+        *)   echo "Ошибка загрузки $1 (HTTP $CODE):"; head -20 "$OUT_JSON"; exit 1 ;;
+    esac
+}
+upload "EQ-$VER.apk"
+upload "EQ.apk"
+echo ""
+echo "Готово: https://github.com/$REPO/releases/tag/$TAG"
+echo "Ссылка «скачать»: https://github.com/$REPO/releases/latest/download/EQ.apk"
