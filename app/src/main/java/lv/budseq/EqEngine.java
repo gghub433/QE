@@ -95,6 +95,7 @@ public final class EqEngine {
     private float gamePunch;
     private boolean gameLevel;
     public String gameLabel = "";
+    private boolean lowLatency;
 
     /** AutoEQ: коррекция текущих наушников (null — нет) и она же в наших полосах. */
     private AutoEq.Correction corr;
@@ -231,15 +232,36 @@ public final class EqEngine {
     }
 
     private DynamicsProcessing create(int session) {
-        DynamicsProcessing.Config cfg = new DynamicsProcessing.Config.Builder(
-                DynamicsProcessing.VARIANT_FAVOR_FREQUENCY_RESOLUTION,
+        if (lowLatency) {
+            try {
+                return new DynamicsProcessing(1000, session, config(true));
+            } catch (Throwable t) {
+                Log.w(TAG, "low latency not supported, normal mode", t);
+            }
+        }
+        return new DynamicsProcessing(1000, session, config(false));
+    }
+
+    /** fast — для игр: обработка во времени короткими кадрами (меньше задержка, чуть грубее низ). */
+    private DynamicsProcessing.Config config(boolean fast) {
+        DynamicsProcessing.Config.Builder b = new DynamicsProcessing.Config.Builder(
+                fast ? DynamicsProcessing.VARIANT_FAVOR_TIME_RESOLUTION
+                        : DynamicsProcessing.VARIANT_FAVOR_FREQUENCY_RESOLUTION,
                 2,              // каналы
                 true, bands,    // эквалайзер
                 true, 2,        // многополосный компрессор: бас + остальное
                 false, 0,       // post-EQ
-                true)           // лимитер
-                .build();
-        return new DynamicsProcessing(1000, session, cfg);
+                true);          // лимитер
+        if (fast) b.setPreferredFrameDuration(5f);
+        return b.build();
+    }
+
+    /** Низкая задержка на время игры: эффекты пересоздаются с короткими кадрами. */
+    public void setLowLatency(boolean on) {
+        if (on == lowLatency) return;
+        lowLatency = on;
+        rebuildAll();
+        applyAll();
     }
 
     /** Пересоздать эффекты (после смены числа полос). */

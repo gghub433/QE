@@ -31,6 +31,8 @@ public final class BudsLink {
     private static final int MSG_FIND_START = 160, MSG_FIND_STOP = 161;
     private static final int MSG_NOISE_CONTROLS_UPDATE = 119, MSG_NOISE_CONTROLS = 120;
     private static final int MSG_EQUALIZER = 134, MSG_LOCK_TOUCHPAD = 144;
+    /** «Игровой режим» (Adjust sound sync): меньше задержка Bluetooth, Buds+ и новее. */
+    private static final int MSG_GAME_MODE = 133;
 
     /** Режимы шумоподавления (как в протоколе Samsung). */
     public static final int NC_OFF = 0, NC_ANC = 1, NC_AMBIENT = 2;
@@ -271,7 +273,12 @@ public final class BudsLink {
         publish(s);
     }
 
-    public void findStart() { send(MSG_FIND_START, new byte[0]); }
+    /** Игровой режим наушников: звук не отстаёт от картинки (батарея садится чуть быстрее). */
+    public void setGameMode(boolean on) {
+        send(MSG_GAME_MODE, new byte[]{(byte) (on ? 1 : 0)});
+    }
+
+        public void findStart() { send(MSG_FIND_START, new byte[0]); }
     public void findStop() { send(MSG_FIND_STOP, new byte[0]); }
 
     private void send(int id, byte[] payload) {

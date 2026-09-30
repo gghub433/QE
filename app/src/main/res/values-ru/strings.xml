@@ -6,7 +6,7 @@
     <string name="stop_beep">Остановить писк</string>
     <string name="popup_on">Всплывающее окно</string>
     <string name="popup_enable">Включить всплывающее окно</string>
-    <string name="status_global">Работает на весь звук телефона</string>
+    <string name="status_global">Весь звук телефона под контролем</string>
     <string name="status_players">Глобальный режим недоступен на этой прошивке — работает в плеерах (Spotify, YouTube Music и др.). Подключено: %d</string>
     <string name="preamp">Запас громкости</string>
     <string name="preamp_hint">Если при поднятых басах звук хрипит — сдвинь запас влево.</string>
@@ -41,11 +41,11 @@
     <string name="in_case">в кейсе</string>
     <string name="ch_eq">Эквалайзер</string>
     <string name="ch_alerts">Низкий заряд</string>
-    <string name="notif_running">EQ работает</string>
-    <string name="notif_tap">Нажми, чтобы настроить звук</string>
+    <string name="notif_running">Бас на месте</string>
+    <string name="notif_tap">Нажми — подкрутим звук</string>
     <string name="notif_battery">L %1$s · R %2$s · Кейс %3$s</string>
-    <string name="low_title">Наушники скоро разрядятся</string>
-    <string name="low_text">L %1$s · R %2$s — положи их в кейс</string>
+    <string name="low_title">Buds просят зарядку</string>
+    <string name="low_text">L %1$s · R %2$s — кейс ждёт</string>
     <string name="open_eq">Открыть эквалайзер</string>
     <string name="choose_lang">Выбери язык</string>
     <string name="continue_">Продолжить</string>
@@ -54,7 +54,7 @@
     <string name="lang_system">Системный</string>
     <string name="loading">Загрузка…</string>
     <string name="devices">Устройства</string>
-    <string name="no_devices">Нет подключённых устройств</string>
+    <string name="no_devices">Тишина в эфире — ничего не подключено</string>
     <string name="no_devices_hint">Подключи наушники, колонку или другое устройство по Bluetooth</string>
     <string name="battery_unknown">Устройство не передаёт заряд</string>
     <string name="t_buds">Galaxy Buds</string>
@@ -71,8 +71,8 @@
     <string name="t_computer">Компьютер</string>
     <string name="t_phone">Телефон</string>
     <string name="t_other">Bluetooth-устройство</string>
-    <string name="low_title_dev">%s: низкий заряд</string>
-    <string name="low_text_dev">Осталось %d%% — пора зарядить</string>
+    <string name="low_title_dev">%s просит зарядку</string>
+    <string name="low_text_dev">Осталось %d%% — самое время на зарядку</string>
     <string name="device_settings">Настройки устройства</string>
     <string name="nc_off">Выкл</string>
     <string name="nc_anc">Шумоподавление</string>
@@ -113,8 +113,8 @@
     <string name="import_title">Импорт пресета</string>
     <string name="import_hint">Вставь текст пресета</string>
     <string name="import_file">Из файла</string>
-    <string name="import_ok">Добавлен пресет «%s»</string>
-    <string name="import_fail">Не получилось прочитать пресет</string>
+    <string name="import_ok">Пресет «%s» в коллекции</string>
+    <string name="import_fail">Этот пресет не читается — проверь текст</string>
     <string name="apply">Применить</string>
     <string name="sec_auto">Автоматизация</string>
     <string name="auto_mode">Автовключение</string>
@@ -129,7 +129,7 @@
     <string name="custom">Свой</string>
     <string name="on">Вкл</string>
     <string name="off">Выкл</string>
-    <string name="notif_off">EQ выключен</string>
+    <string name="notif_off">EQ отдыхает — звук как есть</string>
     <string name="open_app">Открыть %s</string>
     <string name="ds_look">Как выглядит</string>
     <string name="ds_auto">Автоматически (%s)</string>
@@ -144,7 +144,7 @@
     <string name="no_player_sessions">Открой плеер — эквалайзер подключится к нему</string>
     <string name="bands_unsupported">Этот телефон не поддерживает столько полос</string>
     <string name="now_playing">Сейчас играет</string>
-    <string name="nothing_playing">Ничего не играет</string>
+    <string name="nothing_playing">Тишина — включи что-нибудь</string>
     <string name="np_access">Чтобы видеть трек и обложку, разреши EQ доступ к уведомлениям. Кнопки работают и без этого.</string>
     <string name="np_grant">Разрешить</string>
     <string name="np_restricted">Если Android пишет «Ограниченная настройка»: О приложении → ⋮ → «Разрешить ограниченные настройки», потом ещё раз.</string>
@@ -154,8 +154,8 @@
     <string name="sp_open">Открыть Spotify</string>
     <string name="sp_install">Установить Spotify</string>
     <string name="sp_hint_eq">В Spotify: Настройки → Воспроизведение → Эквалайзер — откроется EQ и подключится прямо к Spotify.</string>
-    <string name="eq_attached">EQ подключён к %s</string>
-    <string name="player_generic">плееру</string>
+    <string name="eq_attached">EQ поймал звук %s</string>
+    <string name="player_generic">плеера</string>
     <string name="play_pause">Играть / пауза</string>
     <string name="next_track">Следующий трек</string>
     <string name="prev_track">Предыдущий трек</string>
@@ -205,14 +205,14 @@
     <string name="upd_auto_hint">Два раза в день; когда выйдет новая версия, придёт уведомление</string>
     <string name="upd_checking">Проверяю…</string>
     <string name="upd_failed">Ошибка обновления: %s</string>
-    <string name="upd_latest">Установлена последняя версия</string>
+    <string name="upd_latest">У тебя самая свежая версия</string>
     <string name="upd_no_apk">Вышла версия %s, но в релизе ещё нет APK-файла</string>
     <string name="upd_available">Доступна версия %s</string>
     <string name="upd_no_notes">Описания изменений нет.</string>
     <string name="upd_permission">Разреши EQ устанавливать обновления: на следующем экране включи «Разрешить установку из этого источника», потом снова нажми «Скачать и установить».</string>
     <string name="upd_downloading">Загрузка… %d%%</string>
     <string name="upd_installing">Установка…</string>
-    <string name="upd_notif_title">Доступен EQ %s</string>
+    <string name="upd_notif_title">Вышел EQ %s — новый звук ждёт</string>
     <string name="upd_notif_text">Нажми, чтобы обновить</string>
     <string name="ch_updates">Обновления</string>
     <string name="upd_confirm">Нажми, чтобы подтвердить обновление EQ</string>
@@ -442,4 +442,11 @@
     <string name="scn_sport_none">выберите</string>
     <string name="scn_sport_pick">Приложения для тренировки</string>
     <string name="scn_sport_hint">Выберите плеер или приложение тренировки (Strava, Samsung Health…). Чтобы EQ видел открытое приложение, нужен доступ к истории использования, как для игр.</string>
+    <!-- 6.0: запуск игры через EQ -->
+    <string name="game_lowlat">Низкая задержка в играх</string>
+    <string name="game_lowlat_hint">Пока вы играете, звук обрабатывается короткими кадрами, а Galaxy Buds включают игровой режим — звук не отстаёт от картинки. Батарея наушников садится чуть быстрее.</string>
+    <string name="game_shortcut">На главный экран</string>
+    <string name="game_shortcut_added">Ярлык добавлен — игра будет запускаться через EQ сразу с её звуком</string>
+    <string name="game_shortcut_fail">Этот рабочий стол не принимает ярлыки</string>
+    <string name="game_launch_fail">Не получилось открыть игру</string>
 </resources>

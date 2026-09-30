@@ -6,7 +6,7 @@
     <string name="stop_beep">Stop beeping</string>
     <string name="popup_on">Pop-up window</string>
     <string name="popup_enable">Enable pop-up window</string>
-    <string name="status_global">Works on all phone audio</string>
+    <string name="status_global">Every sound on the phone is under control</string>
     <string name="status_players">Global mode is not available on this firmware — works in players (Spotify, YouTube Music, etc.). Connected: %d</string>
     <string name="preamp">Headroom</string>
     <string name="preamp_hint">If bass distorts, move the headroom slider left.</string>
@@ -41,11 +41,11 @@
     <string name="in_case">in case</string>
     <string name="ch_eq">Equalizer</string>
     <string name="ch_alerts">Low battery</string>
-    <string name="notif_running">EQ is running</string>
-    <string name="notif_tap">Tap to adjust the sound</string>
+    <string name="notif_running">Bass is locked in</string>
+    <string name="notif_tap">Tap to tune your sound</string>
     <string name="notif_battery">L %1$s · R %2$s · Case %3$s</string>
-    <string name="low_title">Earbuds are running low</string>
-    <string name="low_text">L %1$s · R %2$s — put them in the case</string>
+    <string name="low_title">Your buds are asking for a charge</string>
+    <string name="low_text">L %1$s · R %2$s — the case is waiting</string>
     <string name="open_eq">Open equalizer</string>
     <string name="choose_lang">Choose language</string>
     <string name="continue_">Continue</string>
@@ -54,7 +54,7 @@
     <string name="lang_system">System</string>
     <string name="loading">Loading…</string>
     <string name="devices">Devices</string>
-    <string name="no_devices">No connected devices</string>
+    <string name="no_devices">Radio silence — nothing connected</string>
     <string name="no_devices_hint">Connect earbuds, a speaker or another device via Bluetooth</string>
     <string name="battery_unknown">This device doesn’t report its battery</string>
     <string name="t_buds">Galaxy Buds</string>
@@ -71,8 +71,8 @@
     <string name="t_computer">Computer</string>
     <string name="t_phone">Phone</string>
     <string name="t_other">Bluetooth device</string>
-    <string name="low_title_dev">%s: low battery</string>
-    <string name="low_text_dev">%d%% left — time to charge</string>
+    <string name="low_title_dev">%s is asking for a charge</string>
+    <string name="low_text_dev">%d%% left — time for a charge</string>
     <string name="device_settings">Device settings</string>
     <string name="nc_off">Off</string>
     <string name="nc_anc">Noise cancelling</string>
@@ -113,8 +113,8 @@
     <string name="import_title">Import preset</string>
     <string name="import_hint">Paste the preset text</string>
     <string name="import_file">From file</string>
-    <string name="import_ok">Preset “%s” added</string>
-    <string name="import_fail">Couldn’t read the preset</string>
+    <string name="import_ok">Preset “%s” is in your collection</string>
+    <string name="import_fail">Could not read this preset — check the text</string>
     <string name="apply">Apply</string>
     <string name="sec_auto">Automation</string>
     <string name="auto_mode">Auto on/off</string>
@@ -129,7 +129,7 @@
     <string name="custom">Custom</string>
     <string name="on">On</string>
     <string name="off">Off</string>
-    <string name="notif_off">EQ is off</string>
+    <string name="notif_off">EQ is resting — sound as is</string>
     <string name="open_app">Open %s</string>
     <string name="ds_look">How it looks</string>
     <string name="ds_auto">Automatic (%s)</string>
@@ -144,7 +144,7 @@
     <string name="no_player_sessions">Open a player — the EQ will attach to it</string>
     <string name="bands_unsupported">This phone doesn’t support that many bands</string>
     <string name="now_playing">Now playing</string>
-    <string name="nothing_playing">Nothing is playing</string>
+    <string name="nothing_playing">Silence — put something on</string>
     <string name="np_access">To see the track and cover, allow EQ notification access. The buttons work without it.</string>
     <string name="np_grant">Allow</string>
     <string name="np_restricted">If Android says “Restricted setting”: App info → ⋮ → “Allow restricted settings”, then try again.</string>
@@ -154,7 +154,7 @@
     <string name="sp_open">Open Spotify</string>
     <string name="sp_install">Install Spotify</string>
     <string name="sp_hint_eq">In Spotify: Settings → Playback → Equalizer — EQ opens and attaches directly to Spotify.</string>
-    <string name="eq_attached">EQ attached to %s</string>
+    <string name="eq_attached">EQ caught the sound of %s</string>
     <string name="player_generic">the player</string>
     <string name="play_pause">Play / pause</string>
     <string name="next_track">Next track</string>
@@ -205,14 +205,14 @@
     <string name="upd_auto_hint">Twice a day; you get a notification when a new version is out</string>
     <string name="upd_checking">Checking…</string>
     <string name="upd_failed">Update error: %s</string>
-    <string name="upd_latest">You have the latest version</string>
+    <string name="upd_latest">You have the freshest version</string>
     <string name="upd_no_apk">Version %s is out, but the release has no APK file yet</string>
     <string name="upd_available">Version %s is available</string>
     <string name="upd_no_notes">No description of changes.</string>
     <string name="upd_permission">Allow EQ to install updates: on the next screen turn on “Allow from this source”, then tap “Download and install” again.</string>
     <string name="upd_downloading">Downloading… %d%%</string>
     <string name="upd_installing">Installing…</string>
-    <string name="upd_notif_title">EQ %s is available</string>
+    <string name="upd_notif_title">EQ %s is out — new sound awaits</string>
     <string name="upd_notif_text">Tap to update</string>
     <string name="ch_updates">Updates</string>
     <string name="upd_confirm">Tap to confirm the EQ update</string>
@@ -442,4 +442,11 @@
     <string name="scn_sport_none">choose</string>
     <string name="scn_sport_pick">Workout apps</string>
     <string name="scn_sport_hint">Pick a player or a workout app (Strava, Samsung Health…). To see which app is open, EQ needs usage access, same as for games.</string>
+    <!-- 6.0: запуск игры через EQ -->
+    <string name="game_lowlat">Low latency in games</string>
+    <string name="game_lowlat_hint">While you play, sound is processed in short frames and Galaxy Buds switch to game mode — the sound keeps up with the picture. Earbuds battery drains a little faster.</string>
+    <string name="game_shortcut">Add to home screen</string>
+    <string name="game_shortcut_added">Shortcut added — the game will start through EQ with its sound</string>
+    <string name="game_shortcut_fail">This home screen does not accept shortcuts</string>
+    <string name="game_launch_fail">Could not open the game</string>
 </resources>

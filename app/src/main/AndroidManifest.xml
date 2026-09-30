@@ -92,6 +92,15 @@
             </intent-filter>
         </activity>
 
+        <!-- Запуск игры через EQ (кнопка «Играть», ярлыки игр): без окна — звук игры и сразу игра -->
+        <activity
+            android:name=".PlayActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.NoDisplay" />
+
         <service
             android:name=".EqService"
             android:exported="false"

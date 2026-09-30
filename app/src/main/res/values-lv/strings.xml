@@ -6,7 +6,7 @@
     <string name="stop_beep">Apturēt pīkstēšanu</string>
     <string name="popup_on">Uznirstošais logs</string>
     <string name="popup_enable">Ieslēgt uznirstošo logu</string>
-    <string name="status_global">Darbojas visai tālruņa skaņai</string>
+    <string name="status_global">Visa telefona skaņa ir kontrolē</string>
     <string name="status_players">Globālais režīms šajā programmaparatūrā nav pieejams — darbojas atskaņotājos (Spotify, YouTube Music u.c.). Pievienoti: %d</string>
     <string name="preamp">Skaļuma rezerve</string>
     <string name="preamp_hint">Ja ar pastiprinātiem basiem skaņa kropļojas — pabīdi rezervi pa kreisi.</string>
@@ -41,11 +41,11 @@
     <string name="in_case">futrālī</string>
     <string name="ch_eq">Ekvalaizers</string>
     <string name="ch_alerts">Zems uzlādes līmenis</string>
-    <string name="notif_running">EQ darbojas</string>
-    <string name="notif_tap">Pieskaries, lai noregulētu skaņu</string>
+    <string name="notif_running">Bass ir vietā</string>
+    <string name="notif_tap">Pieskaries — pieskaņosim skaņu</string>
     <string name="notif_battery">L %1$s · R %2$s · Futrālis %3$s</string>
-    <string name="low_title">Austiņas drīz izlādēsies</string>
-    <string name="low_text">L %1$s · R %2$s — ieliec tās futrālī</string>
+    <string name="low_title">Austiņas lūdz uzlādi</string>
+    <string name="low_text">L %1$s · R %2$s — futrālis gaida</string>
     <string name="open_eq">Atvērt ekvalaizeru</string>
     <string name="choose_lang">Izvēlies valodu</string>
     <string name="continue_">Turpināt</string>
@@ -54,7 +54,7 @@
     <string name="lang_system">Sistēmas</string>
     <string name="loading">Ielāde…</string>
     <string name="devices">Ierīces</string>
-    <string name="no_devices">Nav pievienotu ierīču</string>
+    <string name="no_devices">Ēterā klusums — nekas nav pievienots</string>
     <string name="no_devices_hint">Pievieno austiņas, skaļruni vai citu ierīci ar Bluetooth</string>
     <string name="battery_unknown">Ierīce nepārraida uzlādes līmeni</string>
     <string name="t_buds">Galaxy Buds</string>
@@ -71,8 +71,8 @@
     <string name="t_computer">Dators</string>
     <string name="t_phone">Tālrunis</string>
     <string name="t_other">Bluetooth ierīce</string>
-    <string name="low_title_dev">%s: zems uzlādes līmenis</string>
-    <string name="low_text_dev">Atlikuši %d%% — laiks uzlādēt</string>
+    <string name="low_title_dev">%s lūdz uzlādi</string>
+    <string name="low_text_dev">Atlikuši %d%% — īstais laiks uzlādei</string>
     <string name="device_settings">Ierīces iestatījumi</string>
     <string name="nc_off">Izslēgts</string>
     <string name="nc_anc">Trokšņu slāpēšana</string>
@@ -113,8 +113,8 @@
     <string name="import_title">Importēt priekšiestatījumu</string>
     <string name="import_hint">Ielīmē priekšiestatījuma tekstu</string>
     <string name="import_file">No faila</string>
-    <string name="import_ok">Pievienots priekšiestatījums «%s»</string>
-    <string name="import_fail">Neizdevās nolasīt priekšiestatījumu</string>
+    <string name="import_ok">Priekšiestatījums «%s» ir kolekcijā</string>
+    <string name="import_fail">Šo priekšiestatījumu nevar nolasīt — pārbaudi tekstu</string>
     <string name="apply">Lietot</string>
     <string name="sec_auto">Automatizācija</string>
     <string name="auto_mode">Automātiska ieslēgšana</string>
@@ -129,7 +129,7 @@
     <string name="custom">Pielāgots</string>
     <string name="on">Ieslēgts</string>
     <string name="off">Izslēgts</string>
-    <string name="notif_off">EQ ir izslēgts</string>
+    <string name="notif_off">EQ atpūšas — skaņa kā ir</string>
     <string name="open_app">Atvērt %s</string>
     <string name="ds_look">Kā izskatās</string>
     <string name="ds_auto">Automātiski (%s)</string>
@@ -144,7 +144,7 @@
     <string name="no_player_sessions">Atver atskaņotāju — ekvalaizers pievienosies tam</string>
     <string name="bands_unsupported">Šis tālrunis neatbalsta tik daudz joslu</string>
     <string name="now_playing">Tagad skan</string>
-    <string name="nothing_playing">Nekas neskan</string>
+    <string name="nothing_playing">Klusums — ieslēdz kaut ko</string>
     <string name="np_access">Lai redzētu dziesmu un vāciņu, atļauj EQ piekļuvi paziņojumiem. Pogas darbojas arī bez tā.</string>
     <string name="np_grant">Atļaut</string>
     <string name="np_restricted">Ja Android raksta «Ierobežots iestatījums»: Lietotnes informācija → ⋮ → «Atļaut ierobežotus iestatījumus», tad vēlreiz.</string>
@@ -154,7 +154,7 @@
     <string name="sp_open">Atvērt Spotify</string>
     <string name="sp_install">Instalēt Spotify</string>
     <string name="sp_hint_eq">Spotify: Iestatījumi → Atskaņošana → Ekvalaizers — atvērsies EQ un pievienosies tieši Spotify.</string>
-    <string name="eq_attached">EQ pievienots: %s</string>
+    <string name="eq_attached">EQ noķēra skaņu: %s</string>
     <string name="player_generic">atskaņotājs</string>
     <string name="play_pause">Atskaņot / pauze</string>
     <string name="next_track">Nākamā dziesma</string>
@@ -205,14 +205,14 @@
     <string name="upd_auto_hint">Divreiz dienā; kad iznāks jauna versija, pienāks paziņojums</string>
     <string name="upd_checking">Pārbauda…</string>
     <string name="upd_failed">Atjaunināšanas kļūda: %s</string>
-    <string name="upd_latest">Instalēta jaunākā versija</string>
+    <string name="upd_latest">Tev ir pati svaigākā versija</string>
     <string name="upd_no_apk">Iznākusi versija %s, bet laidienā vēl nav APK faila</string>
     <string name="upd_available">Pieejama versija %s</string>
     <string name="upd_no_notes">Izmaiņu apraksta nav.</string>
     <string name="upd_permission">Atļauj EQ instalēt atjauninājumus: nākamajā ekrānā ieslēdz «Atļaut no šī avota», pēc tam vēlreiz nospied «Lejupielādēt un instalēt».</string>
     <string name="upd_downloading">Lejupielādē… %d%%</string>
     <string name="upd_installing">Instalē…</string>
-    <string name="upd_notif_title">Pieejams EQ %s</string>
+    <string name="upd_notif_title">Iznācis EQ %s — jauna skaņa gaida</string>
     <string name="upd_notif_text">Pieskaries, lai atjauninātu</string>
     <string name="ch_updates">Atjauninājumi</string>
     <string name="upd_confirm">Pieskaries, lai apstiprinātu EQ atjauninājumu</string>
@@ -442,4 +442,11 @@
     <string name="scn_sport_none">izvēlieties</string>
     <string name="scn_sport_pick">Treniņu lietotnes</string>
     <string name="scn_sport_hint">Izvēlieties atskaņotāju vai treniņu lietotni (Strava, Samsung Health…). Lai EQ redzētu atvērto lietotni, vajag piekļuvi lietojuma datiem, kā spēlēm.</string>
+    <!-- 6.0: запуск игры через EQ -->
+    <string name="game_lowlat">Zema aizture spēlēs</string>
+    <string name="game_lowlat_hint">Kamēr spēlējat, skaņa tiek apstrādāta īsos kadros, un Galaxy Buds ieslēdz spēļu režīmu — skaņa neatpaliek no attēla. Austiņu akumulators izlādējas nedaudz ātrāk.</string>
+    <string name="game_shortcut">Uz sākuma ekrānu</string>
+    <string name="game_shortcut_added">Saīsne pievienota — spēle startēs caur EQ uzreiz ar savu skaņu</string>
+    <string name="game_shortcut_fail">Šis sākuma ekrāns nepieņem saīsnes</string>
+    <string name="game_launch_fail">Neizdevās atvērt spēli</string>
 </resources>

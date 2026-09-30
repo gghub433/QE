@@ -1200,15 +1200,13 @@ public class MainActivity extends Activity {
     // =====================================================================
 
     private static final int[] GAME_PROFILE_ORDER = {Games.P_STEPS, Games.P_RICH, Games.P_VOICE, Games.P_NONE};
-    private static final String STEAM_LINK = "com.valvesoftware.steamlink", MOONLIGHT = "com.limelight",
-            XBOX = "com.microsoft.xboxone.smartglass";
 
     private TextView gameStatus;
     private Button gameEndBtn, gameTryBtn, gamesPhoneBtn, gamesPcBtn;
     private final Button[] gameDefBtns = new Button[GAME_PROFILE_ORDER.length];
     private SeekBar gameStrengthBar;
     private TextView gameStrengthVal;
-    private Switch gameAutoSwitch;
+    private Switch gameAutoSwitch, gameLatencySwitch;
     private LinearLayout gamesBox;
     private boolean gamesPc;
     private int steamShown = 60;
@@ -1299,6 +1297,16 @@ public class MainActivity extends Activity {
             }
         });
 
+        gameLatencySwitch = styledSwitch();
+        root.addView(switchRow(getString(R.string.game_lowlat), getString(R.string.game_lowlat_hint), gameLatencySwitch));
+        gameLatencySwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            public void onCheckedChanged(CompoundButton v, boolean on) {
+                if (updating) return;
+                Games.setLowLatency(MainActivity.this, on);
+                EqService.poke(MainActivity.this);   // служба применит заново, если игра идёт
+            }
+        });
+
         // Телефон | ПК · Steam
         LinearLayout seg = new LinearLayout(this);
         seg.setPadding(0, dp(20), 0, 0);
@@ -1336,6 +1344,7 @@ public class MainActivity extends Activity {
         gameStrengthVal.setText(st + "%");
         updating = true;
         gameAutoSwitch.setChecked(Games.autoOn(this));
+        gameLatencySwitch.setChecked(Games.lowLatency(this));
         updating = false;
         gamesPhoneBtn.setBackground(round(gamesPc ? CHIP : ACCENT, 24));
         gamesPcBtn.setBackground(round(gamesPc ? ACCENT : CHIP, 24));
@@ -1438,6 +1447,7 @@ public class MainActivity extends Activity {
         new Thread(new Runnable() {
             public void run() {
                 final List<Games.PhoneGame> list = Games.phoneGames(app);
+                PlayActivity.updateDynamic(app, list);
                 ui.post(new Runnable() {
                     public void run() {
                         if (gen != gamesGen || gamesPc || isFinishing()) return;
@@ -1857,6 +1867,12 @@ public class MainActivity extends Activity {
         box.addView(hscroll(pr));
         setPlayHint(hint, g, prof[0]);
         box.addView(hint);
+        LinearLayout sc = new LinearLayout(this);
+        sc.setPadding(0, dp(6), 0, 0);
+        sc.addView(chip(getString(R.string.game_shortcut), R.drawable.ic_add, CHIP, new View.OnClickListener() {
+            public void onClick(View v) { pinGame(g, src[0]); }
+        }));
+        box.addView(hscroll(sc));
 
         ScrollView sv = new ScrollView(this);
         sv.addView(box);
@@ -1882,6 +1898,20 @@ public class MainActivity extends Activity {
         b.show();
     }
 
+    /** Ярлык игры на рабочий стол: нажали — EQ включил звук и сразу открыл игру. */
+    private void pinGame(GameRef g, String source) {
+        Drawable d = null;
+        if (g.pkg != null) {
+            try {
+                d = getPackageManager().getApplicationIcon(g.pkg);
+            } catch (Exception ignored) {
+            }
+        }
+        Bitmap cover = g.appid > 0 ? Steam.coverNow(g.appid) : null;
+        boolean ok = PlayActivity.pinShortcut(this, g.key, g.name, g.pkg, g.pc ? source : null, d, cover);
+        Toast.makeText(this, ok ? R.string.game_shortcut_added : R.string.game_shortcut_fail, Toast.LENGTH_LONG).show();
+    }
+
     private void setPlayHint(TextView hint, GameRef g, int profile) {
         hint.setVisibility(profile == Games.P_NONE ? View.GONE : View.VISIBLE);
         String name = getString(Games.PROFILE_NAMES[profile]);
@@ -1890,43 +1920,18 @@ public class MainActivity extends Activity {
     }
 
     private void playGame(GameRef g, String source, int profile) {
-        if (g.pkg != null) {
-            // игру с телефона EQ узнаёт сам по статистике; без неё — включаем звук по кнопке
-            if (!Games.hasUsageAccess(this) || !Games.autoOn(this)) Games.startSession(this, g.key, g.name);
-            EqService.poke(this);
-            Intent li = getPackageManager().getLaunchIntentForPackage(g.pkg);
-            if (li != null) {
-                try {
-                    startActivity(li);
-                } catch (Exception ignored) {
-                }
-            }
+        // звук игры и низкая задержка включаются сразу, до запуска — без пауз и щелчков в игре
+        if (PlayActivity.launch(this, g.key, g.name, g.pkg, g.pc ? source : null)) {
             refreshGames(true);
             return;
         }
-        // игра с ПК: звук идёт через телефон, когда играете через стриминг (Steam Link, Moonlight, Xbox)
-        String[] order = "Xbox".equals(source) ? new String[]{XBOX, STEAM_LINK, MOONLIGHT}
-                : "Steam".equals(source) ? new String[]{STEAM_LINK, MOONLIGHT, XBOX}
-                : new String[]{MOONLIGHT, STEAM_LINK, XBOX};
-        for (String p : order) {
-            Intent li = getPackageManager().getLaunchIntentForPackage(p);
-            if (li == null) continue;
-            try {
-                Games.startSession(this, g.key, g.name);
-                EqService.poke(this);
-                startActivity(li);
-                Toast.makeText(this, R.string.game_started, Toast.LENGTH_SHORT).show();
-                refreshGames(true);
-                return;
-            } catch (Exception ignored) {
-            }
-        }
+        if (g.pkg != null) return;   // игру удалили — сообщение уже показано
         final String name = g.name;
         final int prof = profile;
         new AlertDialog.Builder(this)
                 .setMessage(R.string.game_no_stream)
                 .setPositiveButton(R.string.steam_link, new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface d, int w) { openStore(STEAM_LINK); }
+                    public void onClick(DialogInterface d, int w) { openStore(PlayActivity.STEAM_LINK); }
                 })
                 .setNeutralButton(R.string.game_pc_sound, new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface d, int w) { showApo(name, prof); }

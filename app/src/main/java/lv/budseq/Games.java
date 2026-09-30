@@ -157,15 +157,40 @@ public final class Games {
         return out;
     }
 
-    /** Включить звук профиля (P_NONE — вернуть обычный). */
+    /** Включить звук профиля (P_NONE — вернуть обычный). label == null — игра закончилась. */
     public static void applySound(Context c, int profile, String label) {
         EqEngine eq = EqEngine.get(c);
+        setGameLatency(c, label != null);
         float s = strength(c);
         if (profile <= P_NONE || profile >= PROFILES.length || s < 0.01f) {
             eq.clearGameSound();
             return;
         }
         eq.setGameSound(curve(profile, s), PF, P_PUNCH[profile] * s, P_LEVEL[profile] && s > 0.3f, label);
+    }
+
+    /** «Низкая задержка в играх»: короткие кадры обработки + игровой режим Galaxy Buds. */
+    public static boolean lowLatency(Context c) {
+        return prefs(c).getBoolean("low_latency", true);
+    }
+
+    public static void setLowLatency(Context c, boolean on) {
+        prefs(c).edit().putBoolean("low_latency", on).apply();
+    }
+
+    private static boolean budsGameMode;   // игровой режим наушников включили мы — мы и выключим
+
+    static void setGameLatency(Context c, boolean game) {
+        boolean on = game && lowLatency(c);
+        EqEngine.get(c).setLowLatency(on);
+        BudsLink link = BudsLink.get();
+        if (on && !budsGameMode && link.state().connected) {
+            link.setGameMode(true);
+            budsGameMode = true;
+        } else if (!on && budsGameMode) {
+            if (link.state().connected) link.setGameMode(false);
+            budsGameMode = false;
+        }
     }
 
     /**
@@ -320,6 +345,11 @@ public final class Games {
 
     private static final long SESSION_MAX_MS = 6L * 3600 * 1000;   // забыли выключить — через 6 ч само
 
+    /** Ключ игры с телефона — это имя пакета (у ПК «steam:…», «pc:…», у особых «@…»). */
+    static boolean isPhoneKey(String key) {
+        return !key.startsWith("@") && !key.startsWith(Steam.KEY_PREFIX) && !key.startsWith("pc:");
+    }
+
     public static String sessionKey(Context c) {
         SharedPreferences p = prefs(c);
         String k = p.getString("now_key", null);
@@ -469,6 +499,9 @@ public final class Games {
         private final Map<String, String> labels = new HashMap<>();
         private long gamesAt;
         private String lastFg;
+        private boolean sessionSeen;   // игра сессии уже была на экране
+        private long lastGameAudio;     // когда игра сессии в последний раз звучала
+        private static final long SILENT_END_MS = 2 * 60 * 1000;
 
         /** Приложение на экране при последней проверке (нужно и сценарию «Тренировка»). */
         public String lastForeground() {
@@ -481,6 +514,30 @@ public final class Games {
             String key = sessionKey(c), name = key != null ? sessionName(c) : null;
             String pkg = hasUsageAccess(c) ? foreground(c) : null;
             lastFg = pkg;
+            // игру с телефона запустили через EQ: вышли из неё — звук обычный (сессию закрываем сами)
+            if (key != null && pkg != null && isPhoneKey(key)) {
+                if (pkg.equals(key)) {
+                    sessionSeen = true;
+                } else if (sessionSeen && !pkg.equals(c.getPackageName())) {
+                    stopSession(c);
+                    key = null;
+                    name = null;
+                    sessionSeen = false;
+                }
+            }
+            // без статистики: игра, запущенная через EQ, замолчала на 2 минуты — значит, её закрыли
+            if (key != null && pkg == null && isPhoneKey(key)) {
+                if (gameAudio) lastGameAudio = now;
+                else if (lastGameAudio > 0 && now - lastGameAudio > SILENT_END_MS) {
+                    stopSession(c);
+                    key = null;
+                    name = null;
+                }
+            }
+            if (key == null) {
+                sessionSeen = false;
+                lastGameAudio = 0;
+            }
             if (key == null && autoOn(c)) {
                 if (pkg != null && isGamePkg(c, pkg, now)) {
                     key = pkg;
@@ -498,19 +555,20 @@ public final class Games {
                 appliedKey = key;
                 appliedProfile = profile;
                 appliedStrength = s;
-                applySound(c, profile, name);
+                applySound(c, profile, name != null ? name : c.getString(R.string.game_generic));
                 return;
             }
             if (appliedKey == null || now - lastSeen < LINGER_MS) return;
             appliedKey = null;
             appliedProfile = -1;
-            EqEngine.get(c).clearGameSound();
+            applySound(c, P_NONE, null);
         }
 
         /** Сбросить (сменили настройки на вкладке «Игры» — применить заново). */
         public void invalidate() {
             appliedProfile = -1;
             gamesAt = 0;
+            lastSeen = 0;   // нажали «Закончить» — обычный звук сразу, без 10 с ожидания
         }
 
         private boolean isGamePkg(Context c, String pkg, long now) {
