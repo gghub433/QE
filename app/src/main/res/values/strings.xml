@@ -322,4 +322,15 @@
     <!-- 6.0: цвет от обложки -->
     <string name="theme_cover">Color from the cover</string>
     <string name="theme_cover_hint">The wave, selected buttons and the glow in the car smoothly take the color of the track cover</string>
+    <!-- 6.0: итоги для сторис -->
+    <string name="sc_button">Share summary</string>
+    <string name="sc_share">Share Music Time</string>
+    <string name="sc_week">Week · %s</string>
+    <string name="sc_week_label">of music this week</string>
+    <string name="sc_month_label">of music this month</string>
+    <string name="sc_device">Favorite device</string>
+    <string name="sc_preset">Favorite preset</string>
+    <string name="sc_artist">Top artist</string>
+    <string name="sc_first_ach">The first achievement is 10 hours of music</string>
+    <string name="sc_failed">Couldn’t create the picture</string>
 </resources>

@@ -322,4 +322,15 @@
     <!-- 6.0: цвет от обложки -->
     <string name="theme_cover">Колір від обкладинки</string>
     <string name="theme_cover_hint">Хвиля, вибрані кнопки та світіння в авто плавно перефарбовуються в колір обкладинки треку</string>
+    <!-- 6.0: итоги для сторис -->
+    <string name="sc_button">Поділитися підсумками</string>
+    <string name="sc_share">Поділитися Music Time</string>
+    <string name="sc_week">Тиждень · %s</string>
+    <string name="sc_week_label">музики за тиждень</string>
+    <string name="sc_month_label">музики за місяць</string>
+    <string name="sc_device">Улюблений пристрій</string>
+    <string name="sc_preset">Улюблений пресет</string>
+    <string name="sc_artist">Топ-виконавець</string>
+    <string name="sc_first_ach">Перше досягнення — 10 годин музики</string>
+    <string name="sc_failed">Не вдалося зробити картинку</string>
 </resources>

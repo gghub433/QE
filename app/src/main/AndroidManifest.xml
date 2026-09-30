@@ -101,6 +101,13 @@
             </intent-filter>
         </service>
 
+        <!-- Итоги Music Time для сторис: картинка из кэша, только чтение и только по разрешению -->
+        <provider
+            android:name=".ShareProvider"
+            android:authorities="lv.budseq.share"
+            android:exported="false"
+            android:grantUriPermissions="true" />
+
         <!-- Виджет на главный экран -->
         <receiver
             android:name=".EqWidget"

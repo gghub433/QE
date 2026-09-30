@@ -1407,6 +1407,9 @@ public class MainActivity extends Activity {
 
         LinearLayout actions = new LinearLayout(this);
         actions.setPadding(0, dp(8), 0, 0);
+        actions.addView(chip(getString(R.string.sc_button), R.drawable.ic_share, ACCENT, new View.OnClickListener() {
+            public void onClick(View v) { shareMusicTime(); }
+        }));
         actions.addView(chip(getString(R.string.mt_reset), R.drawable.ic_stop, CHIP, new View.OnClickListener() {
             public void onClick(View v) {
                 new AlertDialog.Builder(MainActivity.this)
@@ -1500,6 +1503,31 @@ public class MainActivity extends Activity {
             mtHint.setText(R.string.mt_hint);
         }
         refreshAchievements(st.achievements());
+    }
+
+    /** Карточка итогов 1080×1920 → кэш → «Поделиться». Рисуем в фоне, чтобы экран не замирал. */
+    private void shareMusicTime() {
+        final ShareCard.Data d = ShareCard.collect(this, settings.getBoolean("mt_month", false));
+        final android.content.Context app = getApplicationContext();
+        new Thread(new Runnable() {
+            public void run() {
+                boolean ok;
+                try {
+                    ShareCard.render(app, d);
+                    ok = true;
+                } catch (Exception e) {
+                    ok = false;
+                }
+                final boolean done = ok;
+                ui.post(new Runnable() {
+                    public void run() {
+                        if (isFinishing() || isDestroyed()) return;
+                        if (done) ShareCard.share(MainActivity.this);
+                        else Toast.makeText(MainActivity.this, R.string.sc_failed, Toast.LENGTH_SHORT).show();
+                    }
+                });
+            }
+        }, "eq-share-card").start();
     }
 
     private void addTop(int titleRes, List<ListenStats.Entry> list) {

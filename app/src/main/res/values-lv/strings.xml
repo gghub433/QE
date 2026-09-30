@@ -322,4 +322,15 @@
     <!-- 6.0: цвет от обложки -->
     <string name="theme_cover">Krāsa no vāciņa</string>
     <string name="theme_cover_hint">Vilnis, izvēlētās pogas un mirdzums automašīnā pamazām iegūst dziesmas vāciņa krāsu</string>
+    <!-- 6.0: итоги для сторис -->
+    <string name="sc_button">Dalīties kopsavilkumā</string>
+    <string name="sc_share">Dalīties ar Music Time</string>
+    <string name="sc_week">Nedēļa · %s</string>
+    <string name="sc_week_label">mūzikas šonedēļ</string>
+    <string name="sc_month_label">mūzikas šomēnes</string>
+    <string name="sc_device">Mīļākā ierīce</string>
+    <string name="sc_preset">Mīļākais priekšiestatījums</string>
+    <string name="sc_artist">Top izpildītājs</string>
+    <string name="sc_first_ach">Pirmais sasniegums — 10 stundas mūzikas</string>
+    <string name="sc_failed">Neizdevās izveidot attēlu</string>
 </resources>
