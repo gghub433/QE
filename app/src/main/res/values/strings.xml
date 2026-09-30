@@ -417,4 +417,29 @@
     <string name="game_started">Game sound is on</string>
     <string name="pc_add_title">Game outside Steam</string>
     <string name="pc_add_hint">Game title</string>
+    <!-- 6.0: автосценарии -->
+    <string name="scn_title">Scenarios</string>
+    <string name="scn_settings_hint">“When → what” rules: car, night, workout.</string>
+    <string name="scn_count">On: %1$d of 3</string>
+    <string name="scn_open">Open scenarios</string>
+    <string name="scn_intro">EQ watches these rules by itself, even with the screen closed. Night and workout go on top of your sound — presets stay as they are.</string>
+    <string name="scn_none">No scenario is active right now</string>
+    <string name="scn_active">Active now: %s</string>
+    <string name="scn_car">Car</string>
+    <string name="scn_car_when">Car connects → big car screen and its preset</string>
+    <string name="scn_car_preset">Preset: %s</string>
+    <string name="scn_keep">don’t change</string>
+    <string name="scn_car_open">Big car screen</string>
+    <string name="scn_car_notif">%s is here</string>
+    <string name="scn_car_notif_text">Tap to open the car screen</string>
+    <string name="scn_night">Night</string>
+    <string name="scn_night_when">Headphones at night → 3 dB quieter and softer highs</string>
+    <string name="scn_from">From %s</string>
+    <string name="scn_to">Until %s</string>
+    <string name="scn_sport">Workout</string>
+    <string name="scn_sport_when">Headphones and a workout app is open or playing → more punch</string>
+    <string name="scn_sport_apps">Apps: %s</string>
+    <string name="scn_sport_none">choose</string>
+    <string name="scn_sport_pick">Workout apps</string>
+    <string name="scn_sport_hint">Pick a player or a workout app (Strava, Samsung Health…). To see which app is open, EQ needs usage access, same as for games.</string>
 </resources>

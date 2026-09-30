@@ -468,13 +468,20 @@ public final class Games {
         private Set<String> gamePkgs = new HashSet<>();
         private final Map<String, String> labels = new HashMap<>();
         private long gamesAt;
+        private String lastFg;
+
+        /** Приложение на экране при последней проверке (нужно и сценарию «Тренировка»). */
+        public String lastForeground() {
+            return lastFg;
+        }
 
         /** gameAudio — сейчас звучит игра (Android пометил звук как USAGE_GAME). */
         public void update(Context c, boolean gameAudio) {
             long now = SystemClock.elapsedRealtime();
             String key = sessionKey(c), name = key != null ? sessionName(c) : null;
+            String pkg = hasUsageAccess(c) ? foreground(c) : null;
+            lastFg = pkg;
             if (key == null && autoOn(c)) {
-                String pkg = hasUsageAccess(c) ? foreground(c) : null;
                 if (pkg != null && isGamePkg(c, pkg, now)) {
                     key = pkg;
                     name = labels.get(pkg);

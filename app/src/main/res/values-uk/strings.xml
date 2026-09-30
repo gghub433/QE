@@ -417,4 +417,29 @@
     <string name="game_started">Звук гри увімкнено</string>
     <string name="pc_add_title">Гра не зі Steam</string>
     <string name="pc_add_hint">Назва гри</string>
+    <!-- 6.0: автосценарии -->
+    <string name="scn_title">Сценарії</string>
+    <string name="scn_settings_hint">Правила «коли → що»: машина, ніч, тренування.</string>
+    <string name="scn_count">Увімкнено: %1$d з 3</string>
+    <string name="scn_open">Відкрити сценарії</string>
+    <string name="scn_intro">EQ сам стежить за правилами, навіть коли екран закрито. Ніч і тренування лягають поверх звуку — пресети не змінюються.</string>
+    <string name="scn_none">Зараз жоден сценарій не працює</string>
+    <string name="scn_active">Зараз працює: %s</string>
+    <string name="scn_car">Машина</string>
+    <string name="scn_car_when">Підключилася машина → екран машини великим і її пресет</string>
+    <string name="scn_car_preset">Пресет: %s</string>
+    <string name="scn_keep">не змінювати</string>
+    <string name="scn_car_open">Екран машини великим</string>
+    <string name="scn_car_notif">%s на зв’язку</string>
+    <string name="scn_car_notif_text">Натисніть — відкриється екран машини</string>
+    <string name="scn_night">Ніч</string>
+    <string name="scn_night_when">Навушники вночі → на 3 дБ тихіше і м’якший верх</string>
+    <string name="scn_from">З %s</string>
+    <string name="scn_to">До %s</string>
+    <string name="scn_sport">Тренування</string>
+    <string name="scn_sport_when">Навушники й відкрито або грає застосунок для тренування → більше панчу</string>
+    <string name="scn_sport_apps">Застосунки: %s</string>
+    <string name="scn_sport_none">виберіть</string>
+    <string name="scn_sport_pick">Застосунки для тренування</string>
+    <string name="scn_sport_hint">Виберіть плеєр або застосунок тренувань (Strava, Samsung Health…). Щоб EQ бачив відкритий застосунок, потрібен доступ до історії використання, як для ігор.</string>
 </resources>

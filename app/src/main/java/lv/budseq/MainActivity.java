@@ -3,6 +3,7 @@ package lv.budseq;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.StatusBarManager;
+import android.app.TimePickerDialog;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.ComponentName;
@@ -47,6 +48,7 @@ import android.widget.ScrollView;
 import android.widget.SeekBar;
 import android.widget.Switch;
 import android.widget.TextView;
+import android.widget.TimePicker;
 import android.widget.Toast;
 
 import java.io.BufferedReader;
@@ -77,7 +79,7 @@ public class MainActivity extends Activity {
 
     /** Вкладки: Устройство / Эквалайзер / Музыка / Настройки. */
     static final int TAB_DEVICE = 0, TAB_EQ = 1, TAB_GAMES = 2, TAB_MUSIC = 3, TAB_SETTINGS = 4, TAB_COUNT = 5;
-    static final String EXTRA_TAB = "tab", EXTRA_CHECK_UPDATE = "check_update";
+    static final String EXTRA_TAB = "tab", EXTRA_CHECK_UPDATE = "check_update", EXTRA_CAR = "car";
     private static final int[] TAB_TITLES = {R.string.tab_device, R.string.tab_eq, R.string.tab_games, R.string.tab_music,
             R.string.tab_settings};
     private static final int[] TAB_ICONS = {R.drawable.ic_headset, R.drawable.ic_equalizer, R.drawable.ic_gamepad,
@@ -258,6 +260,15 @@ public class MainActivity extends Activity {
             pages[i] = sv;
             roots[i] = root;
         }
+        // «Сценарии» — отдельный экран из настроек (не вкладка): «Назад» возвращает в настройки
+        scnPage = new ScrollView(this);
+        scnPage.setVisibility(View.GONE);
+        scnRoot = new LinearLayout(this);
+        scnRoot.setOrientation(LinearLayout.VERTICAL);
+        scnRoot.setPadding(dp(16), dp(4), dp(16), dp(28));
+        scnPage.addView(scnRoot);
+        pagesBox.addView(scnPage, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
         buildDevices(roots[TAB_DEVICE]);
         buildCar(roots[TAB_DEVICE]);
@@ -308,6 +319,17 @@ public class MainActivity extends Activity {
             PresetCode.Preset p = PresetCode.decode(link);
             if (p != null) showPresetPreview(p);
             else Toast.makeText(this, R.string.code_bad, Toast.LENGTH_LONG).show();
+        }
+        if (i.getBooleanExtra(EXTRA_CAR, false)) {
+            // сценарий «Машина»: экран машины крупно — прокручиваем к ней
+            i.removeExtra(EXTRA_CAR);
+            selectTab(TAB_DEVICE, false);
+            ui.postDelayed(new Runnable() {
+                public void run() {
+                    refreshCar();
+                    if (carBox.getVisibility() == View.VISIBLE) pages[TAB_DEVICE].smoothScrollTo(0, carBox.getTop());
+                }
+            }, 400);
         }
         if (i.getBooleanExtra(EXTRA_CHECK_UPDATE, false)) {
             i.removeExtra(EXTRA_CHECK_UPDATE);
@@ -400,6 +422,11 @@ public class MainActivity extends Activity {
         if (t < 0 || t >= TAB_COUNT) t = TAB_DEVICE;
         int prev = tab;
         tab = t;
+        if (scnOpen) {
+            scnOpen = false;
+            scnPage.setVisibility(View.GONE);
+            prev = -1;   // возврат со «Сценариев» — с анимацией
+        }
         for (int i = 0; i < TAB_COUNT; i++) {
             boolean on = i == t;
             pages[i].setVisibility(on ? View.VISIBLE : View.GONE);
@@ -428,13 +455,13 @@ public class MainActivity extends Activity {
         updateBackCallback();
     }
 
-    /** «Назад» с любой вкладки ведёт на первую, с первой — выход. */
+    /** «Назад» со «Сценариев» — в настройки, с любой вкладки — на первую, с первой — выход. */
     private void updateBackCallback() {
         if (Build.VERSION.SDK_INT < 33) return; // там работает onBackPressed()
-        boolean need = tab != TAB_DEVICE;
+        boolean need = tab != TAB_DEVICE || scnOpen;
         if (need && backCallback == null) {
             backCallback = Back33.register(this, new Runnable() {
-                public void run() { selectTab(TAB_DEVICE, true); }
+                public void run() { selectTab(scnOpen ? TAB_SETTINGS : TAB_DEVICE, true); }
             });
         } else if (!need && backCallback != null) {
             Back33.unregister(this, backCallback);
@@ -444,6 +471,10 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
+        if (scnOpen) {
+            selectTab(TAB_SETTINGS, true);
+            return;
+        }
         if (tab != TAB_DEVICE) {
             selectTab(TAB_DEVICE, true);
             return;
@@ -945,6 +976,226 @@ public class MainActivity extends Activity {
     }
 
     // =====================================================================
+    // Сценарии «когда → что» (Настройки → Сценарии)
+    // =====================================================================
+
+    private ScrollView scnPage;
+    private LinearLayout scnRoot;
+    private boolean scnOpen;
+    private TextView scnSummary;
+
+    private void openScenarios() {
+        scnOpen = true;
+        for (ScrollView p : pages) p.setVisibility(View.GONE);
+        scnPage.setVisibility(View.VISIBLE);
+        scnPage.scrollTo(0, 0);
+        headerTitle.setText(R.string.scn_title);
+        buildScenarios();
+        scnPage.setAlpha(0f);
+        scnPage.setTranslationY(dp(10));
+        scnPage.animate().alpha(1f).translationY(0).setDuration(180).start();
+        updateBackCallback();
+    }
+
+    private void buildScenarios() {
+        scnRoot.removeAllViews();
+        final Scenarios.Config k = Scenarios.load(this);
+        TextView intro = hintText(getString(R.string.scn_intro));
+        intro.setPadding(dp(4), dp(12), dp(4), dp(4));
+        scnRoot.addView(intro);
+        TextView now = text(eq.scnLabel.isEmpty() ? getString(R.string.scn_none)
+                : getString(R.string.scn_active, eq.scnLabel), 14, Color.WHITE);
+        now.setPadding(dp(4), dp(8), dp(4), dp(4));
+        scnRoot.addView(now);
+
+        // машина
+        LinearLayout car = scnCard(R.drawable.ic_car, R.string.scn_car, R.string.scn_car_when, k.carOn,
+                new CompoundButton.OnCheckedChangeListener() {
+                    public void onCheckedChanged(CompoundButton v, boolean on) {
+                        k.carOn = on;
+                        saveScn(k);
+                    }
+                });
+        LinearLayout carRow = new LinearLayout(this);
+        String preset = k.carPreset.isEmpty() ? getString(R.string.scn_keep) : AppPresets.presetLabel(this, k.carPreset);
+        carRow.addView(chip(getString(R.string.scn_car_preset, preset), R.drawable.ic_equalizer, CHIP,
+                new View.OnClickListener() {
+                    public void onClick(View v) { chooseCarScnPreset(k); }
+                }));
+        carRow.addView(chip(getString(R.string.scn_car_open), R.drawable.ic_car, k.carOpen ? ACCENT : CHIP,
+                new View.OnClickListener() {
+                    public void onClick(View v) {
+                        k.carOpen = !k.carOpen;
+                        saveScn(k);
+                        buildScenarios();
+                    }
+                }));
+        car.addView(hscroll(carRow));
+        scnRoot.addView(car, topGap(12));
+
+        // ночь
+        LinearLayout night = scnCard(R.drawable.ic_bedtime, R.string.scn_night, R.string.scn_night_when, k.nightOn,
+                new CompoundButton.OnCheckedChangeListener() {
+                    public void onCheckedChanged(CompoundButton v, boolean on) {
+                        k.nightOn = on;
+                        saveScn(k);
+                    }
+                });
+        LinearLayout nightRow = new LinearLayout(this);
+        nightRow.addView(chip(getString(R.string.scn_from, hhmm(k.nightFrom)), 0, CHIP, new View.OnClickListener() {
+            public void onClick(View v) { pickScnTime(k, true); }
+        }));
+        nightRow.addView(chip(getString(R.string.scn_to, hhmm(k.nightTo)), 0, CHIP, new View.OnClickListener() {
+            public void onClick(View v) { pickScnTime(k, false); }
+        }));
+        night.addView(hscroll(nightRow));
+        scnRoot.addView(night, topGap(12));
+
+        // тренировка
+        LinearLayout sport = scnCard(R.drawable.ic_bolt, R.string.scn_sport, R.string.scn_sport_when, k.sportOn,
+                new CompoundButton.OnCheckedChangeListener() {
+                    public void onCheckedChanged(CompoundButton v, boolean on) {
+                        k.sportOn = on;
+                        saveScn(k);
+                    }
+                });
+        StringBuilder apps = new StringBuilder();
+        for (int i = 0; i < k.sportApps.size() && i < 2; i++) {
+            if (i > 0) apps.append(", ");
+            apps.append(appLabel(k.sportApps.get(i)));
+        }
+        if (k.sportApps.size() > 2) apps.append(" +").append(k.sportApps.size() - 2);
+        LinearLayout sportRow = new LinearLayout(this);
+        sportRow.addView(chip(getString(R.string.scn_sport_apps,
+                apps.length() > 0 ? apps.toString() : getString(R.string.scn_sport_none)), R.drawable.ic_add, CHIP,
+                new View.OnClickListener() {
+                    public void onClick(View v) { chooseSportApps(k); }
+                }));
+        sport.addView(hscroll(sportRow));
+        TextView sh = text(getString(R.string.scn_sport_hint), 12, GREY);
+        sh.setPadding(0, 0, 0, dp(6));
+        sport.addView(sh);
+        scnRoot.addView(sport, topGap(12));
+    }
+
+    /** Карточка правила: значок, название, «когда → что» и переключатель. */
+    private LinearLayout scnCard(int iconRes, int title, int when, boolean on,
+                                 CompoundButton.OnCheckedChangeListener l) {
+        LinearLayout c = gameCard();
+        LinearLayout head = new LinearLayout(this);
+        head.setGravity(Gravity.CENTER_VERTICAL);
+        head.setPadding(0, 0, 0, dp(10));
+        ImageView ic = new ImageView(this);
+        ic.setImageDrawable(icon(iconRes, Theme.liveAccent()));
+        head.addView(ic, new LinearLayout.LayoutParams(dp(24), dp(24)));
+        LinearLayout texts = new LinearLayout(this);
+        texts.setOrientation(LinearLayout.VERTICAL);
+        texts.setPadding(dp(12), 0, dp(8), 0);
+        TextView t = text(getString(title), 16, Color.WHITE);
+        t.setTypeface(Typeface.DEFAULT_BOLD);
+        texts.addView(t);
+        TextView w = text(getString(when), 12, GREY);
+        w.setPadding(0, dp(2), 0, 0);
+        texts.addView(w);
+        head.addView(texts, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        Switch sw = styledSwitch();
+        sw.setChecked(on);
+        sw.setOnCheckedChangeListener(l);
+        head.addView(sw);
+        c.addView(head);
+        return c;
+    }
+
+    private void saveScn(Scenarios.Config k) {
+        Scenarios.save(this, k);
+        EqService.poke(this);
+    }
+
+    private static String hhmm(int minutes) {
+        return String.format(Locale.US, "%02d:%02d", minutes / 60, minutes % 60);
+    }
+
+    private void pickScnTime(final Scenarios.Config k, final boolean from) {
+        int m = from ? k.nightFrom : k.nightTo;
+        new TimePickerDialog(this, new TimePickerDialog.OnTimeSetListener() {
+            public void onTimeSet(TimePicker v, int h, int min) {
+                if (from) k.nightFrom = h * 60 + min;
+                else k.nightTo = h * 60 + min;
+                saveScn(k);
+                buildScenarios();
+            }
+        }, m / 60, m % 60, android.text.format.DateFormat.is24HourFormat(this)).show();
+    }
+
+    private void chooseCarScnPreset(final Scenarios.Config k) {
+        final List<String> vals = new ArrayList<>();
+        List<String> labels = new ArrayList<>();
+        vals.add("");
+        labels.add(getString(R.string.scn_keep));
+        for (int i = 0; i < EqEngine.PRESET_NAMES.length; i++) {
+            vals.add(AppPresets.BUILTIN + i);
+            labels.add(getString(EqEngine.PRESET_NAMES[i]));
+        }
+        for (String n : eq.presetNames()) {
+            vals.add(AppPresets.USER + n);
+            labels.add(n);
+        }
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.scn_car)
+                .setItems(labels.toArray(new String[0]), new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface d, int which) {
+                        k.carPreset = vals.get(which);
+                        saveScn(k);
+                        buildScenarios();
+                    }
+                })
+                .show();
+    }
+
+    private void chooseSportApps(final Scenarios.Config k) {
+        final List<String[]> rows = launcherApps();
+        String[] labels = new String[rows.size()];
+        final boolean[] checked = new boolean[rows.size()];
+        for (int i = 0; i < labels.length; i++) {
+            labels[i] = rows.get(i)[1];
+            checked[i] = k.sportApps.contains(rows.get(i)[0]);
+        }
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.scn_sport_pick)
+                .setMultiChoiceItems(labels, checked, new DialogInterface.OnMultiChoiceClickListener() {
+                    public void onClick(DialogInterface d, int which, boolean on) { checked[which] = on; }
+                })
+                .setPositiveButton(R.string.save, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface d, int w) {
+                        k.sportApps.clear();
+                        for (int i = 0; i < checked.length; i++) if (checked[i]) k.sportApps.add(rows.get(i)[0]);
+                        saveScn(k);
+                        buildScenarios();
+                    }
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    /** Приложения с ярлыком на рабочем столе: [пакет, название], по алфавиту. */
+    private List<String[]> launcherApps() {
+        PackageManager pm = getPackageManager();
+        Intent main = new Intent(Intent.ACTION_MAIN);
+        main.addCategory(Intent.CATEGORY_LAUNCHER);
+        List<String[]> rows = new ArrayList<>();
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        for (ResolveInfo ri : pm.queryIntentActivities(main, 0)) {
+            String p = ri.activityInfo.packageName;
+            if (p.equals(getPackageName()) || !seen.add(p)) continue;
+            rows.add(new String[]{p, ri.loadLabel(pm).toString()});
+        }
+        Collections.sort(rows, new Comparator<String[]>() {
+            public int compare(String[] a, String[] b) { return a[1].compareToIgnoreCase(b[1]); }
+        });
+        return rows;
+    }
+
+    // =====================================================================
     // Игры: звук под игру, игры телефона и ПК (Steam), игровое время
     // =====================================================================
 
@@ -987,7 +1238,7 @@ public class MainActivity extends Activity {
         gameEndBtn = chip(getString(R.string.game_end), R.drawable.ic_stop, ACCENT, new View.OnClickListener() {
             public void onClick(View v) {
                 Games.stopSession(MainActivity.this);
-                EqService.pokeGames(MainActivity.this);
+                EqService.poke(MainActivity.this);
                 refreshGames(true);
             }
         });
@@ -999,7 +1250,7 @@ public class MainActivity extends Activity {
                 } else {
                     Games.startSession(MainActivity.this, Games.TRY, getString(R.string.game_try_label));
                 }
-                EqService.pokeGames(MainActivity.this);
+                EqService.poke(MainActivity.this);
                 refreshGames(false);
             }
         });
@@ -1014,7 +1265,7 @@ public class MainActivity extends Activity {
             gameDefBtns[i] = chip(getString(Games.PROFILE_NAMES[prof]), 0, CHIP, new View.OnClickListener() {
                 public void onClick(View v) {
                     Games.setDefaultProfile(MainActivity.this, prof);
-                    EqService.pokeGames(MainActivity.this);
+                    EqService.poke(MainActivity.this);
                     refreshGames(false);
                 }
             });
@@ -1034,7 +1285,7 @@ public class MainActivity extends Activity {
             }
 
             public void onStopTrackingTouch(SeekBar s) {
-                EqService.pokeGames(MainActivity.this);
+                EqService.poke(MainActivity.this);
             }
         });
 
@@ -1044,7 +1295,7 @@ public class MainActivity extends Activity {
             public void onCheckedChanged(CompoundButton v, boolean on) {
                 if (updating) return;
                 Games.setAuto(MainActivity.this, on);
-                EqService.pokeGames(MainActivity.this);
+                EqService.poke(MainActivity.this);
             }
         });
 
@@ -1257,20 +1508,7 @@ public class MainActivity extends Activity {
 
     /** Android не знает, что это игра, — человек отмечает сам. */
     private void pickPhoneGame() {
-        final PackageManager pm = getPackageManager();
-        Intent main = new Intent(Intent.ACTION_MAIN);
-        main.addCategory(Intent.CATEGORY_LAUNCHER);
-        final List<String[]> rows = new ArrayList<>();
-        for (ResolveInfo ri : pm.queryIntentActivities(main, 0)) {
-            String p = ri.activityInfo.packageName;
-            if (p.equals(getPackageName())) continue;
-            boolean dup = false;
-            for (String[] x : rows) if (x[0].equals(p)) dup = true;
-            if (!dup) rows.add(new String[]{p, ri.loadLabel(pm).toString()});
-        }
-        Collections.sort(rows, new Comparator<String[]>() {
-            public int compare(String[] a, String[] b) { return a[1].compareToIgnoreCase(b[1]); }
-        });
+        final List<String[]> rows = launcherApps();
         String[] labels = new String[rows.size()];
         for (int i = 0; i < labels.length; i++) labels[i] = rows.get(i)[1];
         new AlertDialog.Builder(this)
@@ -1278,7 +1516,7 @@ public class MainActivity extends Activity {
                 .setItems(labels, new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface d, int which) {
                         Games.addExtraGame(MainActivity.this, rows.get(which)[0]);
-                        EqService.pokeGames(MainActivity.this);
+                        EqService.poke(MainActivity.this);
                         refreshGames(true);
                     }
                 })
@@ -1608,7 +1846,7 @@ public class MainActivity extends Activity {
                 public void onClick(View v) {
                     prof[0] = p;
                     Games.setProfile(MainActivity.this, g.key, p);
-                    EqService.pokeGames(MainActivity.this);
+                    EqService.poke(MainActivity.this);
                     for (Button x : pbtns) x.setBackground(round(x == v ? ACCENT : CHIP, 24));
                     setPlayHint(hint, g, p);
                 }
@@ -1631,7 +1869,7 @@ public class MainActivity extends Activity {
                     public void onClick(DialogInterface d, int w) {
                         if (g.key.equals(Games.sessionKey(MainActivity.this))) {
                             Games.stopSession(MainActivity.this);
-                            EqService.pokeGames(MainActivity.this);
+                            EqService.poke(MainActivity.this);
                             refreshGames(true);
                         }
                     }
@@ -1655,7 +1893,7 @@ public class MainActivity extends Activity {
         if (g.pkg != null) {
             // игру с телефона EQ узнаёт сам по статистике; без неё — включаем звук по кнопке
             if (!Games.hasUsageAccess(this) || !Games.autoOn(this)) Games.startSession(this, g.key, g.name);
-            EqService.pokeGames(this);
+            EqService.poke(this);
             Intent li = getPackageManager().getLaunchIntentForPackage(g.pkg);
             if (li != null) {
                 try {
@@ -1675,7 +1913,7 @@ public class MainActivity extends Activity {
             if (li == null) continue;
             try {
                 Games.startSession(this, g.key, g.name);
-                EqService.pokeGames(this);
+                EqService.poke(this);
                 startActivity(li);
                 Toast.makeText(this, R.string.game_started, Toast.LENGTH_SHORT).show();
                 refreshGames(true);
@@ -2646,6 +2884,16 @@ public class MainActivity extends Activity {
 
         buildAutomation(root);
 
+        root.addView(section(getString(R.string.scn_title)));
+        scnSummary = hintText("");
+        root.addView(scnSummary);
+        LinearLayout scn = new LinearLayout(this);
+        scn.setPadding(0, dp(8), 0, 0);
+        scn.addView(chip(getString(R.string.scn_open), R.drawable.ic_layers, CHIP, new View.OnClickListener() {
+            public void onClick(View v) { openScenarios(); }
+        }));
+        root.addView(hscroll(scn));
+
         root.addView(section(getString(R.string.popup_on)));
         root.addView(hintText(getString(R.string.popup_hint)));
         LinearLayout pop = new LinearLayout(this);
@@ -2764,6 +3012,10 @@ public class MainActivity extends Activity {
 
     private void refreshSettings() {
         if (langBtn == null) return;
+        if (scnSummary != null) {
+            scnSummary.setText(getString(R.string.scn_settings_hint) + " "
+                    + getString(R.string.scn_count, Scenarios.enabledCount(Scenarios.load(this))));
+        }
         String cur = Lang.get(this);
         String name = getString(R.string.lang_system);
         for (int i = 1; i < Lang.CODES.length; i++) {

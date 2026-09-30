@@ -31,13 +31,15 @@ import java.util.Set;
  *  - автовключение и свои настройки для каждого устройства, фокус звука в машине;
  *  - Music Time: считает, сколько и кого слушаешь;
  *  - звук под игру: узнаёт запущенную игру и включает её профиль (вкладка «Игры»);
+ *  - автосценарии: машина, ночь, тренировка (Настройки → Сценарии);
  *  - раз в 12 часов проверяет обновления на GitHub.
  */
 public class EqService extends Service {
     private static final String CHANNEL = "eq";
     private static final String CHANNEL_ALERT = "alerts";
     private static final String CHANNEL_TIPS = "tips";
-    private static final int NOTIF_MAIN = 1, NOTIF_APP = 3, NOTIF_AUTOEQ = 4, NOTIF_SLEEP = 7, NOTIF_LOW_BASE = 100;
+    private static final int NOTIF_MAIN = 1, NOTIF_APP = 3, NOTIF_AUTOEQ = 4, NOTIF_SLEEP = 7, NOTIF_CAR = 8,
+            NOTIF_LOW_BASE = 100;
     private static final long STATS_TICK_MS = 15000, UPDATE_TICK_MS = 6L * 60 * 60 * 1000;
 
     private EqEngine eq;
@@ -71,16 +73,17 @@ public class EqService extends Service {
         String pkg = np.active() && np.playing() ? np.packageName() : null;
         appTracker.update(this, pkg, gameNow);
         gameTracker.update(this, gameNow);
+        Scenarios.evaluate(this, monitor.primaryAudio(), pkg, gameTracker.lastForeground());
     }
 
     // звук под игру (вкладка «Игры»)
     private final Games.Tracker gameTracker = new Games.Tracker();
-    static final String ACT_GAMES = "lv.budseq.GAMES";
+    static final String ACT_POKE = "lv.budseq.POKE";
 
-    /** Экран поменял настройки игр или нажали «Играть» — пересчитать сразу, не ждать 15 с. */
-    static void pokeGames(Context c) {
+    /** Экран поменял игры или сценарии, нажали «Играть» — пересчитать сразу, не ждать 15 с. */
+    static void poke(Context c) {
         Intent i = new Intent(c, EqService.class);
-        i.setAction(ACT_GAMES);
+        i.setAction(ACT_POKE);
         try {
             c.startService(i);
         } catch (Exception e) {
@@ -223,9 +226,9 @@ public class EqService extends Service {
             startSleep(intent.getIntExtra(EXTRA_MINUTES, 0));
             return START_STICKY;
         }
-        if (intent != null && ACT_GAMES.equals(intent.getAction())) {
+        if (intent != null && ACT_POKE.equals(intent.getAction())) {
             gameTracker.invalidate();
-            gameTracker.update(this, gameNow);
+            checkAppPreset();
             updateNotification();
             return START_STICKY;
         }
@@ -362,6 +365,7 @@ public class EqService extends Service {
     private void onDevices(DeviceInfo added) {
         updateAirPods();
         syncProfileAndAuto();
+        checkAppPreset();   // сценарии «ночь» и «тренировка» зависят от наушников
         checkLowBattery();
         if (added != null && added.isAudio()) {
             onConnected(added);
@@ -375,6 +379,7 @@ public class EqService extends Service {
 
     private void onConnected(final DeviceInfo info) {
         suggestAutoEq(info);
+        Scenarios.onConnected(this, info, nm, CHANNEL_ALERT, NOTIF_CAR);
         final DeviceSettings ds = DeviceSettings.get(this, info.address);
         if (ds.volume >= 0) {
             main.postDelayed(new Runnable() {

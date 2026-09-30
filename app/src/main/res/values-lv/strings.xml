@@ -417,4 +417,29 @@
     <string name="game_started">Spēles skaņa ieslēgta</string>
     <string name="pc_add_title">Spēle ārpus Steam</string>
     <string name="pc_add_hint">Spēles nosaukums</string>
+    <!-- 6.0: автосценарии -->
+    <string name="scn_title">Scenāriji</string>
+    <string name="scn_settings_hint">Noteikumi «kad → ko»: auto, nakts, treniņš.</string>
+    <string name="scn_count">Ieslēgti: %1$d no 3</string>
+    <string name="scn_open">Atvērt scenārijus</string>
+    <string name="scn_intro">EQ pats seko šiem noteikumiem, arī ar aizvērtu ekrānu. Nakts un treniņš tiek uzlikti virs skaņas — preseti nemainās.</string>
+    <string name="scn_none">Pašlaik neviens scenārijs nedarbojas</string>
+    <string name="scn_active">Tagad darbojas: %s</string>
+    <string name="scn_car">Auto</string>
+    <string name="scn_car_when">Pievienojas auto → liels auto ekrāns un tā presets</string>
+    <string name="scn_car_preset">Presets: %s</string>
+    <string name="scn_keep">nemainīt</string>
+    <string name="scn_car_open">Liels auto ekrāns</string>
+    <string name="scn_car_notif">%s ir klāt</string>
+    <string name="scn_car_notif_text">Pieskarieties — atvērsies auto ekrāns</string>
+    <string name="scn_night">Nakts</string>
+    <string name="scn_night_when">Austiņas naktī → par 3 dB klusāk un maigāki augšgali</string>
+    <string name="scn_from">No %s</string>
+    <string name="scn_to">Līdz %s</string>
+    <string name="scn_sport">Treniņš</string>
+    <string name="scn_sport_when">Austiņas un atvērta vai skan treniņu lietotne → vairāk sitiena</string>
+    <string name="scn_sport_apps">Lietotnes: %s</string>
+    <string name="scn_sport_none">izvēlieties</string>
+    <string name="scn_sport_pick">Treniņu lietotnes</string>
+    <string name="scn_sport_hint">Izvēlieties atskaņotāju vai treniņu lietotni (Strava, Samsung Health…). Lai EQ redzētu atvērto lietotni, vajag piekļuvi lietojuma datiem, kā spēlēm.</string>
 </resources>
