@@ -48,7 +48,8 @@ public class CarFocusView extends View {
     };
     public static final int DEFAULT_LAYOUT = 2;
 
-    private final int ACCENT = Theme.accent();
+    /** Свечение (фокус, лучи, кольца): «живой» цвет — от обложки или акцент темы. */
+    private int glow = Theme.liveAccent();
     private static final int BODY = Color.rgb(0x2B, 0x2D, 0x33);
     private static final int BODY_EDGE = Color.rgb(0x5E, 0x62, 0x6C);
     private static final int FLOOR = Color.rgb(0x17, 0x18, 0x1C);
@@ -155,6 +156,11 @@ public class CarFocusView extends View {
     }
 
     public void setListener(Listener l) { listener = l; }
+
+    public void setGlow(int color) {
+        glow = color;
+        invalidate();
+    }
 
     public void setState(int focusPoint, int focusMode, boolean rightHand) {
         focus = focusPoint;
@@ -336,7 +342,7 @@ public class CarFocusView extends View {
         r.set(left + carW * 0.06f, top + carH * 0.30f, right - carW * 0.06f, top + carH * 0.36f);
         c.drawRoundRect(r, carW * 0.05f, carW * 0.05f, fill);
         // экран магнитолы — светится акцентом
-        fill.setColor(ACCENT);
+        fill.setColor(glow);
         fill.setAlpha(150 + (int) (60 * Math.sin(time * 2)));
         r.set(cx - carW * 0.08f, top + carH * 0.312f, cx + carW * 0.08f, top + carH * 0.338f);
         c.drawRoundRect(r, carW * 0.015f, carW * 0.015f, fill);
@@ -393,7 +399,7 @@ public class CarFocusView extends View {
             float size = s == 0 ? (spk[i + 1] > 0.8f ? 0.075f : 0.035f) : spk[i + 1] < 0.4f ? 0.028f : 0.045f;
             drawSpeaker(c, abs[i], abs[i + 1], carW * size);
             if (editMode) {
-                stroke.setColor(ACCENT);
+                stroke.setColor(glow);
                 stroke.setAlpha(i / 2 == dragging ? 255 : 170);
                 stroke.setStrokeWidth(2 * d);
                 c.drawCircle(abs[i], abs[i + 1], carW * size + 5 * d, stroke);
@@ -404,7 +410,7 @@ public class CarFocusView extends View {
         if (fx >= 0) {
             float px = pts[fx * 2], py = pts[fx * 2 + 1];
             float strength = sel[fx];
-            stroke.setColor(ACCENT);
+            stroke.setColor(glow);
             stroke.setStrokeWidth(carW * 0.012f);
             for (int i = 0; i + 1 < abs.length; i += 2) {
                 stroke.setAlpha((int) (45 * strength * level(spk[i])));
@@ -416,7 +422,7 @@ public class CarFocusView extends View {
                     float ph = (time * 0.7f + k / 3f + i * 0.07f) % 1f;
                     float x = abs[i] + (px - abs[i]) * ph;
                     float y = abs[i + 1] + (py - abs[i + 1]) * ph;
-                    fill.setColor(ACCENT);
+                    fill.setColor(glow);
                     fill.setAlpha((int) (200 * strength * lv * (1f - ph) * Math.min(1f, ph * 4f)));
                     c.drawCircle(x, y, carW * 0.014f, fill);
                 }
@@ -432,7 +438,7 @@ public class CarFocusView extends View {
             if (s > 0.02f) {
                 for (int k = 0; k < 2; k++) {
                     float ph = (time * 0.8f + k * 0.5f) % 1f;
-                    stroke.setColor(ACCENT);
+                    stroke.setColor(glow);
                     stroke.setAlpha((int) (170 * s * (1f - ph)));
                     stroke.setStrokeWidth(2 * d);
                     c.drawCircle(x, y, pointR * (1.1f + 1.3f * ph), stroke);
@@ -442,7 +448,7 @@ public class CarFocusView extends View {
             fill.setAlpha(230);
             c.drawCircle(x, y, pointR, fill);
             if (s > 0.01f) {
-                fill.setColor(ACCENT);
+                fill.setColor(glow);
                 fill.setAlpha((int) (255 * s));
                 c.drawCircle(x, y, pointR * (0.55f + 0.45f * s), fill);
             }

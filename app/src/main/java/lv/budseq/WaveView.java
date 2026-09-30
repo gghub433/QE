@@ -14,7 +14,7 @@ import android.view.View;
 public class WaveView extends View {
 
 
-    private int color = Theme.wave();
+    private int color = Theme.liveWave();
     private float level = 0.12f, target = 0.12f, time;
     private boolean running;
 

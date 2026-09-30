@@ -1677,6 +1677,15 @@ public class MainActivity extends Activity {
             }));
         }
         root.addView(waves);
+
+        final Switch coverSwitch = styledSwitch();
+        coverSwitch.setChecked(Theme.coverEnabled());
+        root.addView(switchRow(getString(R.string.theme_cover), getString(R.string.theme_cover_hint), coverSwitch));
+        coverSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            public void onCheckedChanged(CompoundButton v, boolean on) {
+                Theme.setCoverEnabled(MainActivity.this, on);
+            }
+        });
     }
 
     /** Кружок цвета; выбранный — с белой обводкой. */
@@ -1808,6 +1817,7 @@ public class MainActivity extends Activity {
         AirPods.get().addListener(airListener);
         DeviceMonitor.get().addListener(deviceListener);
         eq.addListener(eqListener);
+        Theme.addListener(liveListener);
         DeviceMonitor.get().refresh();
         refreshDevices();
         refreshEq();
@@ -1835,6 +1845,7 @@ public class MainActivity extends Activity {
         DeviceInfo sel = DeviceMonitor.get().find(selected);
         if (sel != null && sel.isAirPods()) AirPods.get().start(this, sel, false);
         eq.removeListener(eqListener);
+        Theme.removeListener(liveListener);
         spectrum.stop();
         graph.setSpectrum(null);
         super.onPause();
@@ -2460,7 +2471,10 @@ public class MainActivity extends Activity {
 
         npPlay.setImageDrawable(icon(np.playing() ? R.drawable.ic_pause : R.drawable.ic_play, Color.WHITE));
         wave.setPlaying(np.playing());
-        wave.setColor(art != null ? waveColor(art) : 0);
+        if (art != coverArt) {
+            coverArt = art;
+            Theme.setCover(art != null ? CoverColor.dominant(art) : 0);
+        }
         long dur = np.duration();
         npSeek.setVisibility(dur > 0 ? View.VISIBLE : View.GONE);
         npTime.setVisibility(dur > 0 ? View.VISIBLE : View.GONE);
@@ -2497,20 +2511,7 @@ public class MainActivity extends Activity {
         }
     }
 
-    /** Яркий цвет из обложки — для волны. */
-    private static int waveColor(Bitmap b) {
-        try {
-            Bitmap one = Bitmap.createScaledBitmap(b, 1, 1, true);
-            float[] hsv = new float[3];
-            Color.colorToHSV(one.getPixel(0, 0), hsv);
-            if (hsv[1] < 0.2f) return 0; // серая обложка — берём акцент
-            hsv[1] = Math.max(0.55f, hsv[1]);
-            hsv[2] = Math.max(0.9f, hsv[2]);
-            return Color.HSVToColor(hsv);
-        } catch (Exception e) {
-            return 0;
-        }
-    }
+    private Bitmap coverArt;
 
     private ImageButton roundButton(int iconRes, int sizeDp, int bg, int descRes, View.OnClickListener click) {
         ImageButton b = new ImageButton(this);
@@ -2973,10 +2974,38 @@ public class MainActivity extends Activity {
 
     private GradientDrawable round(int color, int radiusDp) {
         GradientDrawable g = new GradientDrawable();
-        g.setColor(color);
+        if (color == ACCENT) {
+            // акцентный фон (выбранный чип, вкладка) — перекрашивается «живым» цветом обложки
+            g.setColor(Theme.liveAccent());
+            accentBgs.add(new java.lang.ref.WeakReference<>(g));
+            if (accentBgs.size() > 400) pruneAccentBgs();
+        } else {
+            g.setColor(color);
+        }
         g.setCornerRadius(dp(radiusDp));
         return g;
     }
+
+    /** Все акцентные фоны экрана (слабые ссылки: заменённые фоны уходят сами). */
+    private final List<java.lang.ref.WeakReference<GradientDrawable>> accentBgs = new ArrayList<>();
+
+    private void pruneAccentBgs() {
+        for (int i = accentBgs.size() - 1; i >= 0; i--) {
+            if (accentBgs.get(i).get() == null) accentBgs.remove(i);
+        }
+    }
+
+    /** Цвет обложки плавно перекрашивает волну, выбранные чипы и свечение машины. */
+    private final Theme.LiveListener liveListener = new Theme.LiveListener() {
+        public void onLiveColor(int accentColor, int waveColor) {
+            for (java.lang.ref.WeakReference<GradientDrawable> r : accentBgs) {
+                GradientDrawable g = r.get();
+                if (g != null) g.setColor(accentColor);
+            }
+            if (wave != null) wave.setColor(waveColor);
+            if (carView != null) carView.setGlow(accentColor);
+        }
+    };
 
     private Drawable icon(int res, int color) {
         Drawable d = getDrawable(res).mutate();

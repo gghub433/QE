@@ -603,6 +603,9 @@ public class EqService extends Service {
         w.title = np.title();
         w.artist = np.artist();
         w.art = np.art();
+        // волна виджета — цвета обложки (если включено в «Оформлении»)
+        int cc = Theme.coverEnabled() && w.art != null ? CoverColor.dominant(w.art) : 0;
+        w.waveColor = cc != 0 ? cc : Theme.wave();
         w.playing = np.active() ? np.playing() : am.isMusicActive();
         w.eqOn = eq.enabled;
         w.eqStatus = !eq.enabled ? getString(R.string.off) : eq.lastPreset;

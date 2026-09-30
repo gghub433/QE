@@ -319,4 +319,7 @@
     <string name="ph_tip_huawei">Huawei / Honor: «Запуск застосунків» → EQ → «Вручну» й увімкни всі три перемикачі.</string>
     <string name="ph_tip_bbk">OnePlus / OPPO / realme / vivo: дозволь EQ роботу у фоні в налаштуваннях батареї.</string>
     <string name="phone_speaker_of">Динамік %s</string>
+    <!-- 6.0: цвет от обложки -->
+    <string name="theme_cover">Колір від обкладинки</string>
+    <string name="theme_cover_hint">Хвиля, вибрані кнопки та світіння в авто плавно перефарбовуються в колір обкладинки треку</string>
 </resources>

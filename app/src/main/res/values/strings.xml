@@ -319,4 +319,7 @@
     <string name="ph_tip_huawei">Huawei / Honor: App launch → EQ → Manage manually and turn on all three switches.</string>
     <string name="ph_tip_bbk">OnePlus / OPPO / realme / vivo: allow EQ to run in the background in the battery settings.</string>
     <string name="phone_speaker_of">%s speaker</string>
+    <!-- 6.0: цвет от обложки -->
+    <string name="theme_cover">Color from the cover</string>
+    <string name="theme_cover_hint">The wave, selected buttons and the glow in the car smoothly take the color of the track cover</string>
 </resources>

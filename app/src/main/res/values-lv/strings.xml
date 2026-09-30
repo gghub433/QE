@@ -319,4 +319,7 @@
     <string name="ph_tip_huawei">Huawei / Honor: «Lietotņu palaišana» → EQ → «Manuāli» un ieslēdz visus trīs slēdžus.</string>
     <string name="ph_tip_bbk">OnePlus / OPPO / realme / vivo: akumulatora iestatījumos atļauj EQ darboties fonā.</string>
     <string name="phone_speaker_of">%s skaļrunis</string>
+    <!-- 6.0: цвет от обложки -->
+    <string name="theme_cover">Krāsa no vāciņa</string>
+    <string name="theme_cover_hint">Vilnis, izvēlētās pogas un mirdzums automašīnā pamazām iegūst dziesmas vāciņa krāsu</string>
 </resources>
