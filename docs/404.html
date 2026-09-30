@@ -69,6 +69,9 @@
   // на iPhone — инструкция по установке EQ для iPhone вместо APK
   if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
     $("get").href = "https://github.com/gghub433/QE#eq-%D0%B4%D0%BB%D1%8F-iphone";
+  } else if (/Windows NT/i.test(navigator.userAgent)) {
+    // на компьютере с Windows — EQ для ПК
+    $("get").href = "https://github.com/gghub433/QE#eq-%D0%B4%D0%BB%D1%8F-%D0%BF%D0%BA";
   }
 
   // код — только буквы base32 и дефисы, иначе ничего не показываем
