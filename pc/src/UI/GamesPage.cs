@@ -356,7 +356,7 @@ namespace EQ
         {
             double size = w > 180 ? 24 : 19;
             int longest = (g.Name ?? "").Split(' ').Select(s => s.Length).DefaultIfEmpty(1).Max();
-            size = Math.Max(11, Math.Min(size, (w - 30) / (Math.Max(1, longest) * 0.6)));
+            size = Math.Max(11, Math.Min(size, (w - 30) / (Math.Max(1, longest) * 0.72)));   // заглавные шире строчных
             var t = Ui.Title(g.Name, size);
             t.TextWrapping = TextWrapping.Wrap;
             t.TextTrimming = TextTrimming.CharacterEllipsis;
