@@ -30,6 +30,7 @@ import java.util.Set;
  *    предупреждение о низком заряде, громкость и приложение при подключении;
  *  - автовключение и свои настройки для каждого устройства, фокус звука в машине;
  *  - Music Time: считает, сколько и кого слушаешь;
+ *  - звук под игру: узнаёт запущенную игру и включает её профиль (вкладка «Игры»);
  *  - раз в 12 часов проверяет обновления на GitHub.
  */
 public class EqService extends Service {
@@ -69,6 +70,25 @@ public class EqService extends Service {
     private void checkAppPreset() {
         String pkg = np.active() && np.playing() ? np.packageName() : null;
         appTracker.update(this, pkg, gameNow);
+        gameTracker.update(this, gameNow);
+    }
+
+    // звук под игру (вкладка «Игры»)
+    private final Games.Tracker gameTracker = new Games.Tracker();
+    static final String ACT_GAMES = "lv.budseq.GAMES";
+
+    /** Экран поменял настройки игр или нажали «Играть» — пересчитать сразу, не ждать 15 с. */
+    static void pokeGames(Context c) {
+        Intent i = new Intent(c, EqService.class);
+        i.setAction(ACT_GAMES);
+        try {
+            c.startService(i);
+        } catch (Exception e) {
+            try {
+                c.startForegroundService(i);
+            } catch (Exception ignored) {
+            }
+        }
     }
 
     /** Music Time: раз в 15 с — играет ли музыка и кто. Виджет — раз в минуту. */
@@ -201,6 +221,12 @@ public class EqService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null && ACT_SLEEP.equals(intent.getAction())) {
             startSleep(intent.getIntExtra(EXTRA_MINUTES, 0));
+            return START_STICKY;
+        }
+        if (intent != null && ACT_GAMES.equals(intent.getAction())) {
+            gameTracker.invalidate();
+            gameTracker.update(this, gameNow);
+            updateNotification();
             return START_STICKY;
         }
         monitor.refresh();
@@ -643,6 +669,7 @@ public class EqService extends Service {
         }
         int sleep = sleepMinutesLeft();
         if (sleep > 0) text = getString(R.string.sleep_left, sleep) + " · " + text;
+        if (eq.gameSoundOn()) text = getString(R.string.game_notif, eq.gameLabel) + " · " + text;
         nm.notify(NOTIF_MAIN, buildMain(text));
         updateWidget();
     }

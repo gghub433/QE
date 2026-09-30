@@ -76,10 +76,12 @@ public class MainActivity extends Activity {
     private static final int REQ_PERMS = 1, REQ_AUDIO = 2, REQ_AIRPODS = 3, REQ_SAVE = 10, REQ_OPEN = 11;
 
     /** Вкладки: Устройство / Эквалайзер / Музыка / Настройки. */
-    static final int TAB_DEVICE = 0, TAB_EQ = 1, TAB_MUSIC = 2, TAB_SETTINGS = 3, TAB_COUNT = 4;
+    static final int TAB_DEVICE = 0, TAB_EQ = 1, TAB_GAMES = 2, TAB_MUSIC = 3, TAB_SETTINGS = 4, TAB_COUNT = 5;
     static final String EXTRA_TAB = "tab", EXTRA_CHECK_UPDATE = "check_update";
-    private static final int[] TAB_TITLES = {R.string.tab_device, R.string.tab_eq, R.string.tab_music, R.string.tab_settings};
-    private static final int[] TAB_ICONS = {R.drawable.ic_headset, R.drawable.ic_equalizer, R.drawable.ic_music, R.drawable.ic_settings};
+    private static final int[] TAB_TITLES = {R.string.tab_device, R.string.tab_eq, R.string.tab_games, R.string.tab_music,
+            R.string.tab_settings};
+    private static final int[] TAB_ICONS = {R.drawable.ic_headset, R.drawable.ic_equalizer, R.drawable.ic_gamepad,
+            R.drawable.ic_music, R.drawable.ic_settings};
 
     /** Популярные музыкальные приложения — показываются первыми в выборе. */
     private static final List<String> MUSIC_APPS = Arrays.asList(
@@ -270,6 +272,8 @@ public class MainActivity extends Activity {
         tip.setPadding(dp(4), dp(20), dp(4), 0);
         roots[TAB_EQ].addView(tip);
 
+        buildGames(roots[TAB_GAMES]);
+
         buildNowPlaying(roots[TAB_MUSIC]);
         buildMusicTime(roots[TAB_MUSIC]);
 
@@ -374,7 +378,7 @@ public class MainActivity extends Activity {
             ImageView ic = new ImageView(this);
             ic.setScaleType(ImageView.ScaleType.CENTER);
             item.addView(ic, new LinearLayout.LayoutParams(dp(60), dp(32)));
-            TextView t = text(getString(TAB_TITLES[i]), 12, GREY);
+            TextView t = text(getString(TAB_TITLES[i]), 11, GREY);
             t.setSingleLine(true);
             t.setEllipsize(android.text.TextUtils.TruncateAt.END);
             t.setGravity(Gravity.CENTER);
@@ -419,6 +423,7 @@ public class MainActivity extends Activity {
             graph.setSpectrum(null);
         }
         if (t == TAB_MUSIC) refreshMusicTime();
+        if (t == TAB_GAMES) refreshGames(true);
         if (t == TAB_SETTINGS) refreshSettings();
         updateBackCallback();
     }
@@ -937,6 +942,803 @@ public class MainActivity extends Activity {
         PresetCode.apply(eq, p);
         refreshEq();
         Toast.makeText(this, R.string.code_applied, Toast.LENGTH_SHORT).show();
+    }
+
+    // =====================================================================
+    // Игры: звук под игру, игры телефона и ПК (Steam), игровое время
+    // =====================================================================
+
+    private static final int[] GAME_PROFILE_ORDER = {Games.P_STEPS, Games.P_RICH, Games.P_VOICE, Games.P_NONE};
+    private static final String STEAM_LINK = "com.valvesoftware.steamlink", MOONLIGHT = "com.limelight",
+            XBOX = "com.microsoft.xboxone.smartglass";
+
+    private TextView gameStatus;
+    private Button gameEndBtn, gameTryBtn, gamesPhoneBtn, gamesPcBtn;
+    private final Button[] gameDefBtns = new Button[GAME_PROFILE_ORDER.length];
+    private SeekBar gameStrengthBar;
+    private TextView gameStrengthVal;
+    private Switch gameAutoSwitch;
+    private LinearLayout gamesBox;
+    private boolean gamesPc;
+    private int steamShown = 60;
+    private int gamesGen;   // номер перестройки списка: поздние ответы для старого списка не рисуем
+
+    /** Игра для окна «Играть»: с телефона, из Steam или добавленная вручную. */
+    private static final class GameRef {
+        String key, name, source = "", pkg;
+        int appid, minutes, minutes2w;
+        long weekMs;
+        boolean pc, manual;
+    }
+
+    private void buildGames(LinearLayout root) {
+        gamesPc = settings.getBoolean("games_pc", false);
+        root.addView(section(getString(R.string.games_sound)));
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setBackground(round(CARD, 24));
+        card.setPadding(dp(16), dp(14), dp(16), dp(6));
+        gameStatus = text("", 14, Color.WHITE);
+        gameStatus.setGravity(Gravity.CENTER_VERTICAL);
+        gameStatus.setCompoundDrawablePadding(dp(10));
+        card.addView(gameStatus);
+        LinearLayout acts = new LinearLayout(this);
+        acts.setPadding(0, dp(12), 0, 0);
+        gameEndBtn = chip(getString(R.string.game_end), R.drawable.ic_stop, ACCENT, new View.OnClickListener() {
+            public void onClick(View v) {
+                Games.stopSession(MainActivity.this);
+                EqService.pokeGames(MainActivity.this);
+                refreshGames(true);
+            }
+        });
+        acts.addView(gameEndBtn);
+        gameTryBtn = chip(getString(R.string.game_try), R.drawable.ic_play, CHIP, new View.OnClickListener() {
+            public void onClick(View v) {
+                if (Games.TRY.equals(Games.sessionKey(MainActivity.this))) {
+                    Games.stopSession(MainActivity.this);
+                } else {
+                    Games.startSession(MainActivity.this, Games.TRY, getString(R.string.game_try_label));
+                }
+                EqService.pokeGames(MainActivity.this);
+                refreshGames(false);
+            }
+        });
+        acts.addView(gameTryBtn);
+        card.addView(hscroll(acts));
+        root.addView(card);
+
+        root.addView(label(getString(R.string.games_default)));
+        LinearLayout defs = new LinearLayout(this);
+        for (int i = 0; i < GAME_PROFILE_ORDER.length; i++) {
+            final int prof = GAME_PROFILE_ORDER[i];
+            gameDefBtns[i] = chip(getString(Games.PROFILE_NAMES[prof]), 0, CHIP, new View.OnClickListener() {
+                public void onClick(View v) {
+                    Games.setDefaultProfile(MainActivity.this, prof);
+                    EqService.pokeGames(MainActivity.this);
+                    refreshGames(false);
+                }
+            });
+            defs.addView(gameDefBtns[i]);
+        }
+        root.addView(hscroll(defs));
+        root.addView(hintText(getString(R.string.games_profiles_hint)));
+
+        gameStrengthBar = new SeekBar(this);
+        gameStrengthBar.setMax(100);
+        gameStrengthVal = text("", 14, Color.WHITE);
+        root.addView(sliderRow(getString(R.string.game_strength), gameStrengthBar, gameStrengthVal));
+        gameStrengthBar.setOnSeekBarChangeListener(new Seek() {
+            public void onProgressChanged(SeekBar s, int p, boolean fromUser) {
+                gameStrengthVal.setText(p + "%");
+                if (fromUser) Games.setStrength(MainActivity.this, p / 100f);
+            }
+
+            public void onStopTrackingTouch(SeekBar s) {
+                EqService.pokeGames(MainActivity.this);
+            }
+        });
+
+        gameAutoSwitch = styledSwitch();
+        root.addView(switchRow(getString(R.string.game_auto), getString(R.string.game_auto_hint), gameAutoSwitch));
+        gameAutoSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            public void onCheckedChanged(CompoundButton v, boolean on) {
+                if (updating) return;
+                Games.setAuto(MainActivity.this, on);
+                EqService.pokeGames(MainActivity.this);
+            }
+        });
+
+        // Телефон | ПК · Steam
+        LinearLayout seg = new LinearLayout(this);
+        seg.setPadding(0, dp(20), 0, 0);
+        gamesPhoneBtn = chip(getString(R.string.games_phone), R.drawable.ic_phone, CHIP, new View.OnClickListener() {
+            public void onClick(View v) { setGamesPc(false); }
+        });
+        gamesPcBtn = chip(getString(R.string.games_pc), R.drawable.ic_laptop, CHIP, new View.OnClickListener() {
+            public void onClick(View v) { setGamesPc(true); }
+        });
+        seg.addView(gamesPhoneBtn);
+        seg.addView(gamesPcBtn);
+        root.addView(hscroll(seg));
+        gamesBox = new LinearLayout(this);
+        gamesBox.setOrientation(LinearLayout.VERTICAL);
+        root.addView(gamesBox);
+    }
+
+    private void setGamesPc(boolean pc) {
+        if (pc == gamesPc) return;
+        gamesPc = pc;
+        settings.edit().putBoolean("games_pc", pc).apply();
+        refreshGames(true);
+    }
+
+    /** rebuild — перестроить список игр; иначе только статус и кнопки. */
+    private void refreshGames(boolean rebuild) {
+        if (gameStatus == null) return;
+        refreshGameStatus();
+        int def = Games.defaultProfile(this);
+        for (int i = 0; i < gameDefBtns.length; i++) {
+            gameDefBtns[i].setBackground(round(GAME_PROFILE_ORDER[i] == def ? ACCENT : CHIP, 24));
+        }
+        int st = Math.round(Games.strength(this) * 100);
+        gameStrengthBar.setProgress(st);
+        gameStrengthVal.setText(st + "%");
+        updating = true;
+        gameAutoSwitch.setChecked(Games.autoOn(this));
+        updating = false;
+        gamesPhoneBtn.setBackground(round(gamesPc ? CHIP : ACCENT, 24));
+        gamesPcBtn.setBackground(round(gamesPc ? ACCENT : CHIP, 24));
+        if (!rebuild) return;
+        if (gamesPc) buildPcGames();
+        else buildPhoneGames();
+    }
+
+    private void refreshGameStatus() {
+        if (gameStatus == null) return;
+        String session = Games.sessionKey(this);
+        boolean on = eq.gameSoundOn();
+        gameStatus.setText(on ? getString(R.string.game_now, eq.gameLabel) : getString(R.string.game_idle));
+        gameStatus.setCompoundDrawablesRelativeWithIntrinsicBounds(
+                icon(R.drawable.ic_gamepad, on ? Theme.liveAccent() : GREY), null, null, null);
+        gameEndBtn.setVisibility(session != null && !Games.TRY.equals(session) ? View.VISIBLE : View.GONE);
+        gameTryBtn.setBackground(round(Games.TRY.equals(session) ? ACCENT : CHIP, 24));
+    }
+
+    private LinearLayout gameCard() {
+        LinearLayout c = new LinearLayout(this);
+        c.setOrientation(LinearLayout.VERTICAL);
+        c.setBackground(round(CARD, 24));
+        c.setPadding(dp(16), dp(14), dp(16), dp(8));
+        return c;
+    }
+
+    private LinearLayout.LayoutParams topGap(int gapDp) {
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = dp(gapDp);
+        return lp;
+    }
+
+    /** Сетка плиток по N в ряд: плитка, название и строка под ним. */
+    private final class GameGrid {
+        final LinearLayout box = new LinearLayout(MainActivity.this);
+        final int cols;
+        LinearLayout row;
+        int count;
+
+        GameGrid(int cols) {
+            this.cols = cols;
+            box.setOrientation(LinearLayout.VERTICAL);
+            box.setPadding(0, dp(6), 0, 0);
+        }
+
+        CoverView add(String name, String sub, float aspect, View.OnClickListener click) {
+            if (count % cols == 0) {
+                row = new LinearLayout(MainActivity.this);
+                row.setWeightSum(cols);
+                box.addView(row);
+            }
+            count++;
+            LinearLayout cell = new LinearLayout(MainActivity.this);
+            cell.setOrientation(LinearLayout.VERTICAL);
+            cell.setPadding(dp(4), dp(4), dp(4), dp(12));
+            CoverView cv = new CoverView(MainActivity.this);
+            cv.setAspect(aspect);
+            cell.addView(cv, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT));
+            TextView t = text(name, 13, Color.WHITE);
+            t.setMaxLines(2);
+            t.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            t.setPadding(dp(2), dp(6), dp(2), 0);
+            cell.addView(t);
+            if (sub != null && !sub.isEmpty()) {
+                TextView st = text(sub, 12, GREY);
+                st.setSingleLine(true);
+                st.setEllipsize(android.text.TextUtils.TruncateAt.END);
+                st.setPadding(dp(2), dp(2), dp(2), 0);
+                cell.addView(st);
+            }
+            cell.setOnClickListener(click);
+            row.addView(cell, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+            return cv;
+        }
+    }
+
+    // ---------- телефон ----------
+
+    private void buildPhoneGames() {
+        final int gen = ++gamesGen;
+        gamesBox.removeAllViews();
+        if (!Games.hasUsageAccess(this)) {
+            LinearLayout c = gameCard();
+            c.addView(text(getString(R.string.games_usage_hint), 14, Color.WHITE));
+            LinearLayout r = new LinearLayout(this);
+            r.setPadding(0, dp(10), 0, 0);
+            r.addView(chip(getString(R.string.games_allow), R.drawable.ic_lock_open, ACCENT, new View.OnClickListener() {
+                public void onClick(View v) { openUsageAccess(); }
+            }));
+            c.addView(hscroll(r));
+            gamesBox.addView(c, topGap(8));
+        }
+        final TextView loading = hintText(getString(R.string.games_loading));
+        loading.setPadding(dp(4), dp(12), dp(4), 0);
+        gamesBox.addView(loading);
+        final Context app = getApplicationContext();
+        new Thread(new Runnable() {
+            public void run() {
+                final List<Games.PhoneGame> list = Games.phoneGames(app);
+                ui.post(new Runnable() {
+                    public void run() {
+                        if (gen != gamesGen || gamesPc || isFinishing()) return;
+                        gamesBox.removeView(loading);
+                        showPhoneGames(list);
+                    }
+                });
+            }
+        }).start();
+    }
+
+    private void showPhoneGames(List<Games.PhoneGame> list) {
+        boolean usage = Games.hasUsageAccess(this);
+        if (usage && !list.isEmpty()) {
+            long week = 0, today = 0;
+            for (Games.PhoneGame g : list) {
+                week += g.weekMs;
+                today += g.todayMs;
+            }
+            TextView sum = text(getString(R.string.games_week, duration(week / 1000), duration(today / 1000)),
+                    14, Color.WHITE);
+            sum.setPadding(dp(4), dp(14), dp(4), dp(2));
+            gamesBox.addView(sum);
+        }
+        if (list.isEmpty()) {
+            TextView e = hintText(getString(R.string.games_phone_empty));
+            e.setPadding(dp(4), dp(12), dp(4), 0);
+            gamesBox.addView(e);
+        }
+        PackageManager pm = getPackageManager();
+        String session = Games.sessionKey(this);
+        GameGrid grid = new GameGrid(4);
+        for (final Games.PhoneGame g : list) {
+            String sub = usage && g.weekMs >= 60000 ? duration(g.weekMs / 1000)
+                    : getString(Games.PROFILE_NAMES[Games.profileFor(this, g.pkg, g.label)]);
+            CoverView cv = grid.add(g.label, sub, 1f, new View.OnClickListener() {
+                public void onClick(View v) {
+                    GameRef r = new GameRef();
+                    r.key = g.pkg;
+                    r.pkg = g.pkg;
+                    r.name = g.label;
+                    r.weekMs = g.weekMs;
+                    showGameDialog(r);
+                }
+            });
+            try {
+                cv.setIcon(pm.getApplicationIcon(g.pkg));
+            } catch (Exception ignored) {
+            }
+            cv.setTitle(g.label, "");
+            cv.setPlaying(g.pkg.equals(session) || eq.gameSoundOn() && g.label.equals(eq.gameLabel));
+        }
+        gamesBox.addView(grid.box);
+        LinearLayout r = new LinearLayout(this);
+        r.addView(chip(getString(R.string.games_add), R.drawable.ic_add, CHIP, new View.OnClickListener() {
+            public void onClick(View v) { pickPhoneGame(); }
+        }));
+        gamesBox.addView(hscroll(r));
+    }
+
+    private void openUsageAccess() {
+        try {
+            startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS));
+        } catch (Exception e) {
+            startActivity(new Intent(Settings.ACTION_SETTINGS));
+        }
+    }
+
+    /** Android не знает, что это игра, — человек отмечает сам. */
+    private void pickPhoneGame() {
+        final PackageManager pm = getPackageManager();
+        Intent main = new Intent(Intent.ACTION_MAIN);
+        main.addCategory(Intent.CATEGORY_LAUNCHER);
+        final List<String[]> rows = new ArrayList<>();
+        for (ResolveInfo ri : pm.queryIntentActivities(main, 0)) {
+            String p = ri.activityInfo.packageName;
+            if (p.equals(getPackageName())) continue;
+            boolean dup = false;
+            for (String[] x : rows) if (x[0].equals(p)) dup = true;
+            if (!dup) rows.add(new String[]{p, ri.loadLabel(pm).toString()});
+        }
+        Collections.sort(rows, new Comparator<String[]>() {
+            public int compare(String[] a, String[] b) { return a[1].compareToIgnoreCase(b[1]); }
+        });
+        String[] labels = new String[rows.size()];
+        for (int i = 0; i < labels.length; i++) labels[i] = rows.get(i)[1];
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.games_pick_app)
+                .setItems(labels, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface d, int which) {
+                        Games.addExtraGame(MainActivity.this, rows.get(which)[0]);
+                        EqService.pokeGames(MainActivity.this);
+                        refreshGames(true);
+                    }
+                })
+                .show();
+    }
+
+    // ---------- ПК: Steam и игры из других магазинов ----------
+
+    private void buildPcGames() {
+        final int gen = ++gamesGen;
+        gamesBox.removeAllViews();
+        TextView about = hintText(getString(R.string.games_pc_about));
+        about.setPadding(dp(4), dp(12), dp(4), dp(4));
+        gamesBox.addView(about);
+        LinearLayout steamBox = new LinearLayout(this);
+        steamBox.setOrientation(LinearLayout.VERTICAL);
+        gamesBox.addView(steamBox);
+        if (!Steam.connected(this)) {
+            buildSteamForm(steamBox);
+        } else {
+            Steam.Library lib = Steam.cached(this);
+            if (lib != null) {
+                showSteam(steamBox, lib);
+            } else {
+                final TextView msg = hintText(getString(R.string.steam_connecting));
+                msg.setPadding(dp(4), dp(12), dp(4), 0);
+                steamBox.addView(msg);
+                Steam.refresh(this, new Steam.Callback() {
+                    public void onResult(Steam.Library l, String error) {
+                        if (gen != gamesGen || !gamesPc) return;
+                        if (l != null) refreshGames(true);
+                        else msg.setText(error);
+                    }
+                });
+            }
+        }
+        buildOtherPcGames();
+    }
+
+    private void buildSteamForm(LinearLayout into) {
+        LinearLayout c = gameCard();
+        c.addView(text(getString(R.string.games_pc), 16, Color.WHITE));
+        final EditText prof = new EditText(this);
+        prof.setHint(R.string.steam_profile_hint);
+        prof.setSingleLine(true);
+        prof.setText(Steam.profileInput(this));
+        prof.setTextColor(Color.WHITE);
+        prof.setHintTextColor(GREY);
+        c.addView(prof);
+        final EditText key = new EditText(this);
+        key.setHint(R.string.steam_key_hint);
+        key.setSingleLine(true);
+        key.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        key.setTypeface(Typeface.MONOSPACE);
+        key.setTextColor(Color.WHITE);
+        key.setHintTextColor(GREY);
+        c.addView(key);
+        final TextView msg = text("", 13, Color.rgb(0xFF, 0xB3, 0x40));
+        msg.setPadding(dp(2), dp(6), 0, 0);
+        c.addView(msg);
+        LinearLayout r = new LinearLayout(this);
+        r.setPadding(0, dp(8), 0, 0);
+        r.addView(chip(getString(R.string.steam_connect), R.drawable.ic_check, ACCENT, new View.OnClickListener() {
+            public void onClick(View v) {
+                msg.setTextColor(GREY);
+                msg.setText(R.string.steam_connecting);
+                Steam.connect(MainActivity.this, prof.getText().toString(), key.getText().toString(),
+                        new Steam.Callback() {
+                            public void onResult(Steam.Library l, String error) {
+                                if (l != null) {
+                                    refreshGames(true);
+                                } else {
+                                    msg.setTextColor(Color.rgb(0xFF, 0xB3, 0x40));
+                                    msg.setText(error);
+                                }
+                            }
+                        });
+            }
+        }));
+        r.addView(chip(getString(R.string.steam_get_key), R.drawable.ic_open, CHIP, new View.OnClickListener() {
+            public void onClick(View v) {
+                try {
+                    startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(Steam.KEY_PAGE)));
+                } catch (Exception ignored) {
+                }
+            }
+        }));
+        c.addView(hscroll(r));
+        TextView help = text(getString(R.string.steam_key_help), 12, GREY);
+        help.setPadding(0, dp(2), 0, dp(6));
+        c.addView(help);
+        into.addView(c, topGap(8));
+    }
+
+    private void showSteam(LinearLayout into, Steam.Library lib) {
+        TextView head = text(getString(R.string.steam_header, lib.name.isEmpty() ? "Steam" : lib.name,
+                lib.games.size(), ListenStats.hours(this, lib.totalMinutes() * 60L)), 14, Color.WHITE);
+        head.setPadding(dp(4), dp(10), dp(4), dp(2));
+        into.addView(head);
+        LinearLayout r = new LinearLayout(this);
+        r.addView(chip(getString(R.string.steam_refresh), R.drawable.ic_download, CHIP, new View.OnClickListener() {
+            public void onClick(View v) {
+                Toast.makeText(MainActivity.this, R.string.steam_connecting, Toast.LENGTH_SHORT).show();
+                Steam.refresh(MainActivity.this, new Steam.Callback() {
+                    public void onResult(Steam.Library l, String error) {
+                        if (l != null) refreshGames(true);
+                        else Toast.makeText(MainActivity.this, error, Toast.LENGTH_LONG).show();
+                    }
+                });
+            }
+        }));
+        r.addView(chip(getString(R.string.steam_disconnect), 0, CHIP, new View.OnClickListener() {
+            public void onClick(View v) {
+                new AlertDialog.Builder(MainActivity.this)
+                        .setMessage(R.string.steam_disconnect)
+                        .setPositiveButton(R.string.steam_disconnect, new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface d, int w) {
+                                Steam.disconnect(MainActivity.this);
+                                refreshGames(true);
+                            }
+                        })
+                        .setNegativeButton(R.string.cancel, null)
+                        .show();
+            }
+        }));
+        into.addView(hscroll(r));
+
+        String session = Games.sessionKey(this);
+        GameGrid grid = new GameGrid(3);
+        int n = Math.min(steamShown, lib.games.size());
+        for (int i = 0; i < n; i++) {
+            final Steam.Game g = lib.games.get(i);
+            String sub = g.minutes > 0 ? ListenStats.hours(this, g.minutes * 60L) : "";
+            final CoverView cv = grid.add(g.name, sub, 1.5f, new View.OnClickListener() {
+                public void onClick(View v) {
+                    GameRef ref = new GameRef();
+                    ref.key = g.key();
+                    ref.name = g.name;
+                    ref.appid = g.appid;
+                    ref.minutes = g.minutes;
+                    ref.minutes2w = g.minutes2w;
+                    ref.pc = true;
+                    ref.source = "Steam";
+                    showGameDialog(ref);
+                }
+            });
+            cv.setTitle(g.name, "Steam");
+            cv.setPlaying(g.key().equals(session));
+            setSteamCover(cv, g.appid);
+        }
+        into.addView(grid.box);
+        if (lib.games.size() > n) {
+            LinearLayout m = new LinearLayout(this);
+            m.addView(chip(getString(R.string.steam_more), 0, CHIP, new View.OnClickListener() {
+                public void onClick(View v) {
+                    steamShown += 60;
+                    refreshGames(true);
+                }
+            }));
+            into.addView(hscroll(m));
+        }
+    }
+
+    private void setSteamCover(final CoverView cv, int appid) {
+        if (appid <= 0) return;
+        Bitmap b = Steam.coverNow(appid);
+        if (b != null) {
+            cv.setCover(b);
+            return;
+        }
+        Steam.loadCover(this, appid, new Steam.CoverCallback() {
+            public void onCover(Bitmap bmp) {
+                if (bmp != null) cv.setCover(bmp);
+            }
+        });
+    }
+
+    private void buildOtherPcGames() {
+        gamesBox.addView(section(getString(R.string.games_other_pc)));
+        String session = Games.sessionKey(this);
+        GameGrid grid = new GameGrid(3);
+        for (final Games.PcGame g : Games.pcGames(this)) {
+            long secs = Games.playedSecs(this, g.key);
+            final CoverView cv = grid.add(g.name, secs >= 60 ? duration(secs) : g.source, 1.5f,
+                    new View.OnClickListener() {
+                        public void onClick(View v) {
+                            GameRef ref = new GameRef();
+                            ref.key = g.key;
+                            ref.name = g.name;
+                            ref.appid = g.coverAppId;
+                            ref.pc = true;
+                            ref.manual = true;
+                            ref.source = g.source;
+                            showGameDialog(ref);
+                        }
+                    });
+            cv.setTitle(g.name, g.source);
+            cv.setPlaying(g.key.equals(session));
+            setSteamCover(cv, g.coverAppId);
+        }
+        gamesBox.addView(grid.box);
+        LinearLayout r = new LinearLayout(this);
+        r.addView(chip(getString(R.string.games_add), R.drawable.ic_add, CHIP, new View.OnClickListener() {
+            public void onClick(View v) { askPcGame(); }
+        }));
+        gamesBox.addView(hscroll(r));
+    }
+
+    private void askPcGame() {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        final EditText name = new EditText(this);
+        name.setHint(R.string.pc_add_hint);
+        name.setSingleLine(true);
+        box.addView(name);
+        box.addView(label(getString(R.string.game_source)));
+        final String[] src = {Games.PC_SOURCES[1]};
+        final LinearLayout row = new LinearLayout(this);
+        final List<Button> btns = new ArrayList<>();
+        for (final String s : Games.PC_SOURCES) {
+            Button b = chip(s, 0, s.equals(src[0]) ? ACCENT : CHIP, null);
+            b.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) {
+                    src[0] = s;
+                    for (Button x : btns) x.setBackground(round(x == v ? ACCENT : CHIP, 24));
+                }
+            });
+            btns.add(b);
+            row.addView(b);
+        }
+        box.addView(hscroll(row));
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.pc_add_title)
+                .setView(padded(box))
+                .setPositiveButton(R.string.save, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface d, int w) {
+                        final String n = name.getText().toString().trim();
+                        if (n.isEmpty()) return;
+                        final String source = src[0];
+                        Games.putPcGame(MainActivity.this, n, source, 0);
+                        refreshGames(true);
+                        // обложку ищем в магазине Steam: многие игры Epic и GOG есть и там
+                        Steam.findApp(n, new Steam.FindCallback() {
+                            public void onFound(int appid) {
+                                if (appid == 0) return;
+                                Games.putPcGame(MainActivity.this, n, source, appid);
+                                if (gamesPc) refreshGames(true);
+                            }
+                        });
+                    }
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    // ---------- окно игры: откуда, звук, «Играть» / «Не играть» ----------
+
+    private void showGameDialog(final GameRef g) {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(dp(20), dp(20), dp(20), 0);
+
+        LinearLayout top = new LinearLayout(this);
+        CoverView cv = new CoverView(this);
+        cv.setAspect(g.pc ? 1.5f : 1f);
+        cv.setTitle(g.name, g.source);
+        if (g.pkg != null) {
+            try {
+                cv.setIcon(getPackageManager().getApplicationIcon(g.pkg));
+            } catch (Exception ignored) {
+            }
+        } else {
+            setSteamCover(cv, g.appid);
+        }
+        top.addView(cv, new LinearLayout.LayoutParams(dp(g.pc ? 84 : 72), ViewGroup.LayoutParams.WRAP_CONTENT));
+        LinearLayout info = new LinearLayout(this);
+        info.setOrientation(LinearLayout.VERTICAL);
+        info.setPadding(dp(14), 0, 0, 0);
+        TextView title = text(g.name, 18, Color.WHITE);
+        title.setTypeface(Typeface.DEFAULT_BOLD);
+        info.addView(title);
+        List<String> lines = new ArrayList<>();
+        if (g.pc && !g.manual && g.minutes > 0) lines.add(getString(R.string.steam_hours, ListenStats.hours(this, g.minutes * 60L)));
+        if (g.minutes2w > 0) lines.add(getString(R.string.steam_2w, duration(g.minutes2w * 60L)));
+        if (g.weekMs >= 60000) lines.add(getString(R.string.games_week_short, duration(g.weekMs / 1000)));
+        long eqSecs = Games.playedSecs(this, g.key);
+        if (eqSecs >= 60) lines.add(getString(R.string.game_eq_time, duration(eqSecs)));
+        for (String l : lines) {
+            TextView t = text(l, 13, GREY);
+            t.setPadding(0, dp(4), 0, 0);
+            info.addView(t);
+        }
+        top.addView(info, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        box.addView(top);
+
+        // откуда игра (ПК): Steam, Epic, GOG…
+        final String[] src = {g.pc ? Games.sourceFor(this, g.key, g.source) : ""};
+        if (g.pc) {
+            box.addView(label(getString(R.string.game_source)));
+            LinearLayout row = new LinearLayout(this);
+            final List<Button> btns = new ArrayList<>();
+            for (final String s : Games.PC_SOURCES) {
+                Button b = chip(s, 0, s.equals(src[0]) ? ACCENT : CHIP, null);
+                b.setOnClickListener(new View.OnClickListener() {
+                    public void onClick(View v) {
+                        src[0] = s;
+                        Games.setSource(MainActivity.this, g.key, s);
+                        if (g.manual) Games.putPcGame(MainActivity.this, g.name, s, 0);
+                        for (Button x : btns) x.setBackground(round(x == v ? ACCENT : CHIP, 24));
+                    }
+                });
+                btns.add(b);
+                row.addView(b);
+            }
+            box.addView(hscroll(row));
+        }
+
+        // звук в этой игре
+        box.addView(label(getString(R.string.game_sound_for)));
+        final int[] prof = {Games.profileFor(this, g.key, g.name)};
+        final TextView hint = hintText("");
+        LinearLayout pr = new LinearLayout(this);
+        final List<Button> pbtns = new ArrayList<>();
+        for (final int p : GAME_PROFILE_ORDER) {
+            Button b = chip(getString(Games.PROFILE_NAMES[p]), 0, p == prof[0] ? ACCENT : CHIP, null);
+            b.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) {
+                    prof[0] = p;
+                    Games.setProfile(MainActivity.this, g.key, p);
+                    EqService.pokeGames(MainActivity.this);
+                    for (Button x : pbtns) x.setBackground(round(x == v ? ACCENT : CHIP, 24));
+                    setPlayHint(hint, g, p);
+                }
+            });
+            pbtns.add(b);
+            pr.addView(b);
+        }
+        box.addView(hscroll(pr));
+        setPlayHint(hint, g, prof[0]);
+        box.addView(hint);
+
+        ScrollView sv = new ScrollView(this);
+        sv.addView(box);
+        AlertDialog.Builder b = new AlertDialog.Builder(this)
+                .setView(sv)
+                .setPositiveButton(R.string.game_play, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface d, int w) { playGame(g, src[0], prof[0]); }
+                })
+                .setNegativeButton(R.string.game_no_play, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface d, int w) {
+                        if (g.key.equals(Games.sessionKey(MainActivity.this))) {
+                            Games.stopSession(MainActivity.this);
+                            EqService.pokeGames(MainActivity.this);
+                            refreshGames(true);
+                        }
+                    }
+                });
+        if (g.pc) {
+            b.setNeutralButton(R.string.game_pc_sound, new DialogInterface.OnClickListener() {
+                public void onClick(DialogInterface d, int w) { showApo(g.name, prof[0]); }
+            });
+        }
+        b.show();
+    }
+
+    private void setPlayHint(TextView hint, GameRef g, int profile) {
+        hint.setVisibility(profile == Games.P_NONE ? View.GONE : View.VISIBLE);
+        String name = getString(Games.PROFILE_NAMES[profile]);
+        hint.setText(getString(g.pc ? R.string.game_pc_play_hint : R.string.game_phone_play_hint, name));
+        hint.setPadding(dp(4), dp(10), dp(4), dp(4));
+    }
+
+    private void playGame(GameRef g, String source, int profile) {
+        if (g.pkg != null) {
+            // игру с телефона EQ узнаёт сам по статистике; без неё — включаем звук по кнопке
+            if (!Games.hasUsageAccess(this) || !Games.autoOn(this)) Games.startSession(this, g.key, g.name);
+            EqService.pokeGames(this);
+            Intent li = getPackageManager().getLaunchIntentForPackage(g.pkg);
+            if (li != null) {
+                try {
+                    startActivity(li);
+                } catch (Exception ignored) {
+                }
+            }
+            refreshGames(true);
+            return;
+        }
+        // игра с ПК: звук идёт через телефон, когда играете через стриминг (Steam Link, Moonlight, Xbox)
+        String[] order = "Xbox".equals(source) ? new String[]{XBOX, STEAM_LINK, MOONLIGHT}
+                : "Steam".equals(source) ? new String[]{STEAM_LINK, MOONLIGHT, XBOX}
+                : new String[]{MOONLIGHT, STEAM_LINK, XBOX};
+        for (String p : order) {
+            Intent li = getPackageManager().getLaunchIntentForPackage(p);
+            if (li == null) continue;
+            try {
+                Games.startSession(this, g.key, g.name);
+                EqService.pokeGames(this);
+                startActivity(li);
+                Toast.makeText(this, R.string.game_started, Toast.LENGTH_SHORT).show();
+                refreshGames(true);
+                return;
+            } catch (Exception ignored) {
+            }
+        }
+        final String name = g.name;
+        final int prof = profile;
+        new AlertDialog.Builder(this)
+                .setMessage(R.string.game_no_stream)
+                .setPositiveButton(R.string.steam_link, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface d, int w) { openStore(STEAM_LINK); }
+                })
+                .setNeutralButton(R.string.game_pc_sound, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface d, int w) { showApo(name, prof); }
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    private void openStore(String pkg) {
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=" + pkg)));
+        } catch (Exception e) {
+            try {
+                startActivity(new Intent(Intent.ACTION_VIEW,
+                        Uri.parse("https://play.google.com/store/apps/details?id=" + pkg)));
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
+    /** Тот же звук для Windows: текст для Equalizer APO. */
+    private void showApo(String name, int profile) {
+        final String cfg = Games.apoConfig(profile == Games.P_NONE ? Games.defaultProfile(this) : profile,
+                Games.strength(this), name);
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(dp(20), dp(8), dp(20), 0);
+        box.addView(text(getString(R.string.game_apo_hint), 13, GREY));
+        TextView t = text(cfg, 12, Color.WHITE);
+        t.setTypeface(Typeface.MONOSPACE);
+        t.setTextIsSelectable(true);
+        t.setBackground(round(Color.BLACK, 16));
+        t.setPadding(dp(12), dp(10), dp(12), dp(10));
+        box.addView(t, topGap(10));
+        ScrollView sv = new ScrollView(this);
+        sv.addView(box);
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.game_apo_title)
+                .setView(sv)
+                .setPositiveButton(R.string.copy, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface d, int w) {
+                        ClipboardManager cm = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                        if (cm != null) cm.setPrimaryClip(ClipData.newPlainText("Equalizer APO", cfg));
+                        if (Build.VERSION.SDK_INT < 33) {
+                            Toast.makeText(MainActivity.this, R.string.text_copied, Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
     }
 
     // =====================================================================
@@ -2080,6 +2882,7 @@ public class MainActivity extends Activity {
         refreshEq();
         refreshSettings();
         if (tab == TAB_MUSIC) refreshMusicTime();
+        if (tab == TAB_GAMES) refreshGames(true);   // вернулись из настроек доступа — список и время заново
         ui.postDelayed(new Runnable() {
             public void run() { updateStatus(); }
         }, 600);
@@ -2813,6 +3616,7 @@ public class MainActivity extends Activity {
         rebuildUserPresets();
         updateStatus();
         refreshAutoEq();
+        refreshGameStatus();
     }
 
     private String balanceLabel(int v) {
@@ -2832,6 +3636,7 @@ public class MainActivity extends Activity {
             status.setText(getString(R.string.status_players, eq.playerSessions()));
             color = Color.rgb(0xFF, 0xB3, 0x40);
         }
+        if (eq.gameSoundOn()) status.append(" · " + getString(R.string.game_status, eq.gameLabel));
         status.setTextColor(color);
         GradientDrawable dot = new GradientDrawable();
         dot.setShape(GradientDrawable.OVAL);

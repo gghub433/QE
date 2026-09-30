@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -23,6 +24,11 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!-- Автозапуск после включения телефона и после обновления -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Вкладка «Игры»: какая игра открыта и сколько в неё играли. Человек включает сам:
+         Настройки → Специальный доступ → Доступ к истории использования -->
+    <uses-permission
+        android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
     <!-- лёгкая вибрация кнопки A/B -->
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- Автообновление с GitHub Releases -->

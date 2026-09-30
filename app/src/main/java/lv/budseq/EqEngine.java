@@ -86,6 +86,16 @@ public final class EqEngine {
     private float scnGain, scnTreble, scnPunch;
     public String scnLabel = "";
 
+    /**
+     * Игровой звук (вкладка «Игры»): пока идёт игра, вместо кривой пользователя звучит профиль игры
+     * («Шаги врагов», «Насыщенный»…). Кривая и пресеты не меняются — после игры всё как было.
+     */
+    private float[] gameSrc, gameSrcF;   // профиль в своих частотах
+    private float[] gameBands;           // он же в наших полосах; null — игрового звука нет
+    private float gamePunch;
+    private boolean gameLevel;
+    public String gameLabel = "";
+
     /** AutoEQ: коррекция текущих наушников (null — нет) и она же в наших полосах. */
     private AutoEq.Correction corr;
     private float[] corrBands = new float[0];
@@ -247,7 +257,7 @@ public final class EqEngine {
     }
 
     private float processedGain(int i) {
-        float g = gains[i];
+        float g = gameBands != null && i < gameBands.length ? gameBands[i] : gains[i];
         if (corr != null && corr.on && i < corrBands.length) g += corrBands[i];
         if (scnTreble != 0f) g += scnTreble * trebleWeight(freqs(bands)[i]);
         return Math.max(-24f, Math.min(24f, g));
@@ -277,6 +287,14 @@ public final class EqEngine {
         return Math.max(-12f, Math.min(12f, mean + corrHeadroom() + scnGain));
     }
 
+    /** Игровой профиль: свой запас вместо запаса кривой пользователя (подъёмы до +6 дБ). */
+    private float levelBase() {
+        if (gameBands == null) return preamp;
+        float m = 0;
+        for (float v : gameBands) m = Math.max(m, v);
+        return -Math.min(6f, m * 0.6f);
+    }
+
     /** Запас под подъёмы коррекции, чтобы не упираться в лимитер (не больше 6 дБ). */
     private float corrHeadroom() {
         if (corr == null || !corr.on) return 0f;
@@ -293,8 +311,9 @@ public final class EqEngine {
         }
         dp.setPreEqAllChannelsTo(eq);
 
-        float p = bypass != BYPASS_NONE ? 0f : Math.max(punch, scnPunch);
-        boolean lvl = bypass == BYPASS_NONE && leveling;
+        boolean game = gameBands != null;
+        float p = bypass != BYPASS_NONE ? 0f : Math.max(game ? gamePunch : punch, scnPunch);
+        boolean lvl = bypass == BYPASS_NONE && (game ? gameLevel : leveling);
         boolean mbcOn = p > 0.01f || lvl;
         DynamicsProcessing.Mbc mbc = new DynamicsProcessing.Mbc(true, mbcOn, 2);
         mbc.setBand(0, bassBand(p, lvl));
@@ -304,7 +323,7 @@ public final class EqEngine {
         // attack 1 мс, release 60 мс, 10:1, порог -1 dB — защита от хрипа и перегруза
         dp.setLimiterAllChannelsTo(new DynamicsProcessing.Limiter(true, true, 0, 1f, 60f, 10f, -1f, 0f));
 
-        float base = preamp + boost;
+        float base = levelBase() + boost;
         if (bypass == BYPASS_NONE) base += corrHeadroom() + scnGain;
         else if (bypass == BYPASS_AB) base += abCompensation();
         // тест динамиков — без баланса и фокуса, иначе он сам себя исказит
@@ -394,6 +413,7 @@ public final class EqEngine {
         gains = resample(gains, freqs(bands), freqs(n));
         bands = n;
         corrBands = AutoEq.toBands(corr, freqs(bands));
+        if (gameBands != null) gameBands = resample(gameSrc, gameSrcF, freqs(bands));
         rebuildAll();
         save();
         notifyChanged();
@@ -468,6 +488,32 @@ public final class EqEngine {
         scnLabel = l;
         applyAll();
         notifyChanged();
+    }
+
+    /** Включить игровой звук: кривая values (дБ) на частотах valuesFreqs, панч 0…1, выравнивание. */
+    public void setGameSound(float[] values, float[] valuesFreqs, float punchLevel, boolean level, String label) {
+        gameSrc = values.clone();
+        gameSrcF = valuesFreqs.clone();
+        gameBands = resample(gameSrc, gameSrcF, freqs(bands));
+        gamePunch = Math.max(0f, Math.min(1f, punchLevel));
+        gameLevel = level;
+        gameLabel = label == null ? "" : label;
+        applyAll();
+        notifyChanged();
+    }
+
+    /** Игра закончилась — звук пользователя возвращается. */
+    public void clearGameSound() {
+        if (gameBands == null) return;
+        gameBands = null;
+        gameSrc = gameSrcF = null;
+        gameLabel = "";
+        applyAll();
+        notifyChanged();
+    }
+
+    public boolean gameSoundOn() {
+        return gameBands != null;
     }
 
     /** Фокус машины: применяется сразу, в профиль не пишется. */
