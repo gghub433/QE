@@ -14,6 +14,11 @@ on:
 permissions:
   contents: write
 
+# новый push отменяет прошлую сборку этой же ветки
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   ipa:
     runs-on: macos-latest
@@ -70,6 +75,7 @@ jobs:
   screenshots:
     runs-on: macos-latest
     if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -91,56 +97,70 @@ jobs:
       - name: Screenshots
         working-directory: ios
         run: |
+          set +e
+          # у каждой команды симулятора свой предел времени — зависший симулятор не держит сборку
+          lim() { local s=$1; shift; perl -e 'alarm shift; exec @ARGV' "$s" "$@"; }
+          log() { echo "[$(date +%H:%M:%S)] $*"; }
           APP=build/Build/Products/Debug-iphonesimulator/EQ.app
           RT=$(xcrun simctl list runtimes -j | python3 -c '
           import json, sys
           rs = [r for r in json.load(sys.stdin)["runtimes"] if r["platform"] == "iOS" and r["isAvailable"]]
           rs.sort(key=lambda r: [int(x) for x in r["version"].split(".")])
           print(rs[-1]["identifier"])')
-          echo "Runtime: $RT"
-          xcrun simctl list devicetypes | grep -i iphone || true
+          log "runtime $RT"
+          TYPES=$(xcrun simctl list devicetypes -j)
           mkdir -p ../shots
-          # самый старый поддерживаемый, маленькие и самые новые — чтобы проверить все виды экранов
-          for NAME in "iPhone 11 Pro Max" "iPhone SE (3rd generation)" "iPhone 13 mini" "iPhone 16e" \
-                      "iPhone 17 Pro Max" "iPhone 17 Pro" "iPhone Air" "iPhone 16 Pro Max"; do
-            TYPE=$(xcrun simctl list devicetypes -j | python3 -c "
+          # самый старый поддерживаемый, маленькие, с кнопкой «Домой» и самые новые
+          NEWEST="iPhone 17 Pro Max"
+          echo "$TYPES" | grep -q "\"$NEWEST\"" || NEWEST="iPhone 16 Pro Max"
+          for NAME in "$NEWEST" "iPhone 11 Pro Max" "iPhone SE (3rd generation)" "iPhone 13 mini" "iPhone 16e" "iPhone Air"; do
+            TYPE=$(echo "$TYPES" | python3 -c "
           import json, sys
           for t in json.load(sys.stdin)['devicetypes']:
               if t['name'] == sys.argv[1]:
                   print(t['identifier'])" "$NAME")
-            if [ -z "$TYPE" ]; then echo "нет симулятора $NAME"; continue; fi
-            UDID=$(xcrun simctl create "shot" "$TYPE" "$RT" 2>/dev/null) || { echo "не создан $NAME"; continue; }
-            xcrun simctl boot "$UDID"
-            xcrun simctl bootstatus "$UDID" -b >/dev/null
-            xcrun simctl status_bar "$UDID" override --time 9:41 --batteryState charged --batteryLevel 100 \
-              --cellularBars 4 --wifiBars 3 || true
-            xcrun simctl install "$UDID" "$APP"
+            if [ -z "$TYPE" ]; then log "нет симулятора $NAME"; continue; fi
+            UDID=$(xcrun simctl create "shot" "$TYPE" "$RT" 2>/dev/null)
+            if [ -z "$UDID" ]; then log "не создан $NAME"; continue; fi
+            log "$NAME: загрузка"
+            lim 240 xcrun simctl boot "$UDID"
+            lim 300 xcrun simctl bootstatus "$UDID" >/dev/null
+            if [ $? -ne 0 ]; then log "$NAME: не загрузился"; xcrun simctl delete "$UDID"; continue; fi
+            lim 30 xcrun simctl status_bar "$UDID" override --time 9:41 --batteryState charged --batteryLevel 100 \
+              --cellularBars 4 --wifiBars 3
+            lim 120 xcrun simctl install "$UDID" "$APP"
             SAFE=$(echo "$NAME" | tr -cd 'A-Za-z0-9')
             for SHOT in "0" "1" "2" "3" "0 -car"; do
               set -- $SHOT
               TAB=$1
               EXTRA=${2:-}
-              xcrun simctl terminate "$UDID" lv.budseq.eq 2>/dev/null || true
-              xcrun simctl launch "$UDID" lv.budseq.eq -demo -tab "$TAB" $EXTRA \
+              lim 30 xcrun simctl terminate "$UDID" lv.budseq.eq >/dev/null 2>&1
+              lim 60 xcrun simctl launch "$UDID" lv.budseq.eq -demo -tab "$TAB" $EXTRA \
                 -AppleLanguages "(ru)" -AppleLocale ru_RU >/dev/null
-              sleep 6
+              sleep 5
               OUT="../shots/${SAFE}-tab${TAB}${EXTRA:+-car}.png"
-              xcrun simctl io "$UDID" screenshot "$OUT" >/dev/null
-              sips -s format jpeg -s formatOptions 72 --resampleHeight 1400 "$OUT" --out "${OUT%.png}.jpg" >/dev/null
-              rm "$OUT"
+              lim 30 xcrun simctl io "$UDID" screenshot "$OUT" >/dev/null 2>&1
+              [ -f "$OUT" ] && sips -s format jpeg -s formatOptions 72 --resampleHeight 1400 "$OUT" \
+                --out "${OUT%.png}.jpg" >/dev/null && rm "$OUT"
             done
-            xcrun simctl shutdown "$UDID" || true
-            xcrun simctl delete "$UDID" || true
+            log "$NAME: готово"
+            lim 60 xcrun simctl shutdown "$UDID"
+            lim 60 xcrun simctl delete "$UDID"
           done
           ls -la ../shots
+          ls ../shots/*.jpg >/dev/null 2>&1
 
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: EQ-iOS-screenshots
           path: shots
+          if-no-files-found: ignore
 
       - name: Push screenshots to ios-shots
+        if: always()
         run: |
+          ls shots/*.jpg >/dev/null 2>&1 || exit 0
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
           echo "$GITHUB_SHA" > shots/COMMIT
