@@ -3,6 +3,8 @@ package lv.budseq;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.StatusBarManager;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -291,6 +293,15 @@ public class MainActivity extends Activity {
     private void handleIntent(Intent i) {
         if (i == null) return;
         handleEffectIntent(i);
+        if (Intent.ACTION_VIEW.equals(i.getAction()) && i.getData() != null) {
+            String link = i.getDataString();
+            i.setAction(Intent.ACTION_MAIN);   // чтобы не показать ещё раз после пересоздания
+            i.setData(null);
+            selectTab(TAB_EQ, false);
+            PresetCode.Preset p = PresetCode.decode(link);
+            if (p != null) showPresetPreview(p);
+            else Toast.makeText(this, R.string.code_bad, Toast.LENGTH_LONG).show();
+        }
         if (i.getBooleanExtra(EXTRA_CHECK_UPDATE, false)) {
             i.removeExtra(EXTRA_CHECK_UPDATE);
             selectTab(TAB_SETTINGS, false);
@@ -707,7 +718,148 @@ public class MainActivity extends Activity {
         actions.addView(chip(getString(R.string.share), R.drawable.ic_share, CHIP, new View.OnClickListener() {
             public void onClick(View v) { shareText(eq.exportText(null)); }
         }));
+        actions.addView(chip(getString(R.string.preset_code), R.drawable.ic_qr, CHIP, new View.OnClickListener() {
+            public void onClick(View v) { showPresetCode(); }
+        }));
+        actions.addView(chip(getString(R.string.enter_code), R.drawable.ic_keyboard, CHIP, new View.OnClickListener() {
+            public void onClick(View v) { askPresetCode(); }
+        }));
         root.addView(hscroll(actions));
+    }
+
+    // =====================================================================
+    // Пресет кодом и QR
+    // =====================================================================
+
+    private void showPresetCode() {
+        final String code = PresetCode.encode(PresetCode.current(eq));
+        final String link = PresetCode.link(code);
+        boolean[][] m = QrCode.encode(link);
+        if (m == null) {
+            Toast.makeText(this, R.string.code_too_long, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setGravity(Gravity.CENTER_HORIZONTAL);
+        box.setPadding(dp(20), dp(12), dp(20), 0);
+        ImageView qr = new ImageView(this);
+        qr.setImageBitmap(qrBitmap(m, dp(232)));
+        qr.setBackground(round(Color.WHITE, 16));
+        qr.setClipToOutline(true);
+        box.addView(qr, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        TextView c = text(code, 16, Color.WHITE);
+        c.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
+        c.setGravity(Gravity.CENTER);
+        c.setTextIsSelectable(true);
+        c.setPadding(0, dp(14), 0, dp(6));
+        box.addView(c, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        TextView h = text(getString(R.string.code_hint), 12, GREY);
+        h.setGravity(Gravity.CENTER);
+        box.addView(h);
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.code_title)
+                .setView(box)
+                .setPositiveButton(R.string.share, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface d, int w) { shareText(getString(R.string.code_share_text, code, link)); }
+                })
+                .setNeutralButton(R.string.copy, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface d, int w) {
+                        ClipboardManager cm = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                        if (cm != null) cm.setPrimaryClip(ClipData.newPlainText("EQ", code));
+                        // Android 13+ сам показывает, что скопировано
+                        if (Build.VERSION.SDK_INT < 33) {
+                            Toast.makeText(MainActivity.this, R.string.code_copied, Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    /** Чёрные модули на белом, с тихой зоной 4 модуля; целый масштаб — без размытия. */
+    private static Bitmap qrBitmap(boolean[][] m, int px) {
+        int n = m.length + 8;
+        int scale = Math.max(1, px / n);
+        int w = n * scale;
+        int[] pixels = new int[w * w];
+        Arrays.fill(pixels, Color.WHITE);
+        for (int y = 0; y < m.length; y++) {
+            for (int x = 0; x < m.length; x++) {
+                if (!m[y][x]) continue;
+                for (int dy = 0; dy < scale; dy++) {
+                    Arrays.fill(pixels, ((y + 4) * scale + dy) * w + (x + 4) * scale, ((y + 4) * scale + dy) * w + (x + 5) * scale, Color.BLACK);
+                }
+            }
+        }
+        return Bitmap.createBitmap(pixels, w, w, Bitmap.Config.ARGB_8888);
+    }
+
+    private void askPresetCode() {
+        final EditText input = new EditText(this);
+        input.setHint(R.string.code_input_hint);
+        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS
+                | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+        input.setTypeface(Typeface.MONOSPACE);
+        final AlertDialog dlg = new AlertDialog.Builder(this)
+                .setTitle(R.string.enter_code)
+                .setView(padded(input))
+                .setPositiveButton(R.string.show, null)
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+        // своя кнопка: при опечатке окно остаётся открытым
+        dlg.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                PresetCode.Preset p = PresetCode.decode(input.getText().toString());
+                if (p == null) {
+                    input.setError(getString(R.string.code_bad));
+                    return;
+                }
+                dlg.dismiss();
+                showPresetPreview(p);
+            }
+        });
+    }
+
+    /** Превью кривой из кода и «Применить». */
+    private void showPresetPreview(final PresetCode.Preset p) {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(dp(16), dp(8), dp(16), 0);
+        EqGraphView g = new EqGraphView(this);   // без слушателя — только смотреть
+        g.setBackground(round(CARD, 24));
+        g.setBands(EqEngine.freqs(p.bands), p.gains);
+        box.addView(g, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(220)));
+        String info = getString(R.string.punch) + ": " + Math.round(p.punch * 100) + "%\n"
+                + getString(R.string.boost) + ": " + String.format(Locale.US, "+%.1f dB", p.boost) + "\n"
+                + getString(R.string.balance) + ": " + balanceLabel(Math.round(p.balance * 100)) + "\n"
+                + getString(R.string.preamp) + ": " + String.format(Locale.US, "%.1f dB", p.preamp) + "\n"
+                + getString(R.string.leveling) + ": " + getString(p.leveling ? R.string.on : R.string.off);
+        TextView t = text(info, 13, Color.rgb(0xA0, 0xA3, 0xAA));
+        t.setPadding(dp(4), dp(10), dp(4), 0);
+        box.addView(t);
+        ScrollView sv = new ScrollView(this);
+        sv.addView(box);
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.code_preview_title)
+                .setView(sv)
+                .setPositiveButton(R.string.apply, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface d, int w) { applyCodePreset(p); }
+                })
+                .setNeutralButton(R.string.save_as, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface d, int w) {
+                        applyCodePreset(p);
+                        askPresetName();
+                    }
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    private void applyCodePreset(PresetCode.Preset p) {
+        PresetCode.apply(eq, p);
+        refreshEq();
+        Toast.makeText(this, R.string.code_applied, Toast.LENGTH_SHORT).show();
     }
 
     // =====================================================================

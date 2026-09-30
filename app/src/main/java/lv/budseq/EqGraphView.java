@@ -210,7 +210,7 @@ public class EqGraphView extends View {
 
     @Override
     public boolean onTouchEvent(MotionEvent e) {
-        if (n() == 0) return false;
+        if (n() == 0 || listener == null) return false;   // без слушателя — только просмотр (превью кода)
         switch (e.getActionMasked()) {
             case MotionEvent.ACTION_DOWN: {
                 activeBand = bandAt(e.getX());

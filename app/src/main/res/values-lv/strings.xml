@@ -333,4 +333,19 @@
     <string name="sc_artist">Top izpildītājs</string>
     <string name="sc_first_ach">Pirmais sasniegums — 10 stundas mūzikas</string>
     <string name="sc_failed">Neizdevās izveidot attēlu</string>
+    <!-- 6.0: пресет кодом и QR -->
+    <string name="preset_code">Kods un QR</string>
+    <string name="enter_code">Ievadīt kodu</string>
+    <string name="code_title">Preseta kods</string>
+    <string name="code_hint">Pavērsiet cita telefona kameru pret QR — atvērsies EQ ar šo presetu. Vai vienkārši nosūtiet kodu kā tekstu.</string>
+    <string name="copy">Kopēt</string>
+    <string name="code_copied">Kods nokopēts</string>
+    <string name="code_share_text">Mana skaņa EQ: %1$s\n%2$s</string>
+    <string name="code_input_hint">EQ-XXXX-XXXX-… vai saite</string>
+    <string name="code_bad">Kods neder — pārbaudiet burtus</string>
+    <string name="show">Parādīt</string>
+    <string name="code_preview_title">Presets no koda</string>
+    <string name="code_applied">Presets pielietots — klausieties</string>
+    <string name="save_as">Saglabāt kā…</string>
+    <string name="code_too_long">Presets ir par lielu QR kodam</string>
 </resources>

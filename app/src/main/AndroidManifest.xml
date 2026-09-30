@@ -68,6 +68,20 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.CATEGORY_CONTENT_MUSIC" />
             </intent-filter>
+            <!-- пресет по коду: eq://preset/EQ-… (кнопка на странице QR) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="eq" android:host="preset" />
+            </intent-filter>
+            <!-- та же ссылка из QR: https://gghub433.github.io/QE/p/EQ-… -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="gghub433.github.io" android:pathPrefix="/QE/p/" />
+            </intent-filter>
         </activity>
 
         <service

@@ -333,4 +333,19 @@
     <string name="sc_artist">Top artist</string>
     <string name="sc_first_ach">The first achievement is 10 hours of music</string>
     <string name="sc_failed">Couldn’t create the picture</string>
+    <!-- 6.0: пресет кодом и QR -->
+    <string name="preset_code">Code &amp; QR</string>
+    <string name="enter_code">Enter code</string>
+    <string name="code_title">Preset code</string>
+    <string name="code_hint">Point another phone camera at the QR and EQ opens with this preset. Or just send the code as text.</string>
+    <string name="copy">Copy</string>
+    <string name="code_copied">Code copied</string>
+    <string name="code_share_text">My EQ sound: %1$s\n%2$s</string>
+    <string name="code_input_hint">EQ-XXXX-XXXX-… or a link</string>
+    <string name="code_bad">That code does not fit — check the letters</string>
+    <string name="show">Show</string>
+    <string name="code_preview_title">Preset from a code</string>
+    <string name="code_applied">Preset applied — have a listen</string>
+    <string name="save_as">Save as…</string>
+    <string name="code_too_long">The preset is too big for a QR</string>
 </resources>

@@ -1,0 +1,98 @@
+<!doctype html>
+<!-- Страница для ссылок из QR: https://gghub433.github.io/QE/p/EQ-…
+     GitHub Pages отдаёт её для любого пути, которого нет (код пресета — часть пути).
+     Включить: Settings → Pages → Deploy from a branch → main, папка /docs. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>EQ preset</title>
+<style>
+  :root { --bg: #000; --card: #1C1D21; --chip: #3A3B40; --accent: #3E7BFA; --text: #fff; --grey: #A0A3AA; }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 440px; margin: 0 auto; padding: 32px 16px; }
+  .card { background: var(--card); border-radius: 24px; padding: 24px; }
+  h1 { font-size: 24px; margin: 0 0 6px; }
+  p { color: var(--grey); margin: 0 0 18px; }
+  .code { font: 600 17px/1.5 ui-monospace, "Roboto Mono", monospace; word-break: break-all;
+          background: #000; border-radius: 16px; padding: 14px 16px; margin: 0 0 18px; }
+  .btn { display: block; width: 100%; text-align: center; text-decoration: none; border: 0; cursor: pointer;
+         font: 600 16px system-ui, sans-serif; color: var(--text); background: var(--chip);
+         border-radius: 999px; padding: 14px 18px; margin: 0 0 10px; }
+  .btn.main { background: var(--accent); }
+  .wave { display: block; width: 100%; height: 48px; margin: 0 0 18px; }
+  .small { font-size: 13px; margin: 8px 0 0; }
+</style>
+</head>
+<body>
+<main>
+  <div class="card">
+    <svg class="wave" viewBox="0 0 400 48" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M2 24 Q 51 2 100 24 T 200 24 T 300 24 T 398 24"
+            fill="none" stroke="#3E7BFA" stroke-width="4" stroke-linecap="round"/>
+    </svg>
+    <h1 id="title"></h1>
+    <p id="lead"></p>
+    <div class="code" id="code" hidden></div>
+    <a class="btn main" id="open" hidden></a>
+    <button class="btn" id="copy" type="button" hidden></button>
+    <a class="btn" id="get" href="https://github.com/gghub433/QE/releases/latest"></a>
+    <p class="small" id="note"></p>
+  </div>
+</main>
+<script>
+(function () {
+  var T = {
+    en: { title: "EQ preset", lead: "Someone shared their sound with you. Open it in EQ, preview the curve and tap Apply.",
+          none: "This link has no preset code.", open: "Open in EQ", copy: "Copy code", copied: "Copied",
+          get: "No EQ yet? Download", note: "If the button does nothing: EQ → Equalizer → Enter code, and paste the code." },
+    ru: { title: "Пресет EQ", lead: "С вами поделились звуком. Откройте его в EQ, посмотрите кривую и нажмите «Применить».",
+          none: "В этой ссылке нет кода пресета.", open: "Открыть в EQ", copy: "Скопировать код", copied: "Скопировано",
+          get: "Ещё нет EQ? Скачать", note: "Если кнопка не сработала: EQ → Эквалайзер → «Ввести код» и вставьте код." },
+    lv: { title: "EQ presets", lead: "Ar jums dalījās ar skaņu. Atveriet to EQ, apskatiet līkni un nospiediet «Pielietot».",
+          none: "Šajā saitē nav preseta koda.", open: "Atvērt EQ", copy: "Kopēt kodu", copied: "Nokopēts",
+          get: "Vēl nav EQ? Lejupielādēt", note: "Ja poga nestrādā: EQ → Ekvalaizers → «Ievadīt kodu» un ielīmējiet kodu." },
+    uk: { title: "Пресет EQ", lead: "З вами поділилися звуком. Відкрийте його в EQ, подивіться криву й натисніть «Застосувати».",
+          none: "У цьому посиланні немає коду пресету.", open: "Відкрити в EQ", copy: "Скопіювати код", copied: "Скопійовано",
+          get: "Ще немає EQ? Завантажити", note: "Якщо кнопка не спрацювала: EQ → Еквалайзер → «Ввести код» і вставте код." }
+  };
+  var lang = (navigator.language || "en").slice(0, 2).toLowerCase();
+  var t = T[lang] || T.en;
+  document.documentElement.lang = T[lang] ? lang : "en";
+  function $(id) { return document.getElementById(id); }
+  $("title").textContent = t.title;
+  $("get").textContent = t.get;
+
+  // код — только буквы base32 и дефисы, иначе ничего не показываем
+  var m = /\/p\/(EQ-[A-Z2-7-]{6,120})\/?$/i.exec(location.pathname);
+  if (!m) { $("lead").textContent = t.none; return; }
+  var code = m[1].toUpperCase();
+  $("lead").textContent = t.lead;
+  $("note").textContent = t.note;
+  $("code").textContent = code;
+  $("code").hidden = false;
+
+  var android = /Android/i.test(navigator.userAgent);
+  var open = $("open");
+  open.textContent = t.open;
+  open.href = android
+      ? "intent://preset/" + code + "#Intent;scheme=eq;package=lv.budseq;end"
+      : "eq://preset/" + code;
+  open.hidden = false;
+
+  if (navigator.clipboard) {
+    var copy = $("copy");
+    copy.textContent = t.copy;
+    copy.hidden = false;
+    copy.onclick = function () {
+      navigator.clipboard.writeText(code).then(function () { copy.textContent = t.copied; });
+    };
+  }
+})();
+</script>
+</body>
+</html>

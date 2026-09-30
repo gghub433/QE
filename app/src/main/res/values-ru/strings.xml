@@ -333,4 +333,19 @@
     <string name="sc_artist">Топ-исполнитель</string>
     <string name="sc_first_ach">Первое достижение — 10 часов музыки</string>
     <string name="sc_failed">Не удалось сделать картинку</string>
+    <!-- 6.0: пресет кодом и QR -->
+    <string name="preset_code">Код и QR</string>
+    <string name="enter_code">Ввести код</string>
+    <string name="code_title">Код пресета</string>
+    <string name="code_hint">Наведите камеру другого телефона на QR — откроется EQ с этим пресетом. Или просто отправьте код текстом.</string>
+    <string name="copy">Копировать</string>
+    <string name="code_copied">Код скопирован</string>
+    <string name="code_share_text">Мой звук в EQ: %1$s\n%2$s</string>
+    <string name="code_input_hint">EQ-XXXX-XXXX-… или ссылка</string>
+    <string name="code_bad">Код не подошёл — проверьте буквы</string>
+    <string name="show">Показать</string>
+    <string name="code_preview_title">Пресет из кода</string>
+    <string name="code_applied">Пресет применён — слушайте</string>
+    <string name="save_as">Сохранить как…</string>
+    <string name="code_too_long">Пресет слишком большой для QR</string>
 </resources>
