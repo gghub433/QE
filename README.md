@@ -33,8 +33,8 @@ Galaxy Buds по их протоколу iPhone не управляет, игр�
 ### Как установить без Mac и платного аккаунта
 
 Нужен компьютер с Windows (или Mac) и кабель — один раз и потом раз в 7 дней.
-1. Скачай `EQ-iOS.ipa`: [Releases](https://github.com/gghub433/QE/releases) → релиз «EQ для iPhone»
-   (или Actions → «Build iOS» → артефакт **EQ-iOS-ipa**).
+1. **[Скачать EQ-iOS.ipa](https://github.com/gghub433/QE/releases/download/ios-v1.0/EQ-iOS.ipa)** на компьютер
+   (или [Releases](https://github.com/gghub433/QE/releases) → релиз «EQ для iPhone»).
 2. На Windows поставь **iTunes** и **iCloud** с сайта apple.com (не из Microsoft Store), затем **Sideloadly** (sideloadly.io).
 3. Подключи iPhone кабелем, нажми на iPhone «Доверять». В Sideloadly перетащи `EQ-iOS.ipa`, введи свой Apple ID
    (подойдёт обычный бесплатный) и нажми **Start**.

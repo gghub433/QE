@@ -2,7 +2,7 @@ name: Build iOS
 
 # Изменилось что-то в ios/ — собрать EQ для iPhone (IPA без подписи: Sideloadly или AltStore
 # подпишут его вашим Apple ID) и снять скриншоты на симуляторах разных iPhone (ветка ios-shots).
-# Тег ios-vX.Y — ещё и выложить IPA в релиз. Релиз помечен как пре-релиз и не «последний»,
+# Тег ios-vX.Y или запуск вручную с «release» — ещё и выложить IPA в релиз ios-vX.Y (MARKETING_VERSION). Релиз помечен как пре-релиз и не «последний»,
 # поэтому ссылка releases/latest/download/EQ.apk и автообновление Android не меняются.
 on:
   push:
@@ -10,13 +10,18 @@ on:
     tags: ['ios-v*']
     paths: ['ios/**', '.github/workflows/ios.yml']
   workflow_dispatch:
+    inputs:
+      release:
+        description: 'Выложить релиз ios-vX.Y'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
 
 # новый push отменяет прошлую сборку этой же ветки
 concurrency:
-  group: ios-${{ github.ref }}
+  group: ios-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
@@ -55,15 +60,17 @@ jobs:
           path: EQ-iOS-*.ipa
 
       - name: Release notes
-        if: startsWith(github.ref, 'refs/tags/ios-v')
+        if: ${{ startsWith(github.ref, 'refs/tags/ios-v') || inputs.release }}
         run: |
           awk -v v="### iOS $VER" '$0==v{f=1;next} f&&/^##/{exit} f' README.md > notes.md
           [ -s notes.md ] || echo "EQ для iPhone $VER" > notes.md
 
       - name: Publish release
-        if: startsWith(github.ref, 'refs/tags/ios-v')
+        if: ${{ startsWith(github.ref, 'refs/tags/ios-v') || inputs.release }}
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ios-v${{ env.VER }}
+          target_commitish: ${{ github.sha }}
           name: EQ для iPhone ${{ env.VER }}
           body_path: notes.md
           prerelease: true
@@ -74,7 +81,7 @@ jobs:
 
   screenshots:
     runs-on: macos-latest
-    if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+    if: ${{ !startsWith(github.ref, 'refs/tags/') && !inputs.release }}
     timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
