@@ -108,7 +108,7 @@ struct DeviceTab: View {
                 app.tab = 1
             } label: {
                 VStack(alignment: .leading, spacing: 8) {
-                    EqGraph(gains: engine.gains, bands: engine.bandCount, compact: true)
+                    EqGraph(gains: engine.gains, bands: engine.bandCount, range: 12, compact: true)
                         .frame(height: 70)
                         .opacity(engine.enabled ? 1 : 0.35)
                     HStack {

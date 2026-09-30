@@ -75,7 +75,7 @@ jobs:
   screenshots:
     runs-on: macos-latest
     if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-    timeout-minutes: 45
+    timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
 
@@ -113,7 +113,8 @@ jobs:
           # самый старый поддерживаемый, маленькие, с кнопкой «Домой» и самые новые
           NEWEST="iPhone 17 Pro Max"
           echo "$TYPES" | grep -q "\"$NEWEST\"" || NEWEST="iPhone 16 Pro Max"
-          for NAME in "$NEWEST" "iPhone 11 Pro Max" "iPhone SE (3rd generation)" "iPhone 13 mini" "iPhone 16e" "iPhone Air"; do
+          # первая загрузка на машине самая долгая (система готовит кэши) — первым идёт 11 Pro Max
+          for NAME in "iPhone 11 Pro Max" "$NEWEST" "iPhone SE (3rd generation)" "iPhone 13 mini" "iPhone 16e" "iPhone Air"; do
             TYPE=$(echo "$TYPES" | python3 -c "
           import json, sys
           for t in json.load(sys.stdin)['devicetypes']:
@@ -124,11 +125,14 @@ jobs:
             if [ -z "$UDID" ]; then log "не создан $NAME"; continue; fi
             log "$NAME: загрузка"
             lim 240 xcrun simctl boot "$UDID"
-            lim 300 xcrun simctl bootstatus "$UDID" >/dev/null
+            lim 600 xcrun simctl bootstatus "$UDID" >/dev/null
             if [ $? -ne 0 ]; then log "$NAME: не загрузился"; xcrun simctl delete "$UDID"; continue; fi
             lim 30 xcrun simctl status_bar "$UDID" override --time 9:41 --batteryState charged --batteryLevel 100 \
               --cellularBars 4 --wifiBars 3
             lim 120 xcrun simctl install "$UDID" "$APP"
+            # первый запуск после установки долгий — прогреваем, чтобы первый снимок не был чёрным
+            lim 60 xcrun simctl launch "$UDID" lv.budseq.eq -demo >/dev/null
+            sleep 12
             SAFE=$(echo "$NAME" | tr -cd 'A-Za-z0-9')
             for SHOT in "0" "1" "2" "3" "0 -car"; do
               set -- $SHOT

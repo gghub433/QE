@@ -4,17 +4,16 @@ import SwiftUI
 struct WaveView: View {
     let playing: Bool
     var color: Color
-    @State var level: CGFloat = 0
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1 / 60, paused: !playing && level < 0.01)) { tl in
+        TimelineView(.animation(minimumInterval: 1 / 60, paused: !playing)) { tl in
             Canvas { ctx, size in
                 let t = tl.date.timeIntervalSinceReferenceDate
                 let mid = size.height / 2
                 for layer in 0..<3 {
                     let k = CGFloat(layer)
                     var p = Path()
-                    let amp = (size.height * 0.36) * (1 - k * 0.28) * max(0.08, level)
+                    let amp = (size.height * 0.36) * (1 - k * 0.28) * (playing ? 1 : 0.08)
                     let freq = 2.2 + Double(layer) * 0.9
                     let speed = 1.6 + Double(layer) * 0.7
                     var x: CGFloat = 0
@@ -30,14 +29,6 @@ struct WaveView: View {
                     ctx.stroke(p, with: .color(color.opacity(layer == 0 ? 1 : 0.45 - Double(layer) * 0.12)),
                                style: StrokeStyle(lineWidth: layer == 0 ? 3 : 2, lineCap: .round))
                 }
-            }
-        }
-        .onAppear {
-            level = playing ? 1 : 0
-        }
-        .onChange(of: playing) { p in
-            withAnimation(.easeInOut(duration: 0.6)) {
-                level = p ? 1 : 0
             }
         }
     }
