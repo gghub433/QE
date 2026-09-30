@@ -376,7 +376,7 @@ namespace EQ
                 return;
             }
             int n = m.GetLength(0);
-            double cell = (s - 32) / n, o = 16;
+            double cell = s / (n + 6), o = cell * 3;   // тихая зона вокруг кода — сканеры её любят
             var geo = new StreamGeometry();
             using (var g = geo.Open())
             {
@@ -404,7 +404,7 @@ namespace EQ
     {
         public static string Db(double v, bool plus = false)
         {
-            return (plus && v > 0 ? "+" : "") + v.ToString("0.0", CultureInfo.CurrentCulture) + " dB";
+            return (plus && v > 0 ? "+" : "") + v.ToString("0.0", Lang.Culture) + " dB";
         }
 
         public static string Percent(double v)

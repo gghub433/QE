@@ -20,6 +20,9 @@ namespace EQ
 
         public static string Code { get; private set; } = "en";
 
+        /// <summary>Даты и числа — на языке EQ, а не Windows.</summary>
+        public static CultureInfo Culture { get; private set; } = CultureInfo.InvariantCulture;
+
         /// <summary>code = "" — язык Windows (если его нет среди четырёх — английский).</summary>
         public static void Load(string code)
         {
@@ -32,6 +35,14 @@ namespace EQ
                 code = "en";
             }
             Code = code;
+            try
+            {
+                Culture = CultureInfo.GetCultureInfo(code == "uk" ? "uk-UA" : code == "lv" ? "lv-LV" : code == "ru" ? "ru-RU" : "en-GB");
+            }
+            catch
+            {
+                Culture = CultureInfo.InvariantCulture;
+            }
             if (fallback == null)
             {
                 fallback = Read("en");
@@ -79,14 +90,14 @@ namespace EQ
 
         public static string F(string key, params object[] args)
         {
-            return string.Format(CultureInfo.CurrentCulture, L(key), args);
+            return string.Format(Culture, L(key), args);
         }
 
         /// <summary>«1 ч 20 мин» / «35 мин».</summary>
         public static string Duration(double minutes)
         {
             int m = (int)Math.Round(minutes);
-            return m >= 60 ? F("time.hm", m / 60, m % 60) : F("time.m", m);
+            return m < 60 ? F("time.m", m) : m % 60 == 0 || m >= 6000 ? F("time.h", m / 60) : F("time.hm", m / 60, m % 60);
         }
     }
 }

@@ -10,6 +10,7 @@ delete = Удалить
 save = Сохранить
 time.hm = {0} ч {1} мин
 time.m = {0} мин
+time.h = {0} ч
 status.on = Работает на весь звук ПК, и в играх
 status.off = Выключен: звук без изменений
 status.noApo = Нужен Equalizer APO (бесплатно)

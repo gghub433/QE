@@ -10,6 +10,7 @@ delete = Delete
 save = Save
 time.hm = {0} h {1} min
 time.m = {0} min
+time.h = {0} h
 status.on = Works on all PC sound, games included
 status.off = Turned off: the sound is original
 status.noApo = Needs Equalizer APO (free)

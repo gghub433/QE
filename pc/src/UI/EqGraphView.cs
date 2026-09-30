@@ -211,7 +211,7 @@ namespace EQ
                 {
                     var f = Presets.Freqs(bands)[show];
                     var txt = (f >= 1000 ? (f / 1000).ToString("0.#", CultureInfo.InvariantCulture) + "k" : f.ToString("0.#", CultureInfo.InvariantCulture))
-                              + " Hz  " + (gains[show] > 0 ? "+" : "") + gains[show].ToString("0.0", CultureInfo.CurrentCulture) + " dB";
+                              + " Hz  " + (gains[show] > 0 ? "+" : "") + gains[show].ToString("0.0", Lang.Culture) + " dB";
                     var ft = Text(txt, 12.5, Brushes.White, true);
                     double bw = ft.Width + 20, bh = ft.Height + 8;
                     double bx = Math.Max(0, Math.Min(w - bw, pts[show].X - bw / 2));

@@ -295,6 +295,7 @@ namespace EQ
                 Background = Theme.B(Theme.WithAlpha(color, 0.18)),
                 Padding = new Thickness(10, 3, 10, 4),
                 VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Left,
                 Child = Text(text, 12, color, FontWeights.SemiBold),
             };
         }

@@ -205,7 +205,7 @@ namespace EQ
             info.Children.Add(Stat(Icons.Clock, L("games.playtime"), g.PlaytimeMin >= 1 ? Duration(g.PlaytimeMin) : L("games.notPlayed")));
             if (g.LastPlayed > new DateTime(2005, 1, 1))
             {
-                info.Children.Add(Stat(Icons.Game, L("games.lastPlayed"), g.LastPlayed.ToLocalTime().ToString("d MMMM yyyy", CultureInfo.CurrentCulture)));
+                info.Children.Add(Stat(Icons.Game, L("games.lastPlayed"), g.LastPlayed.ToLocalTime().ToString("D", Lang.Culture)));
             }
             info.Children.Add(Ui.Text(L("games.soundFor"), 14, null, FontWeights.SemiBold).Mg(0, 16, 0, 8));
             var profiles = new WrapPanel();
@@ -354,7 +354,10 @@ namespace EQ
 
         static FrameworkElement PlaceholderText(Game g, double w)
         {
-            var t = Ui.Title(g.Name, w > 180 ? 24 : 19);
+            double size = w > 180 ? 24 : 19;
+            int longest = (g.Name ?? "").Split(' ').Select(s => s.Length).DefaultIfEmpty(1).Max();
+            size = Math.Max(11, Math.Min(size, (w - 30) / (Math.Max(1, longest) * 0.6)));
+            var t = Ui.Title(g.Name, size);
             t.TextWrapping = TextWrapping.Wrap;
             t.TextTrimming = TextTrimming.CharacterEllipsis;
             t.VerticalAlignment = VerticalAlignment.Bottom;
