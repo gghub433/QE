@@ -69,6 +69,16 @@ public class SplashActivity extends Activity {
         tag.setPadding(dp(24), dp(6), dp(24), 0);
         center.addView(tag);
 
+        // фирменная волна: «вдох» вместе с появлением логотипа
+        final WaveView wave = new WaveView(this);
+        wave.setLevel(0.6f);
+        LinearLayout.LayoutParams wlp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(70));
+        wlp.setMargins(dp(40), dp(18), dp(40), 0);
+        center.addView(wave, wlp);
+        ui.postDelayed(new Runnable() {
+            public void run() { wave.breathe(); }
+        }, 250);
+
         langBox = new LinearLayout(this);
         langBox.setOrientation(LinearLayout.VERTICAL);
         langBox.setPadding(dp(32), dp(32), dp(32), 0);

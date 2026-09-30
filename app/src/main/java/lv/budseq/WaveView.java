@@ -16,6 +16,14 @@ public class WaveView extends View {
 
     private int color = Theme.liveWave();
     private float level = 0.12f, target = 0.12f, time;
+    /** Сколько прошло с начала «вдоха» (с), -1 — не дышим. */
+    private float breath = -1f;
+    private static final float BREATH_IN = 0.3f, BREATH_OUT = 0.4f;
+
+    private static float ease(float t) {
+        t = Math.max(0f, Math.min(1f, t));
+        return t * t * (3 - 2 * t);
+    }
     private boolean running;
 
     private final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -28,6 +36,19 @@ public class WaveView extends View {
         line.setStyle(Paint.Style.STROKE);
         line.setStrokeCap(Paint.Cap.ROUND);
         line.setStrokeJoin(Paint.Join.ROUND);
+    }
+
+    /** Постоянный размах (загрузочный экран, всплывающее окно). */
+    public void setLevel(float l) {
+        target = Math.max(0f, Math.min(1f, l));
+        startLoop();
+    }
+
+    /** Фирменный «вдох»: размах 0 → 1 → 0,6 примерно за 700 мс, потом — к обычному уровню. */
+    public void breathe() {
+        breath = 0f;
+        level = 0f;
+        startLoop();
     }
 
     public void setPlaying(boolean playing) {
@@ -76,7 +97,19 @@ public class WaveView extends View {
     };
 
     void step(float dt) {
-        level += (target - level) * 0.05f;
+        if (breath >= 0f) {
+            breath += dt;
+            if (breath < BREATH_IN) {
+                level = ease(breath / BREATH_IN);
+            } else if (breath < BREATH_IN + BREATH_OUT) {
+                level = 1f - 0.4f * ease((breath - BREATH_IN) / BREATH_OUT);
+            } else {
+                level = 0.6f;
+                breath = -1f;
+            }
+        } else {
+            level += (target - level) * 0.05f;
+        }
         time += dt * (0.6f + 1.4f * level);
     }
 

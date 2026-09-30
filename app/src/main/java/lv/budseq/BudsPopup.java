@@ -33,6 +33,7 @@ public final class BudsPopup {
     private FrameLayout content;
     private BudsView budsView;
     private DeviceView deviceView;
+    private WaveView wave;
     private String address;
 
     private final Runnable autoHide = new Runnable() {
@@ -55,7 +56,9 @@ public final class BudsPopup {
     /** Показать (или обновить) карточку устройства. buds != null — подробный режим Galaxy Buds. */
     public void show(DeviceInfo info, BudsLink.State buds) {
         if (!allowed(ctx) || info == null) return;
+        boolean fresh = card == null;
         if (card == null && !create()) return;
+        if (fresh) wave.breathe();
         address = info.address;
         setContent(info, buds);
         restartTimer();
@@ -100,6 +103,14 @@ public final class BudsPopup {
         LinearLayout.LayoutParams hlp = new LinearLayout.LayoutParams((int) (40 * d), (int) (5 * d));
         hlp.gravity = Gravity.CENTER_HORIZONTAL;
         card.addView(handle, hlp);
+
+        // фирменная волна: «вдох» при появлении окна
+        wave = new WaveView(ctx);
+        wave.setLevel(0.6f);
+        LinearLayout.LayoutParams wlp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, (int) (34 * d));
+        wlp.topMargin = (int) (6 * d);
+        card.addView(wave, wlp);
 
         content = new FrameLayout(ctx);
         budsView = new BudsView(ctx);
