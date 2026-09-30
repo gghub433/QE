@@ -1,7 +1,10 @@
 package lv.budseq;
 
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.os.BatteryManager;
 import android.os.Build;
 import android.os.PowerManager;
 import android.provider.Settings;
@@ -9,13 +12,16 @@ import android.provider.Settings;
 import java.util.Locale;
 
 /**
- * Телефон, на котором запущен EQ: название (как его видит человек, а не код модели),
+ * Устройство, на котором запущен EQ: название (как его видит человек, а не код модели),
  * версия Android, что умеет (Bluetooth LE) и что мешает (экономия батареи, эффекты прошивки).
+ * Узнаёт и Android-магнитолу: тогда фокус звука работает на её собственные динамики.
  */
 public final class PhoneInfo {
     public final String brand, model, name, android;
     public final int sdk;
     public final boolean ble;
+    /** Почему решили, что это магнитола (строка-причина), 0 — похоже на телефон. */
+    public int headUnitWhy;
 
     private PhoneInfo(String brand, String model, String name, boolean ble) {
         this.brand = brand;
@@ -34,8 +40,67 @@ public final class PhoneInfo {
             String model = Build.MODEL == null ? "" : Build.MODEL;
             boolean ble = c.getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE);
             cached = new PhoneInfo(brand, model, marketName(c, brand, model), ble);
+            cached.headUnitWhy = detectHeadUnit(c);
         }
         return cached;
+    }
+
+    // =====================================================================
+    // Магнитола
+    // =====================================================================
+
+    public static final int KIND_AUTO = 0, KIND_PHONE = 1, KIND_HEAD_UNIT = 2;
+
+    /** Платформы и марки Android-магнитол (Build.* в нижнем регистре). */
+    private static final String[] HEAD_UNIT_WORDS = {
+            "uis7862", "uis8581", "ac8227", "ac8257", "8227l", "mt8227", "microntek", "mtcd", "mtce", "mtcb",
+            "fyt", "teyes", "joying", "dasaita", "xtrons", "atoto", "eonon", "seicane", "topway", "yt9216",
+            "yt9213", "px5", "px6", "headunit", "head_unit", "autoradio", "carradio"};
+
+    /** Выбор человека: авто / телефон / магнитола. */
+    public static int kind(Context c) {
+        return c.getSharedPreferences("settings", Context.MODE_PRIVATE).getInt("device_kind", KIND_AUTO);
+    }
+
+    public static void setKind(Context c, int k) {
+        c.getSharedPreferences("settings", Context.MODE_PRIVATE).edit().putInt("device_kind", k).apply();
+    }
+
+    /** EQ стоит на магнитоле: звук идёт прямо в динамики машины. */
+    public static boolean headUnit(Context c) {
+        int k = kind(c);
+        if (k != KIND_AUTO) return k == KIND_HEAD_UNIT;
+        return get(c).headUnitWhy != 0;
+    }
+
+    static int detectHeadUnit(Context c) {
+        PackageManager pm = c.getPackageManager();
+        // Android Automotive OS — система самой машины (Volvo, Polestar, Renault, GM…)
+        if (pm.hasSystemFeature("android.hardware.type.automotive")) return R.string.hu_why_aaos;
+        if (isHeadUnitName(Build.MANUFACTURER + " " + Build.BRAND + " " + Build.MODEL + " " + Build.DEVICE
+                + " " + Build.PRODUCT + " " + Build.BOARD + " " + Build.HARDWARE)) {
+            return R.string.hu_why_platform;
+        }
+        // нет батареи и нет SIM, и это не ТВ-приставка — так выглядят магнитолы
+        boolean tv = pm.hasSystemFeature(PackageManager.FEATURE_LEANBACK);
+        boolean phone = pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY);
+        if (!tv && !phone && !hasBattery(c)) return R.string.hu_why_power;
+        return 0;
+    }
+
+    static boolean isHeadUnitName(String s) {
+        String all = s.toLowerCase(Locale.ROOT);
+        for (String w : HEAD_UNIT_WORDS) if (all.contains(w)) return true;
+        return false;
+    }
+
+    private static boolean hasBattery(Context c) {
+        try {
+            Intent i = c.registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+            return i == null || i.getBooleanExtra(BatteryManager.EXTRA_PRESENT, true);
+        } catch (Exception e) {
+            return true;
+        }
     }
 
     /** «Galaxy S23 Ultra», «Pixel 8», «Xiaomi 13T»… */
@@ -103,8 +168,9 @@ public final class PhoneInfo {
         }
     }
 
-    /** Профиль «динамик телефона» с названием телефона. */
+    /** Профиль «динамик телефона» с названием телефона; на магнитоле — «Динамики машины». */
     public String speakerName(Context c) {
+        if (headUnit(c)) return c.getString(R.string.hu_speakers);
         return c.getString(R.string.phone_speaker_of, name);
     }
 }

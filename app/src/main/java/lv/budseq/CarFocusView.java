@@ -112,13 +112,27 @@ public class CarFocusView extends View {
      */
     public static void applyFocus(Context c) {
         EqEngine eq = EqEngine.get(c);
-        DeviceInfo p = DeviceMonitor.get().primaryAudio();
+        String key = carKey(c);
         float b = 0f;
-        if (p != null && p.type == DeviceInfo.T_CAR) {
-            DeviceSettings ds = DeviceSettings.get(c, p.address);
+        if (key != null) {
+            DeviceSettings ds = DeviceSettings.get(c, key);
             b = balanceFor(ds.carFocus, ds.carMode, ds.speakers(), ds.carSwap, ds.carMono);
         }
         eq.setCarBalance(b);
+    }
+
+    /** Настройки машины, если EQ стоит на самой магнитоле (не Bluetooth-адрес). */
+    public static final String HEAD_UNIT = "headunit";
+
+    /**
+     * Куда сейчас идёт звук машины: адрес машины по Bluetooth, HEAD_UNIT — EQ на магнитоле и играет
+     * в её динамики (Bluetooth-наушники не подключены), null — не в машине.
+     */
+    public static String carKey(Context c) {
+        DeviceInfo p = DeviceMonitor.get().primaryAudio();
+        if (p != null && p.type == DeviceInfo.T_CAR) return p.address;
+        if (p == null && PhoneInfo.headUnit(c)) return HEAD_UNIT;
+        return null;
     }
 
     private Listener listener;

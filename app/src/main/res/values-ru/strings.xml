@@ -451,4 +451,16 @@
     <string name="game_launch_fail">Не получилось открыть игру</string>
     <!-- 6.0: заголовок всплывающего окна -->
     <string name="popup_title">%s на связи</string>
+    <!-- 6.0: EQ на магнитоле -->
+    <string name="hu_title">Эта магнитола</string>
+    <string name="hu_speakers">Динамики машины</string>
+    <string name="hu_kind">Где стоит EQ</string>
+    <string name="hu_auto">Авто</string>
+    <string name="hu_unit">Магнитола</string>
+    <string name="hu_auto_says">Автоматически: %s.</string>
+    <string name="hu_why_aaos">это Android Automotive — система самой машины</string>
+    <string name="hu_why_platform">узнал платформу Android-магнитолы</string>
+    <string name="hu_why_power">нет батареи и SIM — похоже на магнитолу</string>
+    <string name="hu_why_phone">похоже на телефон</string>
+    <string name="hu_note">Фокус звука выше работает прямо на динамики машины — расставьте их на схеме салона.</string>
 </resources>

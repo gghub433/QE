@@ -228,6 +228,7 @@ public class EqService extends Service {
         }
         if (intent != null && ACT_POKE.equals(intent.getAction())) {
             gameTracker.invalidate();
+            syncProfileAndAuto();   // сменили «телефон / магнитола» — профиль и автовключение
             checkAppPreset();
             updateNotification();
             return START_STICKY;
@@ -497,7 +498,8 @@ public class EqService extends Service {
     /** Автовключение, профиль и фокус машины под текущее звуковое устройство. */
     private void syncProfileAndAuto() {
         DeviceInfo p = monitor.primaryAudio();
-        if (eq.autoMode) eq.setEnabled(p != null);
+        // на магнитоле звук идёт в её динамики без Bluetooth — автовыключение не нужно
+        if (eq.autoMode) eq.setEnabled(p != null || PhoneInfo.headUnit(this));
         if (eq.perDevice) {
             if (p != null) eq.switchProfile(p.address, p.name);
             else eq.switchProfile("phone", PhoneInfo.get(this).speakerName(this));

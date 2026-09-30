@@ -451,4 +451,16 @@
     <string name="game_launch_fail">Could not open the game</string>
     <!-- 6.0: заголовок всплывающего окна -->
     <string name="popup_title">%s is here</string>
+    <!-- 6.0: EQ на магнитоле -->
+    <string name="hu_title">This head unit</string>
+    <string name="hu_speakers">Car speakers</string>
+    <string name="hu_kind">Where EQ is installed</string>
+    <string name="hu_auto">Auto</string>
+    <string name="hu_unit">Head unit</string>
+    <string name="hu_auto_says">Automatically: %s.</string>
+    <string name="hu_why_aaos">this is Android Automotive, the car’s own system</string>
+    <string name="hu_why_platform">recognised an Android head unit platform</string>
+    <string name="hu_why_power">no battery and no SIM — looks like a head unit</string>
+    <string name="hu_why_phone">looks like a phone</string>
+    <string name="hu_note">Sound focus above works right on the car speakers — place them on the cabin map.</string>
 </resources>

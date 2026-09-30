@@ -451,4 +451,16 @@
     <string name="game_launch_fail">Neizdevās atvērt spēli</string>
     <!-- 6.0: заголовок всплывающего окна -->
     <string name="popup_title">%s ir klāt</string>
+    <!-- 6.0: EQ на магнитоле -->
+    <string name="hu_title">Šī magnetola</string>
+    <string name="hu_speakers">Auto skaļruņi</string>
+    <string name="hu_kind">Kur uzstādīts EQ</string>
+    <string name="hu_auto">Automātiski</string>
+    <string name="hu_unit">Magnetola</string>
+    <string name="hu_auto_says">Automātiski: %s.</string>
+    <string name="hu_why_aaos">šī ir Android Automotive — pašas mašīnas sistēma</string>
+    <string name="hu_why_platform">atpazinu Android magnetolas platformu</string>
+    <string name="hu_why_power">nav akumulatora un SIM — izskatās pēc magnetolas</string>
+    <string name="hu_why_phone">izskatās pēc telefona</string>
+    <string name="hu_note">Skaņas fokuss augstāk darbojas tieši uz auto skaļruņiem — izvietojiet tos salona shēmā.</string>
 </resources>
