@@ -34,7 +34,7 @@
     <string name="p_vocal">Balss</string>
     <string name="p_clarity">Skaidrība</string>
     <string name="p_soft">Maigs</string>
-    <string name="buds_not_connected">Austiņas nav pievienotas — atver futrāli</string>
+    <string name="buds_not_connected">Austiņas klusē — atver futrāli pie telefona</string>
     <string name="case_label">Futrālis</string>
     <string name="in_ear">ausī</string>
     <string name="taken_out">izņemta</string>
@@ -56,7 +56,7 @@
     <string name="devices">Ierīces</string>
     <string name="no_devices">Ēterā klusums — nekas nav pievienots</string>
     <string name="no_devices_hint">Pievieno austiņas, skaļruni vai citu ierīci ar Bluetooth</string>
-    <string name="battery_unknown">Ierīce nepārraida uzlādes līmeni</string>
+    <string name="battery_unknown">Šī ierīce tur savu uzlādi noslēpumā</string>
     <string name="t_buds">Galaxy Buds</string>
     <string name="t_earbuds">Bezvadu austiņas</string>
     <string name="t_headphones">Pilna izmēra austiņas</string>
@@ -186,7 +186,7 @@
     <string name="mt_week">Nedēļā: %1$s · vidēji %2$s dienā</string>
     <string name="mt_top_artists">Visbiežāk</string>
     <string name="mt_top_apps">Lietotnes</string>
-    <string name="mt_empty">Šeit parādīsies klausīšanās laiks, tiklīdz sāks skanēt mūzika.</string>
+    <string name="mt_empty">Šeit parādīsies tavs mūzikas laiks — ieslēdz pirmo dziesmu</string>
     <string name="mt_no_access">Tiek skaitīts tikai kopējais laiks. Lai redzētu izpildītājus un lietotnes, atļauj piekļuvi paziņojumiem (cilne «Mūzika» → «Tagad skan»).</string>
     <string name="mt_hint">Tiek skaitīts, kamēr skan mūzika. Dati paliek tālrunī.</string>
     <string name="mt_reset">Atiestatīt statistiku</string>
@@ -203,7 +203,7 @@
     <string name="upd_install">Lejupielādēt un instalēt</string>
     <string name="upd_auto">Pārbaudīt automātiski</string>
     <string name="upd_auto_hint">Divreiz dienā; kad iznāks jauna versija, pienāks paziņojums</string>
-    <string name="upd_checking">Pārbauda…</string>
+    <string name="upd_checking">Ieskatos GitHub…</string>
     <string name="upd_failed">Atjaunināšanas kļūda: %s</string>
     <string name="upd_latest">Tev ir pati svaigākā versija</string>
     <string name="upd_no_apk">Iznākusi versija %s, bet laidienā vēl nav APK faila</string>
@@ -449,4 +449,6 @@
     <string name="game_shortcut_added">Saīsne pievienota — spēle startēs caur EQ uzreiz ar savu skaņu</string>
     <string name="game_shortcut_fail">Šis sākuma ekrāns nepieņem saīsnes</string>
     <string name="game_launch_fail">Neizdevās atvērt spēli</string>
+    <!-- 6.0: заголовок всплывающего окна -->
+    <string name="popup_title">%s ir klāt</string>
 </resources>

@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.PixelFormat;
+import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Handler;
@@ -34,6 +35,7 @@ public final class BudsPopup {
     private BudsView budsView;
     private DeviceView deviceView;
     private WaveView wave;
+    private TextView title;
     private String address;
 
     private final Runnable autoHide = new Runnable() {
@@ -70,6 +72,7 @@ public final class BudsPopup {
     }
 
     private void setContent(DeviceInfo info, BudsLink.State buds) {
+        title.setText(ctx.getString(R.string.popup_title, info.name));
         boolean useBuds = buds != null && buds.connected && buds.hasBattery();
         if (useBuds) {
             if (deviceView != null) deviceView.setVisibility(View.GONE);
@@ -111,6 +114,18 @@ public final class BudsPopup {
                 ViewGroup.LayoutParams.MATCH_PARENT, (int) (34 * d));
         wlp.topMargin = (int) (6 * d);
         card.addView(wave, wlp);
+
+        // «Galaxy Buds2 Pro на связи»
+        title = new TextView(ctx);
+        title.setTextColor(Color.WHITE);
+        title.setTextSize(17);
+        title.setTypeface(Typeface.DEFAULT_BOLD);
+        title.setGravity(Gravity.CENTER);
+        title.setSingleLine(true);
+        title.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        title.setPadding((int) (8 * d), (int) (2 * d), (int) (8 * d), 0);
+        card.addView(title, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         content = new FrameLayout(ctx);
         budsView = new BudsView(ctx);

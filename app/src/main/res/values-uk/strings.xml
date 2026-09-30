@@ -34,7 +34,7 @@
     <string name="p_vocal">Вокал</string>
     <string name="p_clarity">Чіткість</string>
     <string name="p_soft">М\'який</string>
-    <string name="buds_not_connected">Навушники не підключені — відкрий кейс</string>
+    <string name="buds_not_connected">Навушники мовчать — відкрий кейс біля телефона</string>
     <string name="case_label">Кейс</string>
     <string name="in_ear">у вусі</string>
     <string name="taken_out">вийнятий</string>
@@ -56,7 +56,7 @@
     <string name="devices">Пристрої</string>
     <string name="no_devices">Тиша в ефірі — нічого не підключено</string>
     <string name="no_devices_hint">Підключи навушники, колонку чи інший пристрій через Bluetooth</string>
-    <string name="battery_unknown">Пристрій не передає заряд</string>
+    <string name="battery_unknown">Цей пристрій тримає заряд у секреті</string>
     <string name="t_buds">Galaxy Buds</string>
     <string name="t_earbuds">Бездротові навушники</string>
     <string name="t_headphones">Повнорозмірні навушники</string>
@@ -186,7 +186,7 @@
     <string name="mt_week">За тиждень: %1$s · у середньому %2$s на день</string>
     <string name="mt_top_artists">Найчастіше</string>
     <string name="mt_top_apps">Застосунки</string>
-    <string name="mt_empty">Тут з\'явиться час прослуховування, щойно заграє музика.</string>
+    <string name="mt_empty">Тут з’явиться твій музичний час — увімкни перший трек</string>
     <string name="mt_no_access">Рахується лише загальний час. Щоб бачити виконавців і застосунки, надай доступ до сповіщень (вкладка «Музика» → «Зараз грає»).</string>
     <string name="mt_hint">Рахується, поки грає музика. Дані залишаються на телефоні.</string>
     <string name="mt_reset">Скинути статистику</string>
@@ -203,7 +203,7 @@
     <string name="upd_install">Завантажити й встановити</string>
     <string name="upd_auto">Перевіряти автоматично</string>
     <string name="upd_auto_hint">Двічі на день; коли вийде нова версія, прийде сповіщення</string>
-    <string name="upd_checking">Перевіряю…</string>
+    <string name="upd_checking">Зазираю на GitHub…</string>
     <string name="upd_failed">Помилка оновлення: %s</string>
     <string name="upd_latest">У тебе найсвіжіша версія</string>
     <string name="upd_no_apk">Вийшла версія %s, але в релізі ще немає APK-файлу</string>
@@ -449,4 +449,6 @@
     <string name="game_shortcut_added">Ярлик додано — гра запускатиметься через EQ одразу зі своїм звуком</string>
     <string name="game_shortcut_fail">Цей робочий стіл не приймає ярлики</string>
     <string name="game_launch_fail">Не вдалося відкрити гру</string>
+    <!-- 6.0: заголовок всплывающего окна -->
+    <string name="popup_title">%s на зв’язку</string>
 </resources>
