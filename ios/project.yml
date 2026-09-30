@@ -1,0 +1,48 @@
+# Проект Xcode генерируется из этого файла (XcodeGen) — в репозитории нет .xcodeproj.
+# Собирает GitHub Actions на macOS: .github/workflows/ios.yml
+name: EQ
+options:
+  bundleIdPrefix: lv.budseq
+  developmentLanguage: en
+  deploymentTarget:
+    iOS: "16.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    TARGETED_DEVICE_FAMILY: "1"
+    ENABLE_BITCODE: NO
+targets:
+  EQ:
+    type: application
+    platform: iOS
+    sources:
+      - path: EQ
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: lv.budseq.eq
+        PRODUCT_NAME: EQ
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    info:
+      path: EQ/Info.plist
+      properties:
+        CFBundleDisplayName: EQ
+        CFBundleDevelopmentRegion: en
+        CFBundleLocalizations: [en, ru, lv, uk]
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen:
+          UIColorName: ""
+        UIUserInterfaceStyle: Dark
+        UIRequiresFullScreen: true
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIBackgroundModes: [audio]
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+        ITSAppUsesNonExemptEncryption: false
+        NSCameraUsageDescription: "EQ scans the QR code of a sound preset."
+        CFBundleURLTypes:
+          - CFBundleURLName: lv.budseq.eq
+            CFBundleURLSchemes: [eq]
+    scheme: {}

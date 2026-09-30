@@ -17,3 +17,9 @@ local.properties
 .idea/
 *.iml
 .DS_Store
+
+# iOS: проект генерирует XcodeGen, сборка — GitHub Actions
+ios/EQ.xcodeproj/
+ios/build/
+ios/Payload/
+*.ipa
