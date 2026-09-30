@@ -348,4 +348,9 @@
     <string name="code_applied">Пресет применён — слушайте</string>
     <string name="save_as">Сохранить как…</string>
     <string name="code_too_long">Пресет слишком большой для QR</string>
+    <!-- 6.0: сравнение A/B -->
+    <string name="ab_hold">Удерживайте — сравнить A/B</string>
+    <string name="ab_original">Сейчас: оригинал без EQ</string>
+    <string name="ab_hint">Пока держите, EQ отходит в сторону на той же громкости: сравниваете звук, а не громкость.</string>
+    <string name="ab_off">Сначала включите EQ — пока сравнивать не с чем</string>
 </resources>

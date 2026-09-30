@@ -25,11 +25,14 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
 import android.provider.Settings;
 import android.text.Editable;
 import android.text.InputType;
 import android.text.TextWatcher;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -592,6 +595,7 @@ public class MainActivity extends Activity {
             public void onBandChanged(int band, float db) { eq.setGain(band, db); }
         });
         root.addView(graph, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(360)));
+        buildAbButton(root);
 
         // запас громкости (preamp)
         preBar = new SeekBar(this);
@@ -608,6 +612,79 @@ public class MainActivity extends Activity {
         TextView hint = text(getString(R.string.preamp_hint), 12, GREY);
         hint.setPadding(dp(4), 0, dp(4), dp(8));
         root.addView(hint);
+    }
+
+    // =====================================================================
+    // A/B: пока держишь — оригинал без EQ той же громкости
+    // =====================================================================
+
+    private LinearLayout abBtn;
+    private TextView abLabel;
+    private GradientDrawable abIdleBg, abHeldBg;
+
+    private void buildAbButton(LinearLayout root) {
+        abIdleBg = round(CHIP, 28);
+        abHeldBg = round(ACCENT, 28);
+        // иконка рядом с текстом, оба по центру широкой кнопки
+        abBtn = new LinearLayout(this);
+        abBtn.setGravity(Gravity.CENTER);
+        abBtn.setBackground(abIdleBg);
+        ImageView ic = new ImageView(this);
+        ic.setImageResource(R.drawable.ic_compare);
+        abBtn.addView(ic, new LinearLayout.LayoutParams(dp(22), dp(22)));
+        abLabel = text(getString(R.string.ab_hold), 16, Color.WHITE);
+        abLabel.setPadding(dp(10), 0, 0, 0);
+        abBtn.addView(abLabel);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(56));
+        lp.topMargin = dp(12);
+        root.addView(abBtn, lp);
+        abBtn.setOnTouchListener(new View.OnTouchListener() {
+            public boolean onTouch(View v, MotionEvent e) {
+                switch (e.getActionMasked()) {
+                    case MotionEvent.ACTION_DOWN:
+                        v.getParent().requestDisallowInterceptTouchEvent(true);   // прокрутка не отнимет палец
+                        if (!eq.enabled) {
+                            Toast.makeText(MainActivity.this, R.string.ab_off, Toast.LENGTH_SHORT).show();
+                            return true;
+                        }
+                        if (eq.bypass() == EqEngine.BYPASS_TEST) return true;   // идёт тест динамиков
+                        setAbHeld(true);
+                        return true;
+                    case MotionEvent.ACTION_UP:
+                    case MotionEvent.ACTION_CANCEL:
+                        setAbHeld(false);
+                        return true;
+                    default:
+                        return true;
+                }
+            }
+        });
+        root.addView(hintText(getString(R.string.ab_hint)));
+    }
+
+    private void setAbHeld(boolean held) {
+        boolean now = eq.bypass() == EqEngine.BYPASS_AB;
+        if (held == now) return;
+        eq.setBypass(held ? EqEngine.BYPASS_AB : EqEngine.BYPASS_NONE);
+        abLabel.setText(held ? R.string.ab_original : R.string.ab_hold);
+        abBtn.setBackground(held ? abHeldBg : abIdleBg);
+        graph.animate().alpha(held ? 0.35f : 1f).setDuration(150).start();
+        tick(held);
+    }
+
+    /** Лёгкий «щелчок» вибрацией: при нажатии чуть сильнее, при отпускании — тише. */
+    private void tick(boolean press) {
+        Vibrator vib = (Vibrator) getSystemService(VIBRATOR_SERVICE);
+        if (vib == null || !vib.hasVibrator()) return;
+        try {
+            if (Build.VERSION.SDK_INT >= 29) {
+                vib.vibrate(VibrationEffect.createPredefined(press ? VibrationEffect.EFFECT_CLICK : VibrationEffect.EFFECT_TICK));
+            } else {
+                vib.vibrate(VibrationEffect.createOneShot(press ? 20 : 10, press ? 120 : 60));
+            }
+        } catch (RuntimeException ignored) {
+            // без вибрации сравнение всё равно работает
+        }
     }
 
     private void buildSound(LinearLayout root) {
@@ -2016,6 +2093,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onPause() {
         visible = false;
+        if (abBtn != null) setAbHeld(false);   // ушли с экрана с пальцем на кнопке — вернуть EQ
         np.stop();
         ui.removeCallbacks(npTicker);
         BudsLink.get().removeListener(budsListener);

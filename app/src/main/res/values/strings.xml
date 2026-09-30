@@ -348,4 +348,9 @@
     <string name="code_applied">Preset applied — have a listen</string>
     <string name="save_as">Save as…</string>
     <string name="code_too_long">The preset is too big for a QR</string>
+    <!-- 6.0: сравнение A/B -->
+    <string name="ab_hold">Hold to compare A/B</string>
+    <string name="ab_original">Now: original, no EQ</string>
+    <string name="ab_hint">While you hold it, EQ steps aside at the same loudness: you compare the sound, not the volume.</string>
+    <string name="ab_off">Turn EQ on first — there is nothing to compare yet</string>
 </resources>

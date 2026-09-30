@@ -23,6 +23,8 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!-- Автозапуск после включения телефона и после обновления -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- лёгкая вибрация кнопки A/B -->
+    <uses-permission android:name="android.permission.VIBRATE" />
     <!-- Автообновление с GitHub Releases -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />

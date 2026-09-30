@@ -348,4 +348,9 @@
     <string name="code_applied">Presets pielietots — klausieties</string>
     <string name="save_as">Saglabāt kā…</string>
     <string name="code_too_long">Presets ir par lielu QR kodam</string>
+    <!-- 6.0: сравнение A/B -->
+    <string name="ab_hold">Turiet — salīdzināt A/B</string>
+    <string name="ab_original">Tagad: oriģināls bez EQ</string>
+    <string name="ab_hint">Kamēr turat, EQ pakāpjas malā tajā pašā skaļumā: salīdzināt skaņu, nevis skaļumu.</string>
+    <string name="ab_off">Vispirms ieslēdziet EQ — pagaidām nav ar ko salīdzināt</string>
 </resources>
