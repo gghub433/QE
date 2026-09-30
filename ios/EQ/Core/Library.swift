@@ -13,7 +13,8 @@ struct Track: Identifiable, Equatable {
 
 /// Своя музыка EQ. Эквалайзер iOS разрешает только для звука своего приложения,
 /// поэтому EQ играет файлы сам: mp3, m4a, aac, wav, aiff, flac, alac.
-final class Library: ObservableObject {
+/// Меняется только на главном потоке (теги читаются в фоне, результат — через main).
+final class Library: ObservableObject, @unchecked Sendable {
     static let shared = Library()
     static let extensions: Set<String> = ["mp3", "m4a", "aac", "wav", "aif", "aiff", "aifc", "caf", "flac", "mp4", "m4b"]
 

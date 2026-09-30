@@ -66,6 +66,10 @@
   function $(id) { return document.getElementById(id); }
   $("title").textContent = t.title;
   $("get").textContent = t.get;
+  // на iPhone — инструкция по установке EQ для iPhone вместо APK
+  if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+    $("get").href = "https://github.com/gghub433/QE#eq-%D0%B4%D0%BB%D1%8F-iphone";
+  }
 
   // код — только буквы base32 и дефисы, иначе ничего не показываем
   var m = /\/p\/(EQ-[A-Z2-7-]{6,120})\/?$/i.exec(location.pathname);
