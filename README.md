@@ -1,4 +1,4 @@
-# EQ 6.1 — эквалайзер, звук для игр и статус Bluetooth-устройств
+# EQ 6.2 — эквалайзер, звук для игр и статус Bluetooth-устройств
 
 Android-приложение (пакет `lv.budseq`, Android 9+). Пять вкладок: **Устройство**, **Эквалайзер**, **Игры**, **Музыка**, **Настройки**.
 
@@ -98,7 +98,7 @@ Android-приложение (пакет `lv.budseq`, Android 9+). Пять вк
 ## Сборка в Termux (прямо на телефоне)
 ```
 termux-setup-storage
-cd ~ && rm -rf BudsEQ && unzip -o ~/storage/downloads/BudsEQ-v6.1.zip
+cd ~ && rm -rf BudsEQ && unzip -o ~/storage/downloads/BudsEQ-v6.2.zip
 cd BudsEQ && bash termux-build.sh
 ```
 Готовый `EQ.apk` окажется в папке «Загрузки». Он ставится поверх прошлой версии, настройки сохраняются.
@@ -110,7 +110,7 @@ apt update && apt full-upgrade -y
 
 ## Сборка через GitHub (без компьютера)
 Загрузи содержимое папки в репозиторий (вместе с `.github`), открой вкладку **Actions** —
-через 3–5 минут в сборке появится **BudsEQ-apk** с `EQ-6.1.apk`.
+через 3–5 минут в сборке появится **BudsEQ-apk** с `EQ-6.2.apk`.
 Без секретов подписи (см. «Способ 2») такой APK подписан **временным ключом** — каждый раз другим,
 поэтому поверх прошлой версии он не встанет. Для обновлений «поверх» добавь секреты или собирай в Termux.
 
@@ -131,7 +131,7 @@ Android ставит обновление, только если оно подп
 1. В репозитории: Settings → Secrets and variables → Actions → добавь секреты:
    - `KEYSTORE_BASE64` — ключ в base64 (в Termux: `base64 -w0 ~/.budseq-debug.keystore`);
    - `KEYSTORE_PASSWORD` = `android`, `KEY_ALIAS` = `debug`, `KEY_PASSWORD` = `android`.
-2. Подними версию, закоммить и выполни `bash publish.sh --tag` (или поставь тег `v6.1` на GitHub).
+2. Подними версию, закоммить и выполни `bash publish.sh --tag` (или поставь тег `v6.2` на GitHub).
    Actions соберёт подписанный APK и опубликует релиз. Без секретов APK собирается, но релиз не публикуется.
 
 Описание релиза берётся из раздела «Что нового» ниже (`### X.Y`).
@@ -168,7 +168,7 @@ Pages бесплатно работает для публичного репоз
 | `EqGraphView`, `Spectrum` | ползунки EQ и спектр (Visualizer) |
 | `AutoEq` | база AutoEq: индекс, поиск модели, GraphicEQ/ParametricEQ → полосы |
 | `DeviceMonitor`, `DeviceInfo`, `DeviceView`, `DeviceSettings` | Bluetooth-устройства, тип, картинка, настройки |
-| `BudsLink`, `BudsView`, `BudsPopup` | Galaxy Buds по RFCOMM, кейс, всплывающее окно |
+| `BudsLink`, `BudsView`, `BudsPopup`, `StemBud` | Galaxy Buds по RFCOMM, кейс, всплывающее окно, объёмные наушники «с ножками» |
 | `AirPods` | заряд AirPods из BLE-рекламы Apple |
 | `EqWidget` | виджет: рисуется кодом в Bitmap, кнопки плеера |
 | `CarFocusView`, `SpeakerTest` | салон машины, реальные динамики, фокус по физике, проверка каналов |
@@ -197,6 +197,11 @@ Pages бесплатно работает для публичного репоз
 - Новая версия: `versionCode`/`versionName` в `app/build.gradle` **и** `VERSION_CODE`/`VERSION_NAME` в `termux-build.sh`.
 
 ## Что нового
+
+### 6.2
+- Настоящие «ножки»: AirPods (длинная ножка, решётка динамика, серебристый микрофон), AirPods Pro
+  (силиконовый амбушюр, короткая плоская ножка с сенсором) и Galaxy Buds3/Buds4 (ножка-«лезвие»
+  из двух граней с Blade Light) — объёмные, с тенями; в кейсе и в списке устройств.
 
 ### 6.1
 - EQ на магнитоле: узнаёт Android-магнитолу (Android Automotive, платформы и марки магнитол, «нет батареи

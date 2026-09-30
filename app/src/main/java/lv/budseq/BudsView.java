@@ -49,7 +49,6 @@ public class BudsView extends View {
     private final Paint lidRim = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path bolt = new Path();
     private final Paint boltPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint blade = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final float d;
 
     public BudsView(Context c) {
@@ -308,45 +307,21 @@ public class BudsView extends View {
     }
 
     /**
-     * Наушник «с ножкой» (AirPods): голова + ножка вниз, слегка наклонена наружу.
+     * Наушник «с ножкой»: AirPods / AirPods Pro / Galaxy Buds3–Buds4 (объёмный, см. StemBud).
      * В кейсе ножку закрывает передняя стенка — видна только голова, как в жизни.
      */
     private void drawStemBud(Canvas c, float x, float y, float bw, float bh, boolean right, float wear) {
-        float head = bw * 0.34f;
-        float stemW = bw * 0.2f, stemL = bh * 1.35f;
-        c.save();
-        c.rotate(right ? -9 : 9, x, y);
-        // ножка
-        r.set(x - stemW / 2, y, x + stemW / 2, y + stemL);
-        c.drawRoundRect(r, stemW / 2, stemW / 2, budFill);
-        // тень вдоль ножки
-        r.set(x + (right ? -stemW / 2 : stemW * 0.1f), y + head * 0.6f, x + (right ? -stemW * 0.1f : stemW / 2), y + stemL - stemW * 0.3f);
-        c.drawRoundRect(r, stemW / 4, stemW / 4, budShade);
-        // микрофон на кончике
-        r.set(x - stemW * 0.32f, y + stemL - stemW * 0.62f, x + stemW * 0.32f, y + stemL - stemW * 0.18f);
-        c.drawRoundRect(r, stemW / 4, stemW / 4, grill);
-        if (style == STYLE_BUDS3) {
-            // Blade Light: светящаяся полоска вдоль ножки (дышит, пока наушники на связи)
-            float glow = state.connected ? 0.55f + 0.45f * (float) Math.sin(time * 2.4f + (right ? 1.3f : 0f)) : 0.25f;
-            blade.setColor(Color.WHITE);
-            blade.setAlpha((int) (255 * glow * (budFill.getAlpha() / 255f)));
-            r.set(x - stemW * 0.12f, y + head * 0.95f, x + stemW * 0.12f, y + stemL * 0.8f);
-            c.drawRoundRect(r, stemW * 0.12f, stemW * 0.12f, blade);
-        }
-        // голова
-        c.drawCircle(x, y, head, budFill);
-        r.set(x - head, y, x + head, y + head);
-        c.drawArc(r, 20, 140, false, budShade);
-        // сетка динамика смотрит к центру
-        float gx = x + (right ? -head * 0.35f : head * 0.35f);
-        r.set(gx - head * 0.28f, y - head * 0.42f, gx + head * 0.28f, y - head * 0.08f);
-        c.drawOval(r, grill);
-        c.restore();
+        int kind = style == STYLE_BUDS3 ? StemBud.BUDS3 : StemBud.kindFor(state.name, false);
+        // Blade Light дышит, пока наушники на связи
+        float light = state.connected ? 0.55f + 0.45f * (float) Math.sin(time * 2.4f + (right ? 1.3f : 0f)) : 0.25f;
+        stemBud.draw(c, x, y, bw * 1.2f, right, kind, budFill.getAlpha(), 9f, light);
         if (wear > 0.02f) {
             ring.setAlpha((int) (255 * wear));
-            c.drawCircle(x, y + head * 0.4f, bw * 0.62f + (1 - wear) * 10 * d, ring);
+            c.drawCircle(x, y + bw * 0.35f, bw * 0.8f + (1 - wear) * 10 * d, ring);
         }
     }
+
+    private final StemBud stemBud = new StemBud();
 
     private void drawBattery(Canvas c, float x, float y, String label, int bat, boolean chg, int place) {
         boolean known = state.connected && bat >= 0 && bat <= 100;

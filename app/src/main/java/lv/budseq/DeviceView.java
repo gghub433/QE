@@ -268,36 +268,18 @@ public class DeviceView extends View {
             drawBean(c, cx - bx, by + bob1, s, false, a);
             drawBean(c, cx + bx, by + bob2, s, true, a);
         } else {
-            drawStemBud(c, cx - bx, by + bob1, s, false, a);
-            drawStemBud(c, cx + bx, by + bob2, s, true, a);
+            // AirPods / AirPods Pro / Buds3–Buds4; у прочих TWS — ножка с амбушюром, как у Pro
+            int kind = samsung ? StemBud.BUDS3
+                    : dev.isAirPods() ? StemBud.kindFor(dev.name, false) : StemBud.AIRPODS_PRO;
+            float glow = 0.55f + 0.45f * (float) Math.sin(time * 2.4f);
+            stemBud.draw(c, cx - bx, by + bob1, s * 0.29f, false, kind, a, 12f, glow);
+            stemBud.draw(c, cx + bx, by + bob2, s * 0.29f, true, kind, a, 12f, glow);
         }
         drawWaves(c, cx - bx - s * 0.16f, by, s * 0.10f, true, a);
         drawWaves(c, cx + bx + s * 0.16f, by, s * 0.10f, false, a);
     }
 
-    /** Наушник «с ножкой» (как у большинства TWS). */
-    private void drawStemBud(Canvas c, float x, float y, float s, boolean right, int a) {
-        c.save();
-        c.rotate(right ? -12 : 12, x, y);
-        float sw = s * 0.06f, sl = s * 0.25f;
-        fill.setColor(WHITE_PART);
-        fill.setAlpha(a);
-        r.set(x - sw / 2, y, x + sw / 2, y + sl);
-        c.drawRoundRect(r, sw / 2, sw / 2, fill);
-        fill.setColor(SHADE);
-        fill.setAlpha(a);
-        r.set(x - sw / 2, y + sl - sw * 0.8f, x + sw / 2, y + sl);
-        c.drawRoundRect(r, sw / 2, sw / 2, fill);
-        fill.setColor(WHITE_PART);
-        fill.setAlpha(a);
-        c.drawCircle(x, y, s * 0.09f, fill);
-        fill.setColor(Color.rgb(0x55, 0x58, 0x60));
-        fill.setAlpha(a);
-        float gx = x + (right ? -s * 0.035f : s * 0.035f);
-        r.set(gx - s * 0.035f, y - s * 0.05f, gx + s * 0.035f, y + s * 0.02f);
-        c.drawOval(r, fill);
-        c.restore();
-    }
+    private final StemBud stemBud = new StemBud();
 
     /** Наушник-«фасолина» (Galaxy Buds). */
     private void drawBean(Canvas c, float x, float y, float s, boolean right, int a) {
