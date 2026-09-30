@@ -23,3 +23,7 @@ ios/EQ.xcodeproj/
 ios/build/
 ios/Payload/
 *.ipa
+
+# ПК: сборка
+pc/bin/
+pc/obj/

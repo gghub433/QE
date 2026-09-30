@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- EQ для ПК (Windows 10/11). .NET Framework 4.8 уже есть в Windows — ставить ничего не нужно.
+       Интерфейс написан кодом (без XAML), поэтому проект собирается и на Windows, и на Linux. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>EQ</AssemblyName>
+    <RootNamespace>EQ</RootNamespace>
+    <Version>1.0.0</Version>
+    <Product>EQ</Product>
+    <Company>lv.budseq</Company>
+    <Description>EQ для ПК: эквалайзер на весь звук, игры, пресеты</Description>
+    <ApplicationIcon>icon.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
+    <Nullable>disable</Nullable>
+    <DebugType>none</DebugType>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NoWarn>CS1591</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="PresentationCore" />
+    <Reference Include="PresentationFramework" />
+    <Reference Include="WindowsBase" />
+    <Reference Include="System.Xaml" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Drawing" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- только для сборки: справочные сборки .NET Framework (в EQ.exe не попадают) -->
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Lang\*.txt" LogicalName="EQ.Lang.%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

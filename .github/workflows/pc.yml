@@ -1,0 +1,92 @@
+name: Build PC
+
+# Изменилось что-то в pc/ — собрать EQ для ПК (EQ.exe, Windows 10/11, .NET Framework 4.8 уже есть в Windows)
+# и снять скриншоты интерфейса (ветка pc-shots). Тег pc-vX.Y — ещё и выложить EQ-PC.exe в релиз.
+# Релиз помечен как пре-релиз и не «последний», поэтому ссылка на EQ.apk и автообновление Android не меняются.
+on:
+  push:
+    branches-ignore: [ios-shots, pc-shots]
+    tags: ['pc-v*']
+    paths: ['pc/**', '.github/workflows/pc.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pc-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  exe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: dotnet build pc/EQ.csproj -c Release -nologo
+
+      - name: Name exe
+        shell: pwsh
+        run: |
+          $v = ([regex]'<Version>(\d+\.\d+)').Match((Get-Content pc/EQ.csproj -Raw)).Groups[1].Value
+          "VER=$v" >> $env:GITHUB_ENV
+          Copy-Item pc/bin/Release/net48/EQ.exe "EQ-PC-$v.exe"
+          # постоянное имя для ссылки и для обновления из самого EQ
+          Copy-Item pc/bin/Release/net48/EQ.exe EQ-PC.exe
+          Get-Item EQ-PC*.exe | Format-Table Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EQ-PC-exe
+          path: EQ-PC-*.exe
+
+      - name: Screenshots
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        shell: pwsh
+        run: |
+          $out = Join-Path $pwd 'shots'
+          $p = Start-Process -FilePath pc/bin/Release/net48/EQ.exe -ArgumentList '--shots', "`"$out`"" -Wait -PassThru
+          Get-ChildItem $out | Format-Table Name, Length
+          if (Test-Path "$out/error.txt") { Get-Content "$out/error.txt"; exit 1 }
+          if ($p.ExitCode -ne 0) { Write-Error "EQ.exe --shots: $($p.ExitCode)"; exit 1 }
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() && !startsWith(github.ref, 'refs/tags/') }}
+        with:
+          name: EQ-PC-screenshots
+          path: shots
+          if-no-files-found: ignore
+
+      - name: Push screenshots to pc-shots
+        if: ${{ always() && !startsWith(github.ref, 'refs/tags/') }}
+        shell: bash
+        run: |
+          ls shots/* >/dev/null 2>&1 || exit 0
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          echo "$GITHUB_SHA" > shots/COMMIT
+          git checkout --orphan pc-shots-new
+          git rm -rq --cached .
+          git add -f shots
+          git commit -qm "Скриншоты EQ для ПК: ${GITHUB_SHA::7}"
+          git push -f origin HEAD:pc-shots
+
+      - name: Release notes
+        if: startsWith(github.ref, 'refs/tags/pc-v')
+        shell: bash
+        run: |
+          awk -v v="### PC $VER" '$0==v{f=1;next} f&&/^##/{exit} f' README.md > notes.md
+          [ -s notes.md ] || echo "EQ для ПК $VER" > notes.md
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/pc-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: EQ для ПК ${{ env.VER }}
+          body_path: notes.md
+          prerelease: true
+          make_latest: false
+          files: |
+            EQ-PC-${{ env.VER }}.exe
+            EQ-PC.exe
