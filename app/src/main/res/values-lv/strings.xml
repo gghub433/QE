@@ -475,4 +475,22 @@
     <string name="ds_sound_keep">Nemainīt</string>
     <string name="ds_sound_auto">%s (automātiski automašīnai)</string>
     <string name="ds_sound_note">Pievienojāt — EQ pats ieslēdzas ar šo skaņu, caur Bluetooth un ar vadu. Automašīnai un FM raidītājam — «Basi», ja neizvēlaties citu; atvienojāt — atgriezīsies parastā skaņa.</string>
+    <string name="car_tab_eq">EQ</string>
+    <string name="car_tab_surround">Apkārtējā skaņa</string>
+    <string name="car_tab_bass">Bass Boost</string>
+    <string name="car_tab_zone">ZONE</string>
+    <string name="car_tab_filter">Basu filtrs</string>
+    <string name="car_eq_note">Tā tagad skan mašīna: jūsu ekvalaizers kopā ar Bass Boost un basu filtru. Līkni maina cilnē «Ekvalaizers».</string>
+    <string name="car_eq_open">Atvērt ekvalaizeru</string>
+    <string name="car_surround_level">Stiprums</string>
+    <string name="car_surround_note">Skaņa plašāka par mašīnu, kā magnetolā. Darbojas, ja tālrunis atbalsta telpisko skaņu visai skaņai; dažos tālruņos tā darbojas tikai austiņās.</string>
+    <string name="car_surround_na">Šis tālrunis neļauj ieslēgt telpisko skaņu visai skaņai.</string>
+    <string name="car_bass_upto">Pacelt basus līdz</string>
+    <string name="car_hz">%1$d Hz</string>
+    <string name="car_bass_note">Paceļ zemās frekvences līdz izvēlētajai frekvencei, virs tās vienmērīgi izzūd. Tikai mašīnā: atvienojot mašīnu, basi ir kā iepriekš.</string>
+    <string name="car_filter_note">Nogriež dziļākos basus zem frekvences (12 dB oktāvā), ko mazie durvju skaļruņi tik un tā nespēlē: skaļāk un tīrāk, bez sprakšķiem. Ja ir zemfrekvences skaļrunis, atstājiet izslēgtu.</string>
+    <string name="car_seat">Vieta</string>
+    <string name="car_delay_note">Skaitļi pie skaļruņiem ir aizture izvēlētajai vietai (ms un tas pats cm), tālākajam — 0. Tālrunis mašīnai sūta tikai stereo un nevar aizturēt atsevišķu skaļruni — ierakstiet šos skaitļus magnetolā (cilne «Apkārtējā skaņa», ms vai cm katram skaļrunim). Skaļruņi atrodas citur? Izvietojiet tos cilnē ZONE — skaitļi pārrēķināsies.</string>
+    <string name="car_ms">%1$.1f ms</string>
+    <string name="car_cm">%1$d cm</string>
 </resources>

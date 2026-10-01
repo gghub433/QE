@@ -475,4 +475,22 @@
     <string name="ds_sound_keep">Не менять</string>
     <string name="ds_sound_auto">%s (сам для машины)</string>
     <string name="ds_sound_note">Подключили — EQ сам включается с этим звуком, по Bluetooth и по проводу. Машине и FM-трансмиттеру — «Басы», если не выбрать другой; отключили — вернётся обычный звук.</string>
+    <string name="car_tab_eq">EQ</string>
+    <string name="car_tab_surround">Объёмный звук</string>
+    <string name="car_tab_bass">Bass Boost</string>
+    <string name="car_tab_zone">ZONE</string>
+    <string name="car_tab_filter">Фильтр баса</string>
+    <string name="car_eq_note">Так сейчас звучит машина: ваш эквалайзер вместе с Bass Boost и фильтром баса. Кривую меняют на вкладке «Эквалайзер».</string>
+    <string name="car_eq_open">Открыть эквалайзер</string>
+    <string name="car_surround_level">Сила</string>
+    <string name="car_surround_note">Звук шире машины, как в магнитоле. Работает, если телефон умеет объёмный звук для всего звука; на части телефонов он действует только в наушниках.</string>
+    <string name="car_surround_na">Этот телефон не даёт включить объёмный звук для всего звука.</string>
+    <string name="car_bass_upto">Поднять бас до</string>
+    <string name="car_hz">%1$d Гц</string>
+    <string name="car_bass_note">Поднимает низ до выбранной частоты, выше плавно сходит на нет. Только в машине: отключили машину — бас как был.</string>
+    <string name="car_filter_note">Срезает самый низкий бас ниже частоты (12 дБ на октаву), который маленькие динамики в дверях всё равно не играют: громче и чище, без хрипа. Если есть сабвуфер — оставьте выключенным.</string>
+    <string name="car_seat">Место</string>
+    <string name="car_delay_note">Числа у динамиков — задержка для выбранного места (мс и то же в см), у самого дальнего — 0. Телефон отдаёт в машину только стерео и задержать отдельный динамик не может — впишите эти числа в магнитолу (вкладка звукового поля, мс или см у каждого динамика). Динамики стоят иначе — расставьте их на вкладке ZONE, числа пересчитаются.</string>
+    <string name="car_ms">%1$.1f мс</string>
+    <string name="car_cm">%1$d см</string>
 </resources>

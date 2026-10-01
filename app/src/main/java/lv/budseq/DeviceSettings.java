@@ -28,6 +28,8 @@ public final class DeviceSettings {
      * null — сам: машине и FM-трансмиттеру «Басы», остальным не менять.
      */
     public String sound;
+    /** Машина «как в магнитоле»: Bass Boost (дБ и до какой частоты), фильтр баса (Гц, 0 — выкл), объёмный звук 0…100. */
+    public int carBass, carBassHz = 80, carHp, carSurround;
 
     /** Встроенный пресет «Басы» (EqEngine.PRESET_NAMES[3]) — машинам по умолчанию. */
     public static final String CAR_DEFAULT_SOUND = AppPresets.BUILTIN + 3;
@@ -59,6 +61,10 @@ public final class DeviceSettings {
                 s.carSwap = o.optBoolean("swap", false);
                 s.carMono = o.optBoolean("mono", false);
                 if (o.has("sound")) s.sound = o.optString("sound", "");
+                s.carBass = o.optInt("bass", 0);
+                s.carBassHz = o.optInt("bassHz", 80);
+                s.carHp = o.optInt("hp", 0);
+                s.carSurround = o.optInt("sur", 0);
                 org.json.JSONArray spk = o.optJSONArray("spk");
                 if (spk != null && spk.length() >= 2 && spk.length() % 2 == 0) {
                     s.carSpk = new float[spk.length()];
@@ -95,6 +101,10 @@ public final class DeviceSettings {
             o.put("swap", carSwap);
             o.put("mono", carMono);
             if (sound != null) o.put("sound", sound);
+            o.put("bass", carBass);
+            o.put("bassHz", carBassHz);
+            o.put("hp", carHp);
+            o.put("sur", carSurround);
             if (carSpk != null) {
                 org.json.JSONArray spk = new org.json.JSONArray();
                 for (float v : carSpk) spk.put(Math.round(v * 1000) / 1000.0);

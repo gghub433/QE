@@ -475,4 +475,22 @@
     <string name="ds_sound_keep">Don’t change</string>
     <string name="ds_sound_auto">%s (auto for a car)</string>
     <string name="ds_sound_note">Connected — EQ turns on by itself with this sound, by Bluetooth or by wire. A car and an FM transmitter get Bass unless you pick another one; when you disconnect, your usual sound comes back.</string>
+    <string name="car_tab_eq">EQ</string>
+    <string name="car_tab_surround">Surround</string>
+    <string name="car_tab_bass">Bass Boost</string>
+    <string name="car_tab_zone">ZONE</string>
+    <string name="car_tab_filter">Bass filter</string>
+    <string name="car_eq_note">This is how the car sounds now: your equalizer together with Bass Boost and the bass filter. Change the curve on the Equalizer tab.</string>
+    <string name="car_eq_open">Open equalizer</string>
+    <string name="car_surround_level">Strength</string>
+    <string name="car_surround_note">Sound wider than the car, like on the head unit. Works if the phone supports surround for all sound; on some phones it only works in headphones.</string>
+    <string name="car_surround_na">This phone does not allow surround for all sound.</string>
+    <string name="car_bass_upto">Boost up to</string>
+    <string name="car_hz">%1$d Hz</string>
+    <string name="car_bass_note">Lifts the lows up to the chosen frequency and fades out smoothly above it. Only in the car: disconnect the car and the bass is as before.</string>
+    <string name="car_filter_note">Cuts the deepest bass below the frequency (12 dB per octave) that small door speakers can\'t play anyway: louder and cleaner, no distortion. With a subwoofer, leave it off.</string>
+    <string name="car_seat">Seat</string>
+    <string name="car_delay_note">The numbers by the speakers are the delay for the chosen seat (ms, and the same in cm); the farthest speaker gets 0. The phone sends only stereo to the car and can\'t delay a single speaker, so enter these numbers on the head unit (sound field tab, ms or cm for each speaker). Speakers are elsewhere? Place them on the ZONE tab and the numbers update.</string>
+    <string name="car_ms">%1$.1f ms</string>
+    <string name="car_cm">%1$d cm</string>
 </resources>

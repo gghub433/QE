@@ -92,6 +92,36 @@ public class CarFocusView extends View {
         return (float) (20 * Math.log10(Math.max(0.1, 1 - Math.abs(bal))));
     }
 
+    /** Скорость звука, м/с. */
+    private static final float SOUND = 343f;
+
+    /**
+     * Задержки как в магнитоле (Apkārtējā skaņa): задержка каждого динамика, мс, чтобы звук всех динамиков пришёл
+     * в выбранное место одновременно — ближние ждут самого дальнего (у него 0).
+     * Телефон отдаёт только стерео и задержать отдельный динамик не может — эти числа вписывают
+     * в настройки магнитолы. Весь салон и выключенный фокус — без задержек.
+     */
+    public static float[] delaysMs(int point, float[] spk) {
+        int n = spk == null ? 0 : spk.length / 2;
+        float[] out = new float[n];
+        if (point < 0 || point >= POINTS || point == 4 || n == 0) return out;
+        float px = POINT_POS[point * 2], py = POINT_POS[point * 2 + 1];
+        double[] dist = new double[n];
+        double max = 0;
+        for (int i = 0; i < n; i++) {
+            double dx = (spk[i * 2] - px) * CAR_W, dy = (spk[i * 2 + 1] - py) * CAR_L;
+            dist[i] = Math.sqrt(dx * dx + dy * dy);
+            max = Math.max(max, dist[i]);
+        }
+        for (int i = 0; i < n; i++) out[i] = (float) ((max - dist[i]) / SOUND * 1000);
+        return out;
+    }
+
+    /** Та же задержка в сантиметрах (многие магнитолы спрашивают расстояние): путь звука за это время. */
+    public static int delayCm(float ms) {
+        return Math.round(ms * SOUND / 10f);
+    }
+
     /** Название точки с учётом того, с какой стороны руль. */
     public static int labelRes(int point, boolean rhd) {
         switch (point) {
@@ -117,6 +147,9 @@ public class CarFocusView extends View {
         if (key != null) {
             DeviceSettings ds = DeviceSettings.get(c, key);
             b = balanceFor(ds.carFocus, ds.carMode, ds.speakers(), ds.carSwap, ds.carMono);
+            eq.setCarDsp(ds.carBass, ds.carBassHz, ds.carHp, ds.carSurround);
+        } else {
+            eq.setCarDsp(0, 80, 0, 0);   // не в машине — звук машины выключен
         }
         eq.setCarBalance(b);
     }
@@ -152,6 +185,10 @@ public class CarFocusView extends View {
     /** Громкость каналов после фокуса (для яркости «звука» от динамиков). */
     private float gainL = 1f, gainR = 1f;
     private float carLeft, carTop, carWpx, carHpx;
+    /** Вкладка «Объёмный звук» (Apkārtējā skaņa в магнитоле): у каждого динамика «мс / см» вместо L и R. */
+    private boolean showDelays;
+    private float[] delayMs = new float[0];
+    private String[] delayTxt = new String[0];
 
     private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint stroke = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -180,6 +217,7 @@ public class CarFocusView extends View {
         focus = focusPoint;
         mode = focusMode;
         rhd = rightHand;
+        updateDelays();
         startLoop();
         invalidate();
     }
@@ -187,7 +225,26 @@ public class CarFocusView extends View {
     public void setSpeakers(float[] speakers) {
         if (dragging >= 0) return;
         spk = speakers.clone();
+        updateDelays();
         invalidate();
+    }
+
+    public void setShowDelays(boolean on) {
+        if (showDelays == on) return;
+        showDelays = on;
+        updateDelays();
+        invalidate();
+    }
+
+    /** Подписи задержек считаем при смене места или динамиков, а не на каждом кадре. */
+    private void updateDelays() {
+        if (!showDelays) return;
+        delayMs = delaysMs(focus, spk);
+        delayTxt = new String[delayMs.length * 2];
+        for (int i = 0; i < delayMs.length; i++) {
+            delayTxt[i * 2] = getContext().getString(R.string.car_ms, delayMs[i]);
+            delayTxt[i * 2 + 1] = getContext().getString(R.string.car_cm, delayCm(delayMs[i]));
+        }
     }
 
     public void setEditMode(boolean on) {
@@ -256,7 +313,7 @@ public class CarFocusView extends View {
 
     void draw(Canvas c, float w, float h) {
         float carH = h * 0.94f;
-        float carW = Math.min(w * 0.58f, carH * 0.44f);
+        float carW = Math.min(w * (showDelays ? 0.5f : 0.58f), carH * 0.44f);   // с задержками — место для табличек
         float cx = w / 2f, top = (h - carH) / 2f, bottom = top + carH;
         float left = cx - carW / 2f, right = cx + carW / 2f;
         pointR = carW * 0.068f;
@@ -476,12 +533,90 @@ public class CarFocusView extends View {
         }
         fill.setAlpha(255);
 
+        if (showDelays && delayTxt.length == spk.length) {
+            drawDelays(c, abs, w, left, right, carW);
+            return;
+        }
         // подписи сторон
         text.setColor(GREY_TEXT);
         text.setTextSize(13 * d);
         float ly = top + carH * 0.56f + 5 * d;
         c.drawText("L", left - carW * 0.13f, ly, text);
         c.drawText("R", right + carW * 0.13f, ly, text);
+    }
+
+    /**
+     * У каждого динамика табличка «x.x мс / N см», как на экране магнитолы.
+     * Левые — столбиком слева от машины, правые — справа (без наложений), центр и сабвуфер — над ними.
+     */
+    private void drawDelays(Canvas c, float[] abs, float w, float left, float right, float carW) {
+        int n = abs.length / 2;
+        text.setTextSize(10.5f * d);
+        float lineH = 13 * d, padX = 6 * d, padY = 4 * d, gap = 4 * d;
+        float boxH = lineH * 2 + padY * 2;
+        float[] bx = new float[n], by = new float[n], bw = new float[n];
+        boolean[] done = new boolean[n];
+        for (int i = 0; i < n; i++) {
+            bw[i] = Math.max(text.measureText(delayTxt[i * 2]), text.measureText(delayTxt[i * 2 + 1])) + padX * 2;
+        }
+        // столбики слева и справа: сверху вниз, следующая табличка не залезает на предыдущую
+        for (int col = -1; col <= 1; col += 2) {
+            float last = -1e9f;
+            while (true) {
+                int next = -1;
+                for (int i = 0; i < n; i++) {
+                    if (done[i] || side(spk[i * 2]) != col) continue;
+                    if (next < 0 || abs[i * 2 + 1] < abs[next * 2 + 1]) next = i;
+                }
+                if (next < 0) break;
+                done[next] = true;
+                float y = Math.max(abs[next * 2 + 1] - boxH / 2, last + gap);
+                by[next] = y;
+                last = y + boxH;
+                float edge = carW * 0.14f;
+                bx[next] = col < 0 ? Math.max(2 * d, left - edge - bw[next])
+                        : Math.min(w - 2 * d - bw[next], right + edge);
+            }
+        }
+        for (int i = 0; i < n; i++) {
+            if (done[i]) continue;
+            // центр на панели и сабвуфер: над динамиком (у самого носа — под ним)
+            float sy = abs[i * 2 + 1];
+            float rad = carW * 0.075f;
+            by[i] = sy - rad - gap - boxH < 0 ? sy + rad + gap : sy - rad - gap - boxH;
+            bx[i] = abs[i * 2] - bw[i] / 2;
+        }
+        float maxMs = 0;
+        for (float v : delayMs) maxMs = Math.max(maxMs, v);
+        for (int i = 0; i < n; i++) {
+            boolean waits = delayMs[i] >= 0.05f;
+            // ниточка от таблички к динамику
+            float cx = Math.max(bx[i], Math.min(bx[i] + bw[i], abs[i * 2]));
+            float cy = Math.max(by[i], Math.min(by[i] + boxH, abs[i * 2 + 1]));
+            stroke.setColor(waits ? glow : GREY_TEXT);
+            stroke.setAlpha(110);
+            stroke.setStrokeWidth(1 * d);
+            c.drawLine(cx, cy, abs[i * 2], abs[i * 2 + 1], stroke);
+            r.set(bx[i], by[i], bx[i] + bw[i], by[i] + boxH);
+            fill.setColor(Color.rgb(0x26, 0x28, 0x2E));
+            fill.setAlpha(240);
+            c.drawRoundRect(r, 8 * d, 8 * d, fill);
+            fill.setAlpha(255);
+            stroke.setColor(waits ? glow : Color.rgb(0x4A, 0x4D, 0x55));
+            // самый задержанный (ближний) — ярче
+            stroke.setAlpha(waits ? (int) (120 + 135 * (maxMs > 0 ? delayMs[i] / maxMs : 0)) : 255);
+            stroke.setStrokeWidth(1.4f * d);
+            c.drawRoundRect(r, 8 * d, 8 * d, stroke);
+            float tx = bx[i] + bw[i] / 2;
+            text.setColor(Color.WHITE);
+            text.setFakeBoldText(true);
+            c.drawText(delayTxt[i * 2], tx, by[i] + padY + lineH - 3 * d, text);
+            text.setColor(GREY_TEXT);
+            text.setFakeBoldText(false);
+            c.drawText(delayTxt[i * 2 + 1], tx, by[i] + padY + lineH * 2 - 3 * d, text);
+        }
+        text.setFakeBoldText(true);
+        stroke.setAlpha(255);
     }
 
     private int focusIndexForDraw() {
@@ -577,6 +712,7 @@ public class CarFocusView extends View {
                 if (dragging < 0 || carWpx <= 0) return false;
                 spk[dragging * 2] = Math.max(0.02f, Math.min(0.98f, (e.getX() - carLeft) / carWpx));
                 spk[dragging * 2 + 1] = Math.max(0.02f, Math.min(0.98f, (e.getY() - carTop) / carHpx));
+                updateDelays();
                 invalidate();
                 return true;
             case MotionEvent.ACTION_UP:
@@ -602,6 +738,7 @@ public class CarFocusView extends View {
                 int p = pointAt(e.getX(), e.getY());
                 if (p >= 0 && p == pressed) {
                     focus = p == focus ? -1 : p;   // повторное нажатие — выключить фокус
+                    updateDelays();
                     if (listener != null) listener.onFocusChanged(focus);
                     performClick();
                 }

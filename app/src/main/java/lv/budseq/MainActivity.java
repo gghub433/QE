@@ -116,6 +116,30 @@ public class MainActivity extends Activity {
     private final Button[] carModeBtns = new Button[3];
     private Button carRhdBtn, carOffBtn, carEditBtn;
     private boolean carEdit;
+    /** Вкладки машины как в магнитоле: EQ, объёмный звук, Bass Boost, ZONE, фильтр баса. */
+    private static final int CAR_TAB_EQ = 0, CAR_TAB_SURROUND = 1, CAR_TAB_BASS = 2, CAR_TAB_ZONE = 3,
+            CAR_TAB_FILTER = 4, CAR_TABS = 5;
+    private static final int[] CAR_TAB_TITLES = {R.string.car_tab_eq, R.string.car_tab_surround,
+            R.string.car_tab_bass, R.string.car_tab_zone, R.string.car_tab_filter};
+    private static final int[] CAR_TAB_ICONS = {R.drawable.ic_equalizer, R.drawable.ic_surround,
+            R.drawable.ic_bass, R.drawable.ic_car, R.drawable.ic_filter};
+    private static final int[] CAR_BASS_HZ = {60, 80, 100, 120};
+    private static final int[] CAR_HP_HZ = {0, 40, 60, 80, 100, 120, 150, 200};
+    /** Места, как в списке магнитолы: весь салон, водитель, пассажир, сзади слева, сзади справа, спереди по центру. */
+    private static final int SEAT_ALL = 4, SEAT_DRIVER = -10, SEAT_PASSENGER = -11;
+    private static final int[] CAR_SEATS = {SEAT_ALL, SEAT_DRIVER, SEAT_PASSENGER, 3, 5, 1};
+    private final Button[] carSeatBtns = new Button[CAR_SEATS.length];
+    private final LinearLayout[] carPanels = new LinearLayout[CAR_TABS];
+    private final ImageView[] carTabIcons = new ImageView[CAR_TABS];
+    private final TextView[] carTabLabels = new TextView[CAR_TABS];
+    private int carTab = CAR_TAB_ZONE;
+    private boolean carUpdating;
+    private EqGraphView carEqGraph;
+    private Switch carSurSwitch;
+    private SeekBar carSurBar, carBassBar;
+    private TextView carSurVal, carSurNa, carBassVal;
+    private final Button[] carBassHzBtns = new Button[CAR_BASS_HZ.length];
+    private final Button[] carHpBtns = new Button[CAR_HP_HZ.length];
     private String carAddress;
 
     // Music Time
@@ -2389,9 +2413,50 @@ public class MainActivity extends Activity {
         vlp.topMargin = dp(8);
         carBox.addView(carView, vlp);
 
+        // вкладки как на экране магнитолы: иконка, под ней подпись
+        LinearLayout tabs = new LinearLayout(this);
+        tabs.setBackground(round(CARD, 24));
+        tabs.setPadding(dp(4), dp(8), dp(4), dp(8));
+        for (int i = 0; i < CAR_TABS; i++) {
+            final int index = i;
+            LinearLayout item = new LinearLayout(this);
+            item.setOrientation(LinearLayout.VERTICAL);
+            item.setGravity(Gravity.CENTER_HORIZONTAL);
+            item.setContentDescription(getString(CAR_TAB_TITLES[i]));
+            ImageView ic = new ImageView(this);
+            ic.setScaleType(ImageView.ScaleType.CENTER);
+            item.addView(ic, new LinearLayout.LayoutParams(dp(52), dp(32)));
+            TextView t = text(getString(CAR_TAB_TITLES[i]), 11, GREY);
+            t.setMaxLines(2);
+            t.setGravity(Gravity.CENTER);
+            t.setPadding(dp(1), dp(4), dp(1), 0);
+            item.addView(t, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT));
+            item.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) { selectCarTab(index); }
+            });
+            carTabIcons[i] = ic;
+            carTabLabels[i] = t;
+            tabs.addView(item, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        }
+        LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        tlp.topMargin = dp(8);
+        carBox.addView(tabs, tlp);
+        for (int i = 0; i < CAR_TABS; i++) {
+            carPanels[i] = new LinearLayout(this);
+            carPanels[i].setOrientation(LinearLayout.VERTICAL);
+            carBox.addView(carPanels[i]);
+        }
+        buildCarEqPanel(carPanels[CAR_TAB_EQ]);
+        buildCarSurroundPanel(carPanels[CAR_TAB_SURROUND]);
+        buildCarBassPanel(carPanels[CAR_TAB_BASS]);
+        buildCarFilterPanel(carPanels[CAR_TAB_FILTER]);
+        LinearLayout zone = carPanels[CAR_TAB_ZONE];
+
         carStatus = text("", 14, Color.WHITE);
         carStatus.setPadding(dp(4), dp(10), dp(4), dp(6));
-        carBox.addView(carStatus);
+        zone.addView(carStatus);
 
         LinearLayout modes = new LinearLayout(this);
         carOffBtn = chip(getString(R.string.off), 0, CHIP, new View.OnClickListener() {
@@ -2416,10 +2481,10 @@ public class MainActivity extends Activity {
             }
         });
         modes.addView(carRhdBtn);
-        carBox.addView(hscroll(modes));
+        zone.addView(hscroll(modes));
 
         // где реально стоят динамики + проверка каналов
-        carBox.addView(label(getString(R.string.car_speakers)));
+        zone.addView(label(getString(R.string.car_speakers)));
         LinearLayout sp = new LinearLayout(this);
         carEditBtn = chip(getString(R.string.car_edit), R.drawable.ic_speaker, CHIP, new View.OnClickListener() {
             public void onClick(View v) {
@@ -2435,8 +2500,187 @@ public class MainActivity extends Activity {
         sp.addView(chip(getString(R.string.car_test), R.drawable.ic_volume_up, CHIP, new View.OnClickListener() {
             public void onClick(View v) { testCarSpeakers(); }
         }));
-        carBox.addView(hscroll(sp));
+        zone.addView(hscroll(sp));
         root.addView(carBox);
+        selectCarTab(settings.getInt("car_tab", CAR_TAB_ZONE));
+    }
+
+    /** EQ: кривая, которую сейчас слышно в машине (эквалайзер + Bass Boost + фильтр баса). */
+    private void buildCarEqPanel(LinearLayout p) {
+        carEqGraph = new EqGraphView(this);   // без слушателя — только смотреть
+        carEqGraph.setBackground(round(CARD, 24));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(190));
+        lp.topMargin = dp(10);
+        p.addView(carEqGraph, lp);
+        TextView note = hintText(getString(R.string.car_eq_note));
+        note.setPadding(dp(4), dp(10), dp(4), dp(8));
+        p.addView(note);
+        LinearLayout presets = new LinearLayout(this);
+        for (int i = 0; i < EqEngine.PRESETS.length; i++) {
+            final int index = i;
+            presets.addView(chip(getString(EqEngine.PRESET_NAMES[i]), 0, CHIP, new View.OnClickListener() {
+                public void onClick(View v) {
+                    eq.applyBuiltIn(index, getString(EqEngine.PRESET_NAMES[index]));
+                    refreshEq();
+                }
+            }));
+        }
+        p.addView(hscroll(presets));
+        LinearLayout b = new LinearLayout(this);
+        b.addView(chip(getString(R.string.car_eq_open), R.drawable.ic_equalizer, CHIP, new View.OnClickListener() {
+            public void onClick(View v) { selectTab(TAB_EQ, true); }
+        }));
+        p.addView(hscroll(b));
+    }
+
+    /** Объёмный звук: системный Virtualizer на весь звук, сила 1…100. */
+    private void buildCarSurroundPanel(LinearLayout p) {
+        p.addView(label(getString(R.string.car_seat)));
+        LinearLayout seats = new LinearLayout(this);
+        for (int i = 0; i < CAR_SEATS.length; i++) {
+            final int seat = CAR_SEATS[i];
+            carSeatBtns[i] = chip("", 0, CHIP, new View.OnClickListener() {
+                public void onClick(View v) {
+                    DeviceSettings ds = carSettings();
+                    if (ds == null) return;
+                    setCarFocus(seatPoint(seat, ds.carRhd), -1);
+                }
+            });
+            seats.addView(carSeatBtns[i]);
+        }
+        p.addView(hscroll(seats));
+        p.addView(hintText(getString(R.string.car_delay_note)));
+        carSurSwitch = styledSwitch();
+        p.addView(switchRow(getString(R.string.car_tab_surround), getString(R.string.car_surround_note), carSurSwitch));
+        carSurSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            public void onCheckedChanged(CompoundButton v, boolean on) {
+                if (carUpdating) return;
+                DeviceSettings ds = carSettings();
+                if (ds == null) return;
+                ds.carSurround = on ? settings.getInt("car_sur_last", 50) : 0;
+                saveCarSound(ds);
+            }
+        });
+        carSurBar = new SeekBar(this);
+        carSurBar.setMax(100);
+        carSurVal = text("", 15, Color.WHITE);
+        carSurBar.setOnSeekBarChangeListener(new Seek() {
+            public void onProgressChanged(SeekBar s, int v, boolean user) {
+                if (!user || carUpdating) return;
+                DeviceSettings ds = carSettings();
+                if (ds == null) return;
+                ds.carSurround = Math.max(1, v);
+                settings.edit().putInt("car_sur_last", ds.carSurround).apply();
+                saveCarSound(ds);
+            }
+        });
+        p.addView(sliderRow(getString(R.string.car_surround_level), carSurBar, carSurVal));
+        carSurNa = text(getString(R.string.car_surround_na), 13, Color.rgb(0xFF, 0xB0, 0x40));
+        carSurNa.setPadding(dp(4), dp(4), dp(4), dp(4));
+        p.addView(carSurNa);
+    }
+
+    /** Bass Boost: подъём низа 0…12 дБ до выбранной частоты. */
+    private void buildCarBassPanel(LinearLayout p) {
+        carBassBar = new SeekBar(this);
+        carBassBar.setMax(12);
+        carBassVal = text("", 15, Color.WHITE);
+        carBassBar.setOnSeekBarChangeListener(new Seek() {
+            public void onProgressChanged(SeekBar s, int v, boolean user) {
+                if (!user || carUpdating) return;
+                DeviceSettings ds = carSettings();
+                if (ds == null) return;
+                ds.carBass = v;
+                saveCarSound(ds);
+            }
+        });
+        p.addView(sliderRow(getString(R.string.car_tab_bass), carBassBar, carBassVal));
+        p.addView(label(getString(R.string.car_bass_upto)));
+        LinearLayout hz = new LinearLayout(this);
+        for (int i = 0; i < CAR_BASS_HZ.length; i++) {
+            final int f = CAR_BASS_HZ[i];
+            carBassHzBtns[i] = chip(getString(R.string.car_hz, f), 0, CHIP, new View.OnClickListener() {
+                public void onClick(View v) {
+                    DeviceSettings ds = carSettings();
+                    if (ds == null) return;
+                    ds.carBassHz = f;
+                    if (ds.carBass == 0) ds.carBass = 6;   // выбрали частоту — сразу слышно
+                    saveCarSound(ds);
+                }
+            });
+            hz.addView(carBassHzBtns[i]);
+        }
+        p.addView(hscroll(hz));
+        p.addView(hintText(getString(R.string.car_bass_note)));
+    }
+
+    /** Фильтр баса: срез ниже частоты (выкл, 40…120 Гц). */
+    private void buildCarFilterPanel(LinearLayout p) {
+        p.addView(label(getString(R.string.car_tab_filter)));
+        LinearLayout hz = new LinearLayout(this);
+        for (int i = 0; i < CAR_HP_HZ.length; i++) {
+            final int f = CAR_HP_HZ[i];
+            carHpBtns[i] = chip(f == 0 ? getString(R.string.off) : getString(R.string.car_hz, f), 0, CHIP,
+                    new View.OnClickListener() {
+                        public void onClick(View v) {
+                            DeviceSettings ds = carSettings();
+                            if (ds == null) return;
+                            ds.carHp = f;
+                            saveCarSound(ds);
+                        }
+                    });
+            hz.addView(carHpBtns[i]);
+        }
+        p.addView(hscroll(hz));
+        p.addView(hintText(getString(R.string.car_filter_note)));
+    }
+
+    /** Точка CarFocusView для места из списка (водитель и пассажир — по стороне руля). */
+    private static int seatPoint(int seat, boolean rhd) {
+        if (seat == SEAT_DRIVER) return rhd ? 2 : 0;
+        if (seat == SEAT_PASSENGER) return rhd ? 0 : 2;
+        return seat;
+    }
+
+    private void saveCarSound(DeviceSettings ds) {
+        ds.save(this);
+        CarFocusView.applyFocus(this);
+        refreshCar();
+    }
+
+    private void selectCarTab(int t) {
+        if (t < 0 || t >= CAR_TABS) t = CAR_TAB_ZONE;
+        carTab = t;
+        settings.edit().putInt("car_tab", t).apply();
+        for (int i = 0; i < CAR_TABS; i++) {
+            boolean on = i == t;
+            carPanels[i].setVisibility(on ? View.VISIBLE : View.GONE);
+            carTabIcons[i].setImageDrawable(icon(CAR_TAB_ICONS[i], on ? Color.WHITE : GREY));
+            carTabIcons[i].setBackground(on ? round(ACCENT, 16) : null);
+            carTabLabels[i].setTextColor(on ? Color.WHITE : GREY);
+            carTabLabels[i].setTypeface(on ? Typeface.DEFAULT_BOLD : Typeface.DEFAULT);
+        }
+        // «Объёмный звук» (как Apkārtējā skaņa в магнитоле): у динамиков числа задержки;
+        // расстановка динамиков — только на ZONE
+        carView.setShowDelays(t == CAR_TAB_SURROUND);
+        if (t != CAR_TAB_ZONE && carEdit) {
+            carEdit = false;
+            carView.setEditMode(false);
+        }
+        if (carKeyShown != null) refreshCar();
+    }
+
+    /** Мини-график EQ машины: кривая эквалайзера + Bass Boost и фильтр баса этой машины. */
+    private void refreshCarEq() {
+        if (carEqGraph == null || carTab != CAR_TAB_EQ) return;
+        DeviceSettings ds = carSettings();
+        if (ds == null) return;
+        float[] f = eq.freqs();
+        float[] g = eq.curveWithoutCar();
+        for (int i = 0; i < g.length && i < f.length; i++) {
+            g[i] = Math.max(-24f, Math.min(24f, g[i] + EqEngine.carLayer(f[i], ds.carBass, ds.carBassHz, ds.carHp)));
+        }
+        carEqGraph.setBands(f, g);
     }
 
     private void chooseCarLayout() {
@@ -2654,6 +2898,29 @@ public class MainActivity extends Activity {
         if (ds.carMono) s += "\n" + getString(R.string.car_mono);
         else if (ds.carSwap) s += "\n" + getString(R.string.car_swapped);
         carStatus.setText(s);
+
+        for (int i = 0; i < carSeatBtns.length; i++) {
+            int pt = seatPoint(CAR_SEATS[i], ds.carRhd);
+            carSeatBtns[i].setText(CarFocusView.labelRes(pt, ds.carRhd));
+            carSeatBtns[i].setBackground(round(pt == ds.carFocus ? ACCENT : CHIP, 24));
+        }
+        carUpdating = true;
+        boolean sur = ds.carSurround > 0;
+        carSurSwitch.setChecked(sur);
+        carSurBar.setEnabled(sur);
+        carSurBar.setProgress(sur ? ds.carSurround : settings.getInt("car_sur_last", 50));
+        carSurVal.setText(sur ? ds.carSurround + "%" : getString(R.string.off));
+        carSurNa.setVisibility(sur && !eq.surroundSupported ? View.VISIBLE : View.GONE);
+        carBassBar.setProgress(ds.carBass);
+        carBassVal.setText(ds.carBass > 0 ? String.format(Locale.US, "+%d dB", ds.carBass) : getString(R.string.off));
+        for (int i = 0; i < carBassHzBtns.length; i++) {
+            carBassHzBtns[i].setBackground(round(CAR_BASS_HZ[i] == ds.carBassHz ? ACCENT : CHIP, 24));
+        }
+        for (int i = 0; i < carHpBtns.length; i++) {
+            carHpBtns[i].setBackground(round(CAR_HP_HZ[i] == ds.carHp ? ACCENT : CHIP, 24));
+        }
+        carUpdating = false;
+        refreshCarEq();
     }
 
     // =====================================================================
@@ -3944,6 +4211,7 @@ public class MainActivity extends Activity {
         balanceBar.setProgress(Math.round(eq.balance * 100) + 100);
         balanceVal.setText(balanceLabel(Math.round(eq.balance * 100)));
         levelSwitch.setChecked(eq.leveling);
+        refreshCarEq();
         int car = Math.round(eq.carBalance * 100);
         carNote.setVisibility(car != 0 ? View.VISIBLE : View.GONE);
         carNote.setText(getString(R.string.car_note, balanceLabel(car)));

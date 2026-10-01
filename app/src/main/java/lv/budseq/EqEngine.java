@@ -3,6 +3,7 @@ package lv.budseq;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.media.audiofx.DynamicsProcessing;
+import android.media.audiofx.Virtualizer;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
@@ -84,6 +85,15 @@ public final class EqEngine {
 
     /** Сценарии поверх звука (ночь: тише и мягче верх, спорт: панч). В профиль не пишутся. */
     private float scnGain, scnTreble, scnPunch;
+    /**
+     * Звук машины (как в магнитоле, вкладки «Bass Boost», «Фильтр баса», «Объёмный звук»):
+     * подъём низов до частоты, срез низов ниже частоты, объёмный звук 0…100. Только пока звук идёт в машину.
+     */
+    private float carBassDb;
+    private int carBassHz = 80, carHpHz, carSurround;
+    private Virtualizer virt;
+    /** false — прошивка не даёт включить объёмный звук для всего звука. */
+    public volatile boolean surroundSupported = true;
     public String scnLabel = "";
 
     /**
@@ -223,6 +233,14 @@ public final class EqEngine {
         for (DynamicsProcessing dp : effects.values()) dp.release();
         effects.clear();
         globalOk = false;
+        if (virt != null) {
+            try {
+                virt.release();
+            } catch (Throwable ignored) {
+            }
+            virt = null;
+        }
+        carSurround = 0;   // EQ запустится снова — объёмный звук включит фокус машины
     }
 
     public synchronized int playerSessions() {
@@ -271,6 +289,16 @@ public final class EqEngine {
     public void reattachAll() {
         rebuildAll();
         applyAll();
+        synchronized (this) {
+            if (virt != null) {
+                try {
+                    virt.release();
+                } catch (Throwable ignored) {
+                }
+                virt = null;
+            }
+        }
+        updateSurround();
     }
 
     /** Пересоздать эффекты (после смены числа полос). */
@@ -291,7 +319,87 @@ public final class EqEngine {
         float g = gameBands != null && i < gameBands.length ? gameBands[i] : gains[i];
         if (corr != null && corr.on && i < corrBands.length) g += corrBands[i];
         if (scnTreble != 0f) g += scnTreble * trebleWeight(freqs(bands)[i]);
+        g += carLayer(freqs(bands)[i], carBassDb, carBassHz, carHpHz);
         return Math.max(-24f, Math.min(24f, g));
+    }
+
+    /** Добавка звука машины на частоте f, дБ: Bass Boost до bassHz и фильтр баса ниже hpHz (0 — выкл). */
+    public static float carLayer(float f, float bassDb, int bassHz, int hpHz) {
+        float g = 0f;
+        if (bassDb > 0f) g += bassDb * lowShelf(f, bassHz);
+        if (hpHz > 0) g -= highPassCut(f, hpHz);
+        return g;
+    }
+
+    /** Кривая, которую сейчас слышно (без звука машины) — для мини-графика на экране машины. */
+    public float[] curveWithoutCar() {
+        float[] out = new float[bands];
+        for (int i = 0; i < bands; i++) {
+            out[i] = processedGain(i) - carLayer(freqs(bands)[i], carBassDb, carBassHz, carHpHz);
+        }
+        return out;
+    }
+
+    /** Запас под Bass Boost машины (половина подъёма, не больше 6 дБ), чтобы бас не упирался в лимитер. */
+    private float carHeadroom() {
+        return carBassDb > 0f ? -Math.min(6f, carBassDb * 0.5f) : 0f;
+    }
+
+    /** Bass Boost: полный подъём до частоты, за октаву выше плавно сходит на нет. */
+    static float lowShelf(float f, int hz) {
+        if (f <= hz) return 1f;
+        if (f >= hz * 2f) return 0f;
+        return (float) (1 - Math.log(f / hz) / Math.log(2));
+    }
+
+    /** Фильтр баса: ниже частоты — минус 12 дБ на октаву (не больше 24 дБ). */
+    static float highPassCut(float f, int hz) {
+        if (f >= hz) return 0f;
+        return (float) Math.min(24, 12 * Math.log(hz / f) / Math.log(2));
+    }
+
+    /** Звук машины: Bass Boost (дБ и до какой частоты), фильтр баса (Гц, 0 — выкл), объёмный звук 0…100. */
+    public void setCarDsp(float bassDb, int bassHz, int highPassHz, int surround) {
+        bassDb = Math.max(0f, Math.min(12f, bassDb));
+        surround = Math.max(0, Math.min(100, surround));
+        boolean same = bassDb == carBassDb && bassHz == carBassHz && highPassHz == carHpHz;
+        carBassDb = bassDb;
+        carBassHz = bassHz > 0 ? bassHz : 80;
+        carHpHz = Math.max(0, highPassHz);
+        boolean surroundChanged = surround != carSurround;
+        carSurround = surround;
+        if (surroundChanged) updateSurround();
+        if (same && !surroundChanged) return;
+        if (!same) applyAll();
+        notifyChanged();
+    }
+
+    /** Объёмный звук машины — системный эффект Virtualizer на весь звук (если прошивка его даёт). */
+    private synchronized void updateSurround() {
+        boolean want = carSurround > 0 && enabled;
+        try {
+            if (!want) {
+                if (virt != null) {
+                    virt.release();
+                    virt = null;
+                }
+                return;
+            }
+            if (virt == null) virt = new Virtualizer(1000, 0);
+            if (virt.getStrengthSupported()) virt.setStrength((short) (carSurround * 10));
+            virt.setEnabled(true);
+            surroundSupported = true;
+        } catch (Throwable t) {
+            Log.w(TAG, "surround not supported", t);
+            surroundSupported = false;
+            if (virt != null) {
+                try {
+                    virt.release();
+                } catch (Throwable ignored) {
+                }
+                virt = null;
+            }
+        }
     }
 
     /** Доля «верха»: 0 ниже 2 кГц, 1 выше 8 кГц — для мягкого ночного звука. */
@@ -355,7 +463,7 @@ public final class EqEngine {
         dp.setLimiterAllChannelsTo(new DynamicsProcessing.Limiter(true, true, 0, 1f, 60f, 10f, -1f, 0f));
 
         float base = levelBase() + boost;
-        if (bypass == BYPASS_NONE) base += corrHeadroom() + scnGain;
+        if (bypass == BYPASS_NONE) base += corrHeadroom() + carHeadroom() + scnGain;
         else if (bypass == BYPASS_AB) base += abCompensation();
         // тест динамиков — без баланса и фокуса, иначе он сам себя исказит
         float bal = bypass == BYPASS_TEST ? 0f : Math.max(-1f, Math.min(1f, balance + carBalance));
@@ -566,6 +674,7 @@ public final class EqEngine {
         if (enabled == on) return;
         enabled = on;
         applyAll();
+        updateSurround();
         save();
         notifyChanged();
     }
