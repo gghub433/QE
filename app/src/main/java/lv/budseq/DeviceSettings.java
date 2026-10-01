@@ -23,6 +23,14 @@ public final class DeviceSettings {
     public float[] carSpk;
     /** Машина: проверка каналов — левый и правый перепутаны / магнитола играет моно. */
     public boolean carSwap, carMono;
+    /**
+     * Звук при подключении: «b:3» (встроенный пресет) / «u:Имя» (свой), "" — не менять,
+     * null — сам: машине и FM-трансмиттеру «Басы», остальным не менять.
+     */
+    public String sound;
+
+    /** Встроенный пресет «Басы» (EqEngine.PRESET_NAMES[3]) — машинам по умолчанию. */
+    public static final String CAR_DEFAULT_SOUND = AppPresets.BUILTIN + 3;
 
     private final String address;
 
@@ -50,6 +58,7 @@ public final class DeviceSettings {
                 s.carRhd = o.optBoolean("rhd", false);
                 s.carSwap = o.optBoolean("swap", false);
                 s.carMono = o.optBoolean("mono", false);
+                if (o.has("sound")) s.sound = o.optString("sound", "");
                 org.json.JSONArray spk = o.optJSONArray("spk");
                 if (spk != null && spk.length() >= 2 && spk.length() % 2 == 0) {
                     s.carSpk = new float[spk.length()];
@@ -59,6 +68,12 @@ public final class DeviceSettings {
             }
         }
         return s;
+    }
+
+    /** Какой звук включить при подключении устройства такого типа ("" — не менять). */
+    public String soundFor(int type) {
+        if (sound != null) return sound;
+        return type == DeviceInfo.T_CAR ? CAR_DEFAULT_SOUND : "";
     }
 
     /** Динамики машины: свои или схема по умолчанию (4 в дверях + твитеры). */
@@ -79,6 +94,7 @@ public final class DeviceSettings {
             o.put("rhd", carRhd);
             o.put("swap", carSwap);
             o.put("mono", carMono);
+            if (sound != null) o.put("sound", sound);
             if (carSpk != null) {
                 org.json.JSONArray spk = new org.json.JSONArray();
                 for (float v : carSpk) spk.put(Math.round(v * 1000) / 1000.0);

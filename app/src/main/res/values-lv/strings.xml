@@ -463,4 +463,16 @@
     <string name="hu_why_power">nav akumulatora un SIM — izskatās pēc magnetolas</string>
     <string name="hu_why_phone">izskatās pēc telefona</string>
     <string name="hu_note">Skaņas fokuss augstāk darbojas tieši uz auto skaļruņiem — izvietojiet tos salona shēmā.</string>
+    <!-- 6.3: провод и звук при подключении -->
+    <string name="wired_jack">Vadu austiņas</string>
+    <string name="wired_usb_phones">USB austiņas</string>
+    <string name="wired_usb">USB skaņa</string>
+    <string name="wired_aux">Vadu skaļruņi (AUX)</string>
+    <string name="wired_dock">Dokstacija</string>
+    <string name="wired_hdmi">TV caur HDMI</string>
+    <string name="wired_car">Automašīna caur USB</string>
+    <string name="ds_sound">Skaņa pievienojoties</string>
+    <string name="ds_sound_keep">Nemainīt</string>
+    <string name="ds_sound_auto">%s (automātiski automašīnai)</string>
+    <string name="ds_sound_note">Pievienojāt — EQ pats ieslēdzas ar šo skaņu, caur Bluetooth un ar vadu. Automašīnai un FM raidītājam — «Basi», ja neizvēlaties citu; atvienojāt — atgriezīsies parastā skaņa.</string>
 </resources>

@@ -30,8 +30,19 @@ public final class DeviceInfo {
     /** У устройства есть сервис Apple (AirPods / Beats). */
     public boolean apple;
 
+    /** Отдельное слово «fm» в названии: FM-трансмиттер в машине. */
+    private static final java.util.regex.Pattern FM_WORD = java.util.regex.Pattern.compile("(^|[^a-z])fm([^a-z]|$)");
+
+    /** Приставка адреса проводных выходов (у них нет Bluetooth-адреса): wired:jack, wired:usb:…, wired:aux. */
+    public static final String WIRED = "wired:";
+
     DeviceInfo(String address) {
         this.address = address;
+    }
+
+    /** Подключено проводом: наушники 3,5 мм / USB-C, USB-ЦАП, AUX, док, HDMI, машина по USB. */
+    public boolean isWired() {
+        return address.startsWith(WIRED);
     }
 
     /** Звуковые устройства: наушники, колонки, машина, ТВ. */
@@ -145,6 +156,7 @@ public final class DeviceInfo {
             case BluetoothClass.Device.AUDIO_VIDEO_PORTABLE_AUDIO:
             case BluetoothClass.Device.AUDIO_VIDEO_HIFI_AUDIO:
                 if (byName(n) == T_HEADPHONES || byName(n) == T_EARBUDS) break;
+                if (byName(n) == T_CAR) return T_CAR;   // FM-трансмиттер часто называет себя колонкой
                 return T_SPEAKER;
             case BluetoothClass.Device.AUDIO_VIDEO_CAR_AUDIO:
                 return T_CAR;
@@ -220,8 +232,9 @@ public final class DeviceInfo {
         }
         if (has(n, "car", "auto", "toyota", "volkswagen", "vw ", "bmw", "audi", "ford", "honda", "kia",
                 "hyundai", "mazda", "skoda", "škoda", "mercedes", "renault", "peugeot", "opel", "nissan",
-                "volvo", "tesla", "lexus", "uconnect", "mylink", "sensus")) {
-            return T_CAR;
+                "volvo", "tesla", "lexus", "uconnect", "mylink", "sensus", "transmitter", "трансмит")
+                || FM_WORD.matcher(n).find()) {
+            return T_CAR;   // в том числе FM-трансмиттеры в прикуриватель («BT FM», «FM-T», «Car Kit»)
         }
         if (n.equals("tv") || has(n, "[tv]", " tv", "tv ", "bravia", "television")) return T_TV;
         if (has(n, "keyboard", "keys")) return T_KEYBOARD;

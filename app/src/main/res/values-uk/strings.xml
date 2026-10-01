@@ -463,4 +463,16 @@
     <string name="hu_why_power">немає батареї й SIM — схоже на магнітолу</string>
     <string name="hu_why_phone">схоже на телефон</string>
     <string name="hu_note">Фокус звуку вище працює прямо на динаміки машини — розставте їх на схемі салону.</string>
+    <!-- 6.3: провод и звук при подключении -->
+    <string name="wired_jack">Дротові навушники</string>
+    <string name="wired_usb_phones">USB-навушники</string>
+    <string name="wired_usb">USB-звук</string>
+    <string name="wired_aux">Колонки по дроту (AUX)</string>
+    <string name="wired_dock">Док-станція</string>
+    <string name="wired_hdmi">ТВ через HDMI</string>
+    <string name="wired_car">Авто через USB</string>
+    <string name="ds_sound">Звук при підключенні</string>
+    <string name="ds_sound_keep">Не змінювати</string>
+    <string name="ds_sound_auto">%s (сам для авто)</string>
+    <string name="ds_sound_note">Підключили — EQ сам вмикається з цим звуком, через Bluetooth і по дроту. Авто та FM-трансмітеру — «Баси», якщо не вибрати інший; відключили — повернеться звичайний звук.</string>
 </resources>

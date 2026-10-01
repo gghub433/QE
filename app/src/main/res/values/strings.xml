@@ -463,4 +463,16 @@
     <string name="hu_why_power">no battery and no SIM — looks like a head unit</string>
     <string name="hu_why_phone">looks like a phone</string>
     <string name="hu_note">Sound focus above works right on the car speakers — place them on the cabin map.</string>
+    <!-- 6.3: провод и звук при подключении -->
+    <string name="wired_jack">Wired headphones</string>
+    <string name="wired_usb_phones">USB headphones</string>
+    <string name="wired_usb">USB audio</string>
+    <string name="wired_aux">Wired speakers (AUX)</string>
+    <string name="wired_dock">Dock</string>
+    <string name="wired_hdmi">TV over HDMI</string>
+    <string name="wired_car">Car over USB</string>
+    <string name="ds_sound">Sound on connect</string>
+    <string name="ds_sound_keep">Don’t change</string>
+    <string name="ds_sound_auto">%s (auto for a car)</string>
+    <string name="ds_sound_note">Connected — EQ turns on by itself with this sound, by Bluetooth or by wire. A car and an FM transmitter get Bass unless you pick another one; when you disconnect, your usual sound comes back.</string>
 </resources>

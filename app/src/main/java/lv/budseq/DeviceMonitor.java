@@ -5,10 +5,16 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadset;
 import android.bluetooth.BluetoothProfile;
+import android.app.UiModeManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.res.Configuration;
+import android.media.AudioAttributes;
+import android.media.AudioDeviceCallback;
+import android.media.AudioDeviceInfo;
+import android.media.AudioManager;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
@@ -16,13 +22,18 @@ import android.os.Looper;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Следит за всеми подключёнными Bluetooth-устройствами:
  * наушники, колонки, машина, часы, клавиатуры и т.д. + их заряд.
+ * И за проводными выходами звука: наушники в 3,5 мм / USB-C, USB-ЦАП, колонки по AUX, док, HDMI,
+ * машина по USB (Android Auto) — у них адрес вида wired:… (DeviceInfo.WIRED).
  */
 public final class DeviceMonitor {
 
@@ -46,13 +57,28 @@ public final class DeviceMonitor {
     private final CopyOnWriteArrayList<Listener> listeners = new CopyOnWriteArrayList<>();
     private final Handler main = new Handler(Looper.getMainLooper());
     private Context app;
+    private AudioManager am;
     private boolean started;
+
+    /** Провод вставили или вынули — пересчитать проводные выходы. */
+    private final AudioDeviceCallback wiredCallback = new AudioDeviceCallback() {
+        @Override
+        public void onAudioDevicesAdded(AudioDeviceInfo[] added) { refreshWired(true); }
+
+        @Override
+        public void onAudioDevicesRemoved(AudioDeviceInfo[] removed) { refreshWired(false); }
+    };
 
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context c, Intent i) {
             String a = i.getAction();
             if (a == null) return;
+            if (UiModeManager.ACTION_ENTER_CAR_MODE.equals(a) || UiModeManager.ACTION_EXIT_CAR_MODE.equals(a)) {
+                // Android Auto по проводу: телефон в «режиме машины»
+                refreshWired(UiModeManager.ACTION_ENTER_CAR_MODE.equals(a));
+                return;
+            }
             if (BluetoothAdapter.ACTION_STATE_CHANGED.equals(a)) {
                 int st = i.getIntExtra(BluetoothAdapter.EXTRA_STATE, -1);
                 if (st == BluetoothAdapter.STATE_OFF || st == BluetoothAdapter.STATE_TURNING_OFF) clear();
@@ -93,23 +119,36 @@ public final class DeviceMonitor {
         f.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
         f.addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
         f.addAction(BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED);
+        f.addAction(UiModeManager.ACTION_ENTER_CAR_MODE);
+        f.addAction(UiModeManager.ACTION_EXIT_CAR_MODE);
         if (Build.VERSION.SDK_INT >= 33) {
             app.registerReceiver(receiver, f, 0x2); // Context.RECEIVER_EXPORTED
         } else {
             app.registerReceiver(receiver, f);
         }
+        am = (AudioManager) app.getSystemService(Context.AUDIO_SERVICE);
         refresh();
+        try {
+            // сразу после регистрации система сообщает текущие выходы — они уже в списке, «новыми» не станут
+            if (am != null) am.registerAudioDeviceCallback(wiredCallback, main);
+        } catch (Exception ignored) {
+        }
     }
 
     public synchronized void stop() {
         if (!started) return;
         started = false;
         try { app.unregisterReceiver(receiver); } catch (Exception ignored) { }
+        try {
+            if (am != null) am.unregisterAudioDeviceCallback(wiredCallback);
+        } catch (Exception ignored) {
+        }
     }
 
     /** Перечитать список подключённых устройств (например, после выдачи разрешения). */
     public void refresh() {
         if (app == null) return;
+        refreshWired(false);
         final BluetoothAdapter ad = BluetoothAdapter.getDefaultAdapter();
         if (ad == null) return;
         try {
@@ -219,8 +258,15 @@ public final class DeviceMonitor {
 
     private void clear() {
         synchronized (this) {
-            if (devices.isEmpty()) return;
-            devices.clear();
+            boolean any = false;
+            Iterator<Map.Entry<String, DeviceInfo>> it = devices.entrySet().iterator();
+            while (it.hasNext()) {
+                if (!it.next().getValue().isWired()) {
+                    it.remove();
+                    any = true;
+                }
+            }
+            if (!any) return;
         }
         BudsLink.get().close();
         notifyChanged(null);
@@ -246,11 +292,190 @@ public final class DeviceMonitor {
         return l;
     }
 
+    /**
+     * Куда идёт звук: последнее подключённое звуковое устройство. Если подключены и провод, и Bluetooth —
+     * на Android 13+ спрашиваем систему, какой выход сейчас играет музыку.
+     */
     public DeviceInfo primaryAudio() {
-        for (DeviceInfo d : list()) {
+        List<DeviceInfo> l = list();
+        DeviceInfo wired = null, bt = null;
+        for (DeviceInfo d : l) {
+            if (!d.isAudio()) continue;
+            if (d.isWired()) {
+                if (wired == null) wired = d;
+            } else if (bt == null) {
+                bt = d;
+            }
+        }
+        if (wired != null && bt != null) {
+            int routed = routedType();
+            if (isBluetoothType(routed)) return bt;
+            if (isWiredType(routed)) return wired;
+        }
+        for (DeviceInfo d : l) {
             if (d.isAudio()) return d;
         }
         return null;
+    }
+
+    // =====================================================================
+    // Провод: 3,5 мм, USB-C, USB-ЦАП, AUX, док, HDMI, машина по USB
+    // =====================================================================
+
+    /** Пересчитать проводные выходы. fresh — подключили только что (для всплывающего окна и звука). */
+    void refreshWired(boolean fresh) {
+        if (app == null) return;
+        if (am == null) am = (AudioManager) app.getSystemService(Context.AUDIO_SERVICE);
+        if (am == null) return;
+        boolean car = carMode();
+        LinkedHashMap<String, DeviceInfo> found = new LinkedHashMap<>();
+        try {
+            for (AudioDeviceInfo d : am.getDevices(AudioManager.GET_DEVICES_OUTPUTS)) {
+                DeviceInfo w = wiredInfo(d, car);
+                if (w == null) continue;
+                DeviceInfo prev = found.get(w.address);
+                // USB-гарнитура бывает видна и как «USB-устройство» — оставляем вариант «наушники»
+                if (prev == null || w.type == DeviceInfo.T_HEADPHONES) found.put(w.address, w);
+            }
+        } catch (Exception ignored) {
+        }
+        if (car && found.isEmpty() && !hasBluetoothCar()) {
+            // Android Auto по кабелю: звук уходит в машину, отдельного выхода система может не показать
+            DeviceInfo w = new DeviceInfo(DeviceInfo.WIRED + "car");
+            w.name = app.getString(R.string.wired_car);
+            w.type = w.detectedType = DeviceInfo.T_CAR;
+            found.put(w.address, w);
+        }
+        DeviceInfo added = null;
+        boolean changed = false;
+        synchronized (this) {
+            Iterator<Map.Entry<String, DeviceInfo>> it = devices.entrySet().iterator();
+            while (it.hasNext()) {
+                Map.Entry<String, DeviceInfo> e = it.next();
+                if (e.getValue().isWired() && !found.containsKey(e.getKey())) {
+                    it.remove();
+                    changed = true;
+                }
+            }
+            for (DeviceInfo w : found.values()) {
+                if (devices.containsKey(w.address)) continue;
+                int override = DeviceSettings.get(app, w.address).typeOverride;
+                if (override >= 0) w.type = override;
+                w.connectedAt = System.currentTimeMillis();
+                devices.put(w.address, w);
+                changed = true;
+                if (fresh && added == null) added = w;
+            }
+        }
+        if (changed) notifyChanged(added);
+    }
+
+    /** Проводной выход → устройство EQ (или null, если это не внешний выход). */
+    private DeviceInfo wiredInfo(AudioDeviceInfo d, boolean car) {
+        CharSequence pn = d.getProductName();
+        String product = pn == null ? "" : pn.toString().trim();
+        // встроенный разъём часто называется моделью телефона — такое имя ничего не говорит
+        if (product.equalsIgnoreCase(Build.MODEL) || product.equalsIgnoreCase(Build.DEVICE)) product = "";
+        String key, name;
+        int type;
+        switch (d.getType()) {
+            case AudioDeviceInfo.TYPE_WIRED_HEADSET:
+            case AudioDeviceInfo.TYPE_WIRED_HEADPHONES:
+                key = "jack";
+                type = DeviceInfo.T_HEADPHONES;
+                name = app.getString(R.string.wired_jack);
+                break;
+            case AudioDeviceInfo.TYPE_USB_HEADSET:
+                key = "usb:" + slug(product);
+                type = DeviceInfo.T_HEADPHONES;
+                name = product.isEmpty() ? app.getString(R.string.wired_usb_phones) : product;
+                break;
+            case AudioDeviceInfo.TYPE_USB_DEVICE:
+            case AudioDeviceInfo.TYPE_USB_ACCESSORY:
+                key = "usb:" + slug(product);
+                type = DeviceInfo.T_SPEAKER;
+                name = product.isEmpty() ? app.getString(R.string.wired_usb) : product;
+                break;
+            case AudioDeviceInfo.TYPE_LINE_ANALOG:
+            case AudioDeviceInfo.TYPE_LINE_DIGITAL:
+            case AudioDeviceInfo.TYPE_AUX_LINE:
+                key = "aux";
+                type = DeviceInfo.T_SPEAKER;
+                name = app.getString(R.string.wired_aux);
+                break;
+            case AudioDeviceInfo.TYPE_DOCK:
+                key = "dock";
+                type = DeviceInfo.T_SPEAKER;
+                name = app.getString(R.string.wired_dock);
+                break;
+            case AudioDeviceInfo.TYPE_HDMI:
+            case AudioDeviceInfo.TYPE_HDMI_ARC:
+            case 29: // TYPE_HDMI_EARC (Android 12)
+                key = "hdmi";
+                type = DeviceInfo.T_TV;
+                name = app.getString(R.string.wired_hdmi);
+                break;
+            default:
+                return null;
+        }
+        if (!product.isEmpty()) {
+            int byName = DeviceInfo.byName(product.toLowerCase(Locale.ROOT));
+            if (byName >= DeviceInfo.T_EARBUDS && byName <= DeviceInfo.T_TV) type = byName;
+        }
+        // телефон в режиме машины (Android Auto, автомобильный док): провод идёт в машину
+        if (car && type != DeviceInfo.T_HEADPHONES) type = DeviceInfo.T_CAR;
+        DeviceInfo w = new DeviceInfo(DeviceInfo.WIRED + key);
+        w.name = name;
+        w.type = w.detectedType = type;
+        return w;
+    }
+
+    private static String slug(String s) {
+        String r = s.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9а-яё]+", "-");
+        return r.isEmpty() ? "audio" : r;
+    }
+
+    private boolean carMode() {
+        try {
+            UiModeManager um = (UiModeManager) app.getSystemService(Context.UI_MODE_SERVICE);
+            return um != null && um.getCurrentModeType() == Configuration.UI_MODE_TYPE_CAR;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private synchronized boolean hasBluetoothCar() {
+        for (DeviceInfo d : devices.values()) {
+            if (!d.isWired() && d.type == DeviceInfo.T_CAR) return true;
+        }
+        return false;
+    }
+
+    /** Тип выхода, куда сейчас идёт музыка (Android 13+), иначе -1. */
+    private int routedType() {
+        if (am == null || Build.VERSION.SDK_INT < 33) return -1;
+        try {
+            AudioAttributes aa = new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).build();
+            Object list = AudioManager.class.getMethod("getAudioDevicesForAttributes", AudioAttributes.class).invoke(am, aa);
+            if (list instanceof List && !((List<?>) list).isEmpty()) {
+                Object dev = ((List<?>) list).get(0);
+                Object t = dev.getClass().getMethod("getType").invoke(dev);
+                return t instanceof Integer ? (Integer) t : -1;
+            }
+        } catch (Throwable ignored) {
+            // метод недоступен на этой прошивке — решаем по времени подключения
+        }
+        return -1;
+    }
+
+    /** Bluetooth-выходы: SCO, A2DP, слуховой аппарат, LE Audio (гарнитура, колонка, трансляция). */
+    static boolean isBluetoothType(int t) {
+        return t == 7 || t == 8 || t == 23 || t == 26 || t == 27 || t == 30;
+    }
+
+    static boolean isWiredType(int t) {
+        return t == 3 || t == 4 || t == 5 || t == 6 || t == 9 || t == 10 || t == 11 || t == 12 || t == 13
+                || t == 19 || t == 22 || t == 29;
     }
 
     public synchronized DeviceInfo find(String address) {

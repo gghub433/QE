@@ -363,8 +363,26 @@ public class EqService extends Service {
     // Устройства
     // =====================================================================
 
+    /** Куда шёл звук в прошлый раз — чтобы заметить смену выхода (вставили провод, подключили колонку). */
+    private String lastOutput;
+    /** Звук до «звука при подключении»: отключили устройство — возвращаем (если профили не раздельные). */
+    private String restoreAddr, restoreJson, restorePreset, appliedPreset;
+
+    private final Runnable reattach = new Runnable() {
+        public void run() { eq.reattachAll(); }
+    };
+
     private void onDevices(DeviceInfo added) {
         updateAirPods();
+        DeviceInfo out = monitor.primaryAudio();
+        String key = out != null ? out.address : "phone";
+        if (lastOutput != null && !key.equals(lastOutput)) {
+            // звук ушёл на другой выход — через секунду, когда система переключится, подключаем EQ заново
+            main.removeCallbacks(reattach);
+            main.postDelayed(reattach, 900);
+        }
+        lastOutput = key;
+        restoreAfterDisconnect();
         syncProfileAndAuto();
         checkAppPreset();   // сценарии «ночь» и «тренировка» зависят от наушников
         checkLowBattery();
@@ -382,6 +400,7 @@ public class EqService extends Service {
         suggestAutoEq(info);
         Scenarios.onConnected(this, info, nm, CHANNEL_ALERT, NOTIF_CAR);
         final DeviceSettings ds = DeviceSettings.get(this, info.address);
+        applyConnectSound(info, ds);
         if (ds.volume >= 0) {
             main.postDelayed(new Runnable() {
                 public void run() { setVolume(ds.volume); }
@@ -397,6 +416,48 @@ public class EqService extends Service {
         pendingPopup = info.address;
         // для Galaxy Buds и AirPods ждём данные о заряде L/R/кейса, но не дольше 4,5 с
         main.postDelayed(showPending, info.isGalaxyBuds() || info.isAirPods() ? 4500 : 1200);
+    }
+
+    /**
+     * «Звук при подключении»: подключили — EQ сам включается с выбранным звуком
+     * (машине и FM-трансмиттеру по умолчанию «Басы»).
+     */
+    private void applyConnectSound(DeviceInfo info, DeviceSettings ds) {
+        String snd = ds.soundFor(info.type);
+        if (ds.sound == null && info.type == DeviceInfo.T_CAR) {
+            // в сценарии «Машина» выбран свой пресет — он главнее звука по умолчанию
+            Scenarios.Config k = Scenarios.load(this);
+            if (k.carOn && !k.carPreset.isEmpty()) snd = "";
+        }
+        if (snd.isEmpty()) return;
+        final String preset = snd;
+        final String addr = info.address;
+        main.postDelayed(new Runnable() {
+            public void run() {
+                String before = eq.soundJson(), beforeName = eq.lastPreset;
+                if (AppPresets.apply(EqService.this, preset)) {
+                    if (!eq.perDevice && restoreAddr == null) {
+                        restoreAddr = addr;
+                        restoreJson = before;
+                        restorePreset = beforeName;
+                        appliedPreset = eq.lastPreset;
+                    }
+                    eq.setEnabled(true);
+                    updateNotification();
+                }
+            }
+        }, 900);   // после смены профиля устройства (syncProfileAndAuto)
+    }
+
+    /** Устройство со «звуком при подключении» отключилось — вернуть прежний звук, если его не меняли. */
+    private void restoreAfterDisconnect() {
+        if (restoreAddr == null || monitor.find(restoreAddr) != null) return;
+        if (!eq.perDevice && appliedPreset != null && appliedPreset.equals(eq.lastPreset)
+                && restoreJson != null && !restoreJson.isEmpty()) {
+            eq.loadSoundJson(restoreJson, restorePreset);
+        }
+        restoreAddr = null;
+        restoreJson = restorePreset = appliedPreset = null;
     }
 
     private void showPopupFor(String addr) {

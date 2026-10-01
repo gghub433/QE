@@ -3373,6 +3373,40 @@ public class MainActivity extends Activity {
 
     // ---------- настройки конкретного устройства ----------
 
+    /** Подпись «звука при подключении»: свой выбор или «Басы (сам для машины)». */
+    private String connectSoundLabel(DeviceInfo dev, DeviceSettings ds) {
+        if (ds.sound == null) {
+            String auto = ds.soundFor(dev.type);
+            return auto.isEmpty() ? getString(R.string.ds_sound_keep)
+                    : getString(R.string.ds_sound_auto, AppPresets.presetLabel(this, auto));
+        }
+        return ds.sound.isEmpty() ? getString(R.string.ds_sound_keep) : AppPresets.presetLabel(this, ds.sound);
+    }
+
+    private void chooseConnectSound(final Button btn, final DeviceInfo dev, final DeviceSettings ds) {
+        final List<String> vals = new ArrayList<>();
+        List<String> labels = new ArrayList<>();
+        vals.add("");
+        labels.add(getString(R.string.ds_sound_keep));
+        for (int i = 0; i < EqEngine.PRESET_NAMES.length; i++) {
+            vals.add(AppPresets.BUILTIN + i);
+            labels.add(getString(EqEngine.PRESET_NAMES[i]));
+        }
+        for (String n : eq.presetNames()) {
+            vals.add(AppPresets.USER + n);
+            labels.add(n);
+        }
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.ds_sound)
+                .setItems(labels.toArray(new String[0]), new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface d, int which) {
+                        ds.sound = vals.get(which);
+                        btn.setText(connectSoundLabel(dev, ds));
+                    }
+                })
+                .show();
+    }
+
     private void showDeviceSettings() {
         final DeviceInfo dev = DeviceMonitor.get().find(selected);
         if (dev == null) return;
@@ -3390,6 +3424,17 @@ public class MainActivity extends Activity {
             public void onClick(View v) { chooseLook(lookBtn, dev, ds); }
         });
         box.addView(lookBtn);
+
+        // звук при подключении: подключили — EQ сам включается с этим звуком
+        box.addView(label(getString(R.string.ds_sound)));
+        final Button soundBtn = chip(connectSoundLabel(dev, ds), R.drawable.ic_equalizer, CHIP, null);
+        soundBtn.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) { chooseConnectSound(soundBtn, dev, ds); }
+        });
+        box.addView(soundBtn);
+        TextView soundNote = text(getString(R.string.ds_sound_note), 13, GREY);
+        soundNote.setPadding(0, dp(6), 0, 0);
+        box.addView(soundNote);
 
         // громкость при подключении
         box.addView(label(getString(R.string.ds_volume)));

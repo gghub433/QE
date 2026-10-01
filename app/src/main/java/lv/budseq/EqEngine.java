@@ -264,6 +264,15 @@ public final class EqEngine {
         applyAll();
     }
 
+    /**
+     * Выход звука сменился (провод, Bluetooth, USB): пересоздать обработку. На части телефонов
+     * старый эффект перестаёт действовать на новом выходе — EQ «переподключается» сам.
+     */
+    public void reattachAll() {
+        rebuildAll();
+        applyAll();
+    }
+
     /** Пересоздать эффекты (после смены числа полос). */
     private synchronized void rebuildAll() {
         List<Integer> sessions = new ArrayList<>(effects.keySet());
