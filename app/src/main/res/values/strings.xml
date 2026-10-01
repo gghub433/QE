@@ -93,7 +93,9 @@
     <string name="vis_fail">Spectrum is not available on this phone</string>
     <string name="sec_sound">Sound</string>
     <string name="punch">Punch (bass compressor)</string>
-    <string name="punch_hint">Denser bass that hits harder without distortion</string>
+    <string name="punch_hint">Kick and bass hit harder, the boom gets tighter. Works the same at any volume, Bluetooth included: tap Listen and move the slider.</string>
+    <string name="punch_listen">Listen</string>
+    <string name="punch_listen_stop">Stop</string>
     <string name="boost">Volume boost</string>
     <string name="boost_warn_title">Protect your hearing</string>
     <string name="boost_warn">Boost makes the sound louder than the maximum. Long listening at high volume damages hearing. The limiter prevents distortion, not loudness.</string>

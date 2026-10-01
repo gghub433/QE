@@ -93,7 +93,9 @@
     <string name="vis_fail">Spektrs šajā tālrunī nav pieejams</string>
     <string name="sec_sound">Skaņa</string>
     <string name="punch">Sitiens (basu kompresors)</string>
-    <string name="punch_hint">Blīvāks bass, kas sit spēcīgāk bez kropļojumiem</string>
+    <string name="punch_hint">Bungas un basi sit spēcīgāk, dūkoņa klusāka. Dzirdams vienādi jebkurā skaļumā, arī Bluetooth: nospiediet «Noklausīties» un kustiniet slīdni.</string>
+    <string name="punch_listen">Noklausīties</string>
+    <string name="punch_listen_stop">Apturēt</string>
     <string name="boost">Skaļuma pastiprināšana</string>
     <string name="boost_warn_title">Saudzē dzirdi</string>
     <string name="boost_warn">Pastiprināšana padara skaņu skaļāku par maksimumu. Ilga klausīšanās lielā skaļumā kaitē dzirdei. Ierobežotājs pasargā no kropļojumiem, bet ne no skaļuma.</string>

@@ -184,6 +184,7 @@ public class MainActivity extends Activity {
     private Button specBtn;
     private SeekBar preBar, punchBar, boostBar, balanceBar;
     private TextView preVal, punchVal, boostVal, balanceVal;
+    private Button punchListenBtn;
     private Switch mainSwitch, levelSwitch, autoSwitch, perDeviceSwitch;
     private LinearLayout userBox;
 
@@ -761,6 +762,22 @@ public class MainActivity extends Activity {
                 if (fromUser) eq.setPunch(p / 100f);
             }
         });
+        // бит по кругу через EQ: двигаешь панч — сразу слышно, даже без музыки
+        LinearLayout listen = new LinearLayout(this);
+        punchListenBtn = chip(getString(R.string.punch_listen), R.drawable.ic_play, CHIP, new View.OnClickListener() {
+            public void onClick(View v) {
+                if (DemoBeat.isPlaying()) {
+                    DemoBeat.stop();
+                } else {
+                    DemoBeat.start(MainActivity.this, new Runnable() {
+                        public void run() { refreshListenBtn(); }
+                    });
+                }
+                refreshListenBtn();
+            }
+        });
+        listen.addView(punchListenBtn);
+        root.addView(hscroll(listen));
 
         boostBar = new SeekBar(this);
         boostBar.setMax((int) (EqEngine.MAX_BOOST * 2));
@@ -3459,6 +3476,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onPause() {
         visible = false;
+        DemoBeat.stop();   // ушли из EQ — бит не играет в фоне
         if (abBtn != null) setAbHeld(false);   // ушли с экрана с пальцем на кнопке — вернуть EQ
         np.stop();
         ui.removeCallbacks(npTicker);
@@ -4192,6 +4210,14 @@ public class MainActivity extends Activity {
         lp.setMargins(dp(10), 0, dp(10), 0);
         b.setLayoutParams(lp);
         return b;
+    }
+
+    private void refreshListenBtn() {
+        if (punchListenBtn == null) return;
+        boolean on = DemoBeat.isPlaying();
+        punchListenBtn.setText(on ? R.string.punch_listen_stop : R.string.punch_listen);
+        punchListenBtn.setBackground(round(on ? ACCENT : CHIP, 24));
+        setChipIcon(punchListenBtn, on ? R.drawable.ic_stop : R.drawable.ic_play);
     }
 
     private void refreshEq() {

@@ -93,7 +93,9 @@
     <string name="vis_fail">Спектр недоступний на цьому телефоні</string>
     <string name="sec_sound">Звук</string>
     <string name="punch">Панч (бас-компресор)</string>
-    <string name="punch_hint">Бас щільніший і б\'є сильніше без хрипу</string>
+    <string name="punch_hint">Бочка й бас б\'ють сильніше, гул тихіший. Чути однаково на будь-якій гучності й через Bluetooth: натисніть «Послухати» й рухайте повзунок.</string>
+    <string name="punch_listen">Послухати</string>
+    <string name="punch_listen_stop">Зупинити</string>
     <string name="boost">Підсилення гучності</string>
     <string name="boost_warn_title">Бережи слух</string>
     <string name="boost_warn">Підсилення робить звук гучнішим за максимум. Довге прослуховування на великій гучності шкодить слуху. Лімітер захищає від хрипу, але не від гучності.</string>

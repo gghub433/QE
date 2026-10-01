@@ -2,6 +2,7 @@ package lv.budseq;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.media.AudioManager;
 import android.media.audiofx.DynamicsProcessing;
 import android.media.audiofx.Virtualizer;
 import android.os.Handler;
@@ -13,10 +14,12 @@ import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
@@ -106,6 +109,21 @@ public final class EqEngine {
     private boolean gameLevel;
     public String gameLabel = "";
     private boolean lowLatency;
+    /** Эффекты, созданные с короткими кадрами (у них свои полосы обработки). */
+    private final Set<Integer> fastSessions = new HashSet<>();
+
+    /**
+     * Обработка Android делит звук на полосы FFT шириной «частота / размер кадра» (при 20 мс — 47 Гц).
+     * Раньше полосы эквалайзера ставились прямо по ползункам, и в 15/31 полосах часть ползунков баса
+     * не попадала ни в одну полосу FFT (не работала). Теперь у обработки свои DP_BANDS полос:
+     * внизу — по одной на полосу FFT, выше — по 1/6 октавы; их усиление — кривая ползунков,
+     * усреднённая по ширине полосы. Работает каждый ползунок.
+     */
+    private static final int DP_BANDS = 48;
+    /** Обычный кадр 20 мс: бас точнее (полосы FFT 47 Гц вместо 94), задержка всего +10 мс. */
+    private static final float FRAME_MS = 20f, FAST_FRAME_MS = 5f;
+    private final int sampleRate;
+    private float[][] layoutNormal, layoutFast;
 
     /** AutoEQ: коррекция текущих наушников (null — нет) и она же в наших полосах. */
     private AutoEq.Correction corr;
@@ -128,6 +146,7 @@ public final class EqEngine {
 
     private EqEngine(Context ctx) {
         prefs = ctx.getSharedPreferences("eq", Context.MODE_PRIVATE);
+        sampleRate = outputRate(ctx);
         enabled = prefs.getBoolean("on", true);
         autoMode = prefs.getBoolean("auto", false);
         perDevice = prefs.getBoolean("perDevice", false);
@@ -136,6 +155,60 @@ public final class EqEngine {
         profileName = prefs.getString("profileName", "");
         gains = new float[bands];
         if (!loadProfile(profileKey)) migrateOld();
+    }
+
+    private static int outputRate(Context ctx) {
+        try {
+            AudioManager am = (AudioManager) ctx.getSystemService(Context.AUDIO_SERVICE);
+            int r = Integer.parseInt(am.getProperty(AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE));
+            if (r >= 8000 && r <= 192000) return r;
+        } catch (Exception ignored) {
+        }
+        return 48000;
+    }
+
+    /**
+     * Полосы обработки для кадра frameMs: {верхняя граница, низ и верх усреднения}.
+     * Граница ставится на 0,4 полосы FFT выше её центра — так обработка относит к полосе ровно этот бин.
+     */
+    private float[][] layout(boolean fast) {
+        float[][] l = fast ? layoutFast : layoutNormal;
+        if (l != null) return l;
+        l = layoutFor(sampleRate, fast ? FAST_FRAME_MS : FRAME_MS);
+        if (fast) layoutFast = l;
+        else layoutNormal = l;
+        return l;
+    }
+
+    static float[][] layoutFor(int sampleRate, float frameMs) {
+        int want = (int) (frameMs * sampleRate / 1000f);
+        int n = Integer.highestOneBit(want);
+        if (n < want) n <<= 1;
+        float d = sampleRate / (float) n;
+        int[] stops = new int[DP_BANDS];
+        int c = 0;
+        while (c < DP_BANDS / 2 && c * d < 300f) {
+            stops[c] = c;
+            c++;
+        }
+        int top = (int) (sampleRate / 2f / d) - 1;
+        int rest = DP_BANDS - c;
+        double lo = Math.log(stops[c - 1] + 1), hi = Math.log(top);
+        for (int i = 1; i <= rest; i++) {
+            int st = (int) Math.round(Math.exp(lo + (hi - lo) * i / rest));
+            stops[c] = Math.max(st, stops[c - 1] + 1);
+            c++;
+        }
+        float[][] l = new float[3][DP_BANDS];
+        int prev = -1;
+        for (int i = 0; i < DP_BANDS; i++) {
+            int a = prev + 1, b = stops[i];
+            l[0][i] = i == DP_BANDS - 1 ? sampleRate / 2f : (b + 0.4f) * d;
+            l[1][i] = a > 0 ? Math.max(16f, (a - 0.5f) * d) : 16f;
+            l[2][i] = Math.max(l[1][i] + 1f, (b + 0.5f) * d);
+            prev = b;
+        }
+        return l;
     }
 
     private static int sanitizeBands(int n) {
@@ -161,14 +234,6 @@ public final class EqEngine {
     }
 
     public float[] freqs() { return freqs(bands); }
-
-    /** Верхняя граница каждой полосы — среднее геометрическое соседних центров. */
-    static float[] cutoffs(float[] f) {
-        float[] c = new float[f.length];
-        for (int i = 0; i < f.length - 1; i++) c[i] = (float) Math.sqrt(f[i] * f[i + 1]);
-        c[f.length - 1] = 22000f;
-        return c;
-    }
 
     public static String label(float f) {
         if (f < 1000) {
@@ -214,7 +279,7 @@ public final class EqEngine {
         try {
             DynamicsProcessing dp = create(session);
             effects.put(session, dp);
-            apply(dp);
+            apply(session, dp);
             if (session == 0) globalOk = true;
             return true;
         } catch (Throwable t) {
@@ -225,6 +290,7 @@ public final class EqEngine {
     }
 
     public synchronized void detach(int session) {
+        fastSessions.remove(session);
         DynamicsProcessing dp = effects.remove(session);
         if (dp != null) dp.release();
     }
@@ -232,6 +298,7 @@ public final class EqEngine {
     public synchronized void releaseAll() {
         for (DynamicsProcessing dp : effects.values()) dp.release();
         effects.clear();
+        fastSessions.clear();
         globalOk = false;
         if (virt != null) {
             try {
@@ -250,9 +317,12 @@ public final class EqEngine {
     }
 
     private DynamicsProcessing create(int session) {
+        fastSessions.remove(session);
         if (lowLatency) {
             try {
-                return new DynamicsProcessing(1000, session, config(true));
+                DynamicsProcessing dp = new DynamicsProcessing(1000, session, config(true));
+                fastSessions.add(session);
+                return dp;
             } catch (Throwable t) {
                 Log.w(TAG, "low latency not supported, normal mode", t);
             }
@@ -266,11 +336,11 @@ public final class EqEngine {
                 fast ? DynamicsProcessing.VARIANT_FAVOR_TIME_RESOLUTION
                         : DynamicsProcessing.VARIANT_FAVOR_FREQUENCY_RESOLUTION,
                 2,              // каналы
-                true, bands,    // эквалайзер
+                true, DP_BANDS, // эквалайзер: свои полосы обработки (см. layout)
                 true, 2,        // многополосный компрессор: бас + остальное
                 false, 0,       // post-EQ
                 true);          // лимитер
-        if (fast) b.setPreferredFrameDuration(5f);
+        b.setPreferredFrameDuration(fast ? FAST_FRAME_MS : FRAME_MS);
         return b.build();
     }
 
@@ -310,17 +380,77 @@ public final class EqEngine {
         for (int s : sessions) attach(s);
     }
 
-    /** Итоговое усиление полосы: кривая пользователя + коррекция AutoEQ + сценарий. */
-    private float bandGain(int i) {
-        return bypass != BYPASS_NONE ? 0f : processedGain(i);
-    }
-
-    private float processedGain(int i) {
+    /** Полоса ползунка: кривая пользователя (или игры) + коррекция AutoEQ + сценарий. */
+    private float baseGain(int i) {
         float g = gameBands != null && i < gameBands.length ? gameBands[i] : gains[i];
         if (corr != null && corr.on && i < corrBands.length) g += corrBands[i];
         if (scnTreble != 0f) g += scnTreble * trebleWeight(freqs(bands)[i]);
-        g += carLayer(freqs(bands)[i], carBassDb, carBassHz, carHpHz);
-        return Math.max(-24f, Math.min(24f, g));
+        return g;
+    }
+
+    /** Слои поверх кривой на частоте f: звук машины и панч. */
+    private float layers(float f) {
+        return carLayer(f, carBassDb, carBassHz, carHpHz) + punchLayer(f, activePunch());
+    }
+
+    /** Итоговое усиление на частоте ползунка i (что слышно). */
+    private float processedGain(int i) {
+        return Math.max(-24f, Math.min(24f, baseGain(i) + layers(freqs(bands)[i])));
+    }
+
+    /** Панч, который сейчас действует: игровой звук, сценарий «Спорт» или ползунок. */
+    private float activePunch() {
+        return Math.max(gameBands != null ? gamePunch : punch, scnPunch);
+    }
+
+    /**
+     * Панч — форма удара: «бочка» около 65 Гц до +10 дБ и гул около 300 Гц до −2 дБ.
+     * Это кривая, а не порог компрессора, поэтому панч слышно одинаково на любой громкости
+     * (раньше на Bluetooth на полную он, наоборот, убирал бас до −11 дБ).
+     */
+    static float punchLayer(float f, float p) {
+        if (p <= 0.01f) return 0f;
+        double k = Math.log(f / 65.0) / Math.log(2) / 0.8;
+        double m = Math.log(f / 300.0) / Math.log(2) / 0.7;
+        return (float) (p * (10 * Math.exp(-0.5 * k * k) - 2 * Math.exp(-0.5 * m * m)));
+    }
+
+    /** Кривая ползунков на любой частоте: по логарифму частоты между соседними ползунками. */
+    private static float interpLog(float[] f, float[] v, float x) {
+        if (x <= f[0]) return v[0];
+        int n = f.length;
+        if (x >= f[n - 1]) return v[n - 1];
+        int j = 0;
+        while (f[j + 1] < x) j++;
+        double t = (Math.log(x) - Math.log(f[j])) / (Math.log(f[j + 1]) - Math.log(f[j]));
+        return (float) (v[j] + (v[j + 1] - v[j]) * t);
+    }
+
+    /** Усиление полос обработки: кривая со слоями, усреднённая по ширине полосы (8 точек). */
+    private float[] dpGains(float[][] l) {
+        float[] out = new float[DP_BANDS];
+        if (bypass != BYPASS_NONE) return out;
+        float[] f = freqs(bands);
+        float[] base = new float[bands];
+        for (int i = 0; i < bands; i++) base[i] = baseGain(i);
+        for (int j = 0; j < DP_BANDS; j++) {
+            double a = Math.log(l[1][j]), b = Math.log(l[2][j]);
+            float sum = 0f;
+            for (int k = 0; k < 8; k++) {
+                float x = (float) Math.exp(a + (b - a) * k / 7.0);
+                sum += interpLog(f, base, x) + layers(x);
+            }
+            out[j] = Math.max(-24f, Math.min(24f, sum / 8f));
+        }
+        return out;
+    }
+
+    private void applyPreEq(int session, DynamicsProcessing dp) {
+        float[][] l = layout(fastSessions.contains(session));
+        float[] g = dpGains(l);
+        DynamicsProcessing.Eq eq = new DynamicsProcessing.Eq(true, true, DP_BANDS);
+        for (int j = 0; j < DP_BANDS; j++) eq.setBand(j, new DynamicsProcessing.EqBand(true, l[0][j], g[j]));
+        dp.setPreEqAllChannelsTo(eq);
     }
 
     /** Добавка звука машины на частоте f, дБ: Bass Boost до bassHz и фильтр баса ниже hpHz (0 — выкл). */
@@ -442,16 +572,11 @@ public final class EqEngine {
         return -Math.min(6f, m);
     }
 
-    private void apply(DynamicsProcessing dp) {
-        float[] cut = cutoffs(freqs(bands));
-        DynamicsProcessing.Eq eq = new DynamicsProcessing.Eq(true, true, bands);
-        for (int i = 0; i < bands; i++) {
-            eq.setBand(i, new DynamicsProcessing.EqBand(true, cut[i], bandGain(i)));
-        }
-        dp.setPreEqAllChannelsTo(eq);
+    private void apply(int session, DynamicsProcessing dp) {
+        applyPreEq(session, dp);
 
         boolean game = gameBands != null;
-        float p = bypass != BYPASS_NONE ? 0f : Math.max(game ? gamePunch : punch, scnPunch);
+        float p = bypass != BYPASS_NONE ? 0f : activePunch();
         boolean lvl = bypass == BYPASS_NONE && (game ? gameLevel : leveling);
         boolean mbcOn = p > 0.01f || lvl;
         DynamicsProcessing.Mbc mbc = new DynamicsProcessing.Mbc(true, mbcOn, 2);
@@ -463,7 +588,8 @@ public final class EqEngine {
         dp.setLimiterAllChannelsTo(new DynamicsProcessing.Limiter(true, true, 0, 1f, 60f, 10f, -1f, 0f));
 
         float base = levelBase() + boost;
-        if (bypass == BYPASS_NONE) base += corrHeadroom() + carHeadroom() + scnGain;
+        // панч: −1,5 дБ запаса на 100%, остальное держит бас-компрессор
+        if (bypass == BYPASS_NONE) base += corrHeadroom() + carHeadroom() + scnGain - 1.5f * p;
         else if (bypass == BYPASS_AB) base += abCompensation();
         // тест динамиков — без баланса и фокуса, иначе он сам себя исказит
         float bal = bypass == BYPASS_TEST ? 0f : Math.max(-1f, Math.min(1f, balance + carBalance));
@@ -479,11 +605,9 @@ public final class EqEngine {
     /** Низкие частоты (до 150 Гц): «панч» или выравнивание. */
     private DynamicsProcessing.MbcBand bassBand(float punch, boolean leveling) {
         if (punch > 0.01f) {
-            float ratio = 1f + 3f * punch;      // до 4:1
-            float threshold = -12f - 18f * punch; // -12 … -30 dB
-            float makeup = 2f + 6f * punch;       // +2 … +8 dB
-            // атака 15 мс пропускает удар, потом бас «уплотняется»
-            return new DynamicsProcessing.MbcBand(true, 150f, 15f, 120f, ratio, threshold, 6f, -90f, 1f, 0f, makeup);
+            // бас до 120 Гц: на громком звуке держит поднятую «бочку» у −6 дБ (до 3:1), чтобы не было хрипа;
+            // на тихом не включается. Без подъёма уровня: раньше он и сделал панч зависящим от громкости
+            return new DynamicsProcessing.MbcBand(true, 120f, 3f, 120f, 1f + 2f * punch, -6f, 6f, -90f, 1f, 0f, 0f);
         }
         if (leveling) return levelBand(150f);
         return neutralBand(150f);
@@ -499,9 +623,9 @@ public final class EqEngine {
     }
 
     private synchronized void applyAll() {
-        for (DynamicsProcessing dp : effects.values()) {
+        for (Map.Entry<Integer, DynamicsProcessing> e : effects.entrySet()) {
             try {
-                apply(dp);
+                apply(e.getKey(), e.getValue());
             } catch (Throwable t) {
                 Log.w(TAG, "apply failed", t);
             }
@@ -515,11 +639,11 @@ public final class EqEngine {
     public void setGain(int band, float db) {
         if (band < 0 || band >= bands) return;
         gains[band] = clamp(db);
-        float cut = cutoffs(freqs(bands))[band];
         synchronized (this) {
-            for (DynamicsProcessing dp : effects.values()) {
+            // ползунок меняет кривую вокруг себя — пересчитываем все полосы обработки
+            for (Map.Entry<Integer, DynamicsProcessing> e : effects.entrySet()) {
                 try {
-                    dp.setPreEqBandAllChannelsTo(band, new DynamicsProcessing.EqBand(true, cut, bandGain(band)));
+                    applyPreEq(e.getKey(), e.getValue());
                 } catch (Throwable t) {
                     Log.w(TAG, "band failed", t);
                 }
