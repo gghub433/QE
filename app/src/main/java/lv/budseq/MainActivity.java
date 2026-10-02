@@ -75,7 +75,7 @@ public class MainActivity extends Activity {
     private static final int DANGER = Color.rgb(0xE5, 0x48, 0x48);
     private static final int GREY = Color.rgb(0x80, 0x83, 0x8A);
 
-    private static final int REQ_PERMS = 1, REQ_AUDIO = 2, REQ_AIRPODS = 3, REQ_SAVE = 10, REQ_OPEN = 11;
+    private static final int REQ_PERMS = 1, REQ_AUDIO = 2, REQ_AIRPODS = 3, REQ_WAVE = 4, REQ_SAVE = 10, REQ_OPEN = 11;
 
     /** Вкладки: Устройство / Эквалайзер / Музыка / Настройки. */
     static final int TAB_DEVICE = 0, TAB_EQ = 1, TAB_GAMES = 2, TAB_MUSIC = 3, TAB_SETTINGS = 4, TAB_COUNT = 5;
@@ -150,6 +150,8 @@ public class MainActivity extends Activity {
     private LinearLayout mtTopBox;
     private int mtTicks;
     private WaveView wave;
+    /** «Живая волна от баса»: просит доступ к звуку, пока его нет. */
+    private Button waveAccessBtn;
     private Button sleepBtn;
 
     // AutoEQ
@@ -3313,6 +3315,18 @@ public class MainActivity extends Activity {
         }
         root.addView(waves);
 
+        // волна-всплески от баса в уведомлении EQ (пока играет музыка)
+        final Switch notifWaveSwitch = styledSwitch();
+        notifWaveSwitch.setChecked(EqService.notifWaveOn(this));
+        root.addView(switchRow(getString(R.string.notif_wave), getString(R.string.notif_wave_hint), notifWaveSwitch));
+        notifWaveSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            public void onCheckedChanged(CompoundButton v, boolean on) {
+                settings.edit().putBoolean("notif_wave", on).apply();
+                EqService.poke(MainActivity.this);
+                if (on && !AudioPulse.allowed(MainActivity.this)) askWaveAccess();
+            }
+        });
+
         final Switch coverSwitch = styledSwitch();
         coverSwitch.setChecked(Theme.coverEnabled());
         root.addView(switchRow(getString(R.string.theme_cover), getString(R.string.theme_cover_hint), coverSwitch));
@@ -3461,6 +3475,7 @@ public class MainActivity extends Activity {
         refreshDevices();
         refreshEq();
         refreshSettings();
+        waveAccessChanged();
         if (tab == TAB_MUSIC) refreshMusicTime();
         if (tab == TAB_GAMES) refreshGames(true);   // вернулись из настроек доступа — список и время заново
         ui.postDelayed(new Runnable() {
@@ -3499,6 +3514,9 @@ public class MainActivity extends Activity {
         if (code == REQ_AUDIO) {
             if (granted("android.permission.RECORD_AUDIO")) startSpectrum();
             else setSpectrumWanted(false);
+            waveAccessChanged();
+        } else if (code == REQ_WAVE) {
+            waveAccessChanged();
         } else if (code == REQ_AIRPODS) {
             refreshDevices();
         } else {
@@ -3944,9 +3962,17 @@ public class MainActivity extends Activity {
         npCard.addView(top);
 
         wave = new WaveView(this);
+        wave.setLive(true);   // пики от настоящего баса (AudioPulse)
         LinearLayout.LayoutParams wlp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(52));
         wlp.topMargin = dp(8);
         npCard.addView(wave, wlp);
+        LinearLayout wa = new LinearLayout(this);
+        waveAccessBtn = chip(getString(R.string.wave_live_btn), R.drawable.ic_waves, CHIP, new View.OnClickListener() {
+            public void onClick(View v) { askWaveAccess(); }
+        });
+        wa.addView(waveAccessBtn);
+        npCard.addView(hscroll(wa));
+        waveAccessBtn.setVisibility(AudioPulse.allowed(this) ? View.GONE : View.VISIBLE);
 
         // прогресс
         npSeek = new SeekBar(this);
@@ -4278,6 +4304,30 @@ public class MainActivity extends Activity {
         dot.setColor(color);
         dot.setSize(dp(8), dp(8));
         status.setCompoundDrawablesRelativeWithIntrinsicBounds(dot, null, null, null);
+    }
+
+    // ---------- живая волна ----------
+
+    /** Волна от баса: Android даёт звук визуализаторам только с доступом к «микрофону». */
+    private void askWaveAccess() {
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.wave_live_btn)
+                .setMessage(R.string.wave_perm)
+                .setPositiveButton(R.string.ok, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface d, int w) {
+                        requestPermissions(new String[]{"android.permission.RECORD_AUDIO"}, REQ_WAVE);
+                    }
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    /** Доступ к звуку выдали (здесь или в настройках Android) — волна, виджет и шторка от баса. */
+    private void waveAccessChanged() {
+        boolean ok = AudioPulse.allowed(this);
+        if (waveAccessBtn != null) waveAccessBtn.setVisibility(ok ? View.GONE : View.VISIBLE);
+        if (ok && wave != null && !wave.isLive()) wave.retryLive();
+        if (ok) EqService.poke(this);
     }
 
     // ---------- спектр ----------

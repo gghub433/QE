@@ -10,14 +10,17 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.media.AudioManager;
 import android.media.audiofx.AudioEffect;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.PowerManager;
 import android.os.SystemClock;
 import android.provider.Settings;
+import android.widget.RemoteViews;
 
 import java.util.HashSet;
 import java.util.Iterator;
@@ -66,6 +69,7 @@ public class EqService extends Service {
         public void onPlaybackConfigChanged(java.util.List<android.media.AudioPlaybackConfiguration> configs) {
             gameNow = AppPresets.gameActive(configs);
             checkAppPreset();
+            updateWaveLoop();
         }
     };
 
@@ -93,6 +97,108 @@ public class EqService extends Service {
             }
         }
     }
+
+    // =====================================================================
+    // Волна-всплески от баса: виджет и шторка, пока играет музыка и включён экран
+    // =====================================================================
+
+    private static final long WAVE_TICK_MS = 150;
+    private final float[] waveRaw = new float[AudioPulse.BARS];
+    private final float[] waveShown = new float[AudioPulse.BARS];
+    private boolean waveRunning, waveWidget, waveNotif;
+    private int waveFrame;
+    /** Картинка волны для уведомления (null — обычное уведомление без волны). */
+    private Bitmap notifWave;
+    private String lastNotifText = "";
+
+    /** Волна в шторке: настройка «Волна в шторке» (по умолчанию включена). */
+    static boolean notifWaveOn(Context c) {
+        return c.getSharedPreferences("settings", MODE_PRIVATE).getBoolean("notif_wave", true);
+    }
+
+    private boolean musicPlaying() {
+        return np.active() ? np.playing() : am.isMusicActive();
+    }
+
+    private boolean screenOn() {
+        PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
+        return pm == null || pm.isInteractive();
+    }
+
+    /** Запустить или остановить волну по обстоятельствам (играет ли, экран, виджет, настройка). */
+    private void updateWaveLoop() {
+        boolean playing = musicPlaying() && screenOn();
+        waveWidget = playing && EqWidget.exists(this);
+        waveNotif = playing && notifWaveOn(this);
+        if (!waveNotif && notifWave != null) {
+            // «Волна в шторке» выключили, а виджет ещё играет — убрать застывшую картинку
+            notifWave = null;
+            nm.notify(NOTIF_MAIN, buildMain(lastNotifText));
+        }
+        boolean want = (waveWidget || waveNotif) && AudioPulse.get().acquire(this, waveKey);
+        if (want && !waveRunning) {
+            waveRunning = true;
+            main.post(waveTick);
+        } else if (!want && waveRunning) {
+            stopWave();
+        } else if (!want) {
+            AudioPulse.get().release(waveKey);
+        }
+    }
+
+    private final Object waveKey = new Object();
+
+    private void stopWave() {
+        waveRunning = false;
+        main.removeCallbacks(waveTick);
+        AudioPulse.get().release(waveKey);
+        java.util.Arrays.fill(waveShown, 0f);
+        if (EqWidget.exists(this)) EqWidget.pushWave(this, null, 0f, SystemClock.uptimeMillis() / 1000f);
+        if (notifWave != null) {
+            notifWave = null;
+            nm.notify(NOTIF_MAIN, buildMain(lastNotifText));
+        }
+    }
+
+    private final Runnable waveTick = new Runnable() {
+        public void run() {
+            if (!waveRunning) return;
+            AudioPulse p = AudioPulse.get();
+            p.levels(waveRaw);
+            // пик взлетает сразу, опадает за пару кадров
+            for (int i = 0; i < waveRaw.length; i++) {
+                waveShown[i] += (waveRaw[i] - waveShown[i]) * (waveRaw[i] > waveShown[i] ? 1f : 0.45f);
+            }
+            float time = SystemClock.uptimeMillis() / 1000f;
+            boolean live = p.live();
+            if (waveWidget) EqWidget.pushWave(EqService.this, live ? waveShown : null, p.loudness(), time);
+            // шторка: Android пропускает не больше ~5 обновлений уведомлений в секунду — каждое второе
+            if (waveNotif && ++waveFrame % 2 == 0) {
+                if (live) {
+                    // картинка поменьше (плотность до 1,5): шторка обновляется часто
+                    float dd = Math.min(1.5f, getResources().getDisplayMetrics().density);
+                    int color = Theme.liveWave();
+                    notifWave = WaveView.bitmap(Math.round(300 * dd), Math.round(40 * dd), waveShown,
+                            p.loudness(), time, color != 0 ? color : Theme.accent(), dd,
+                            android.graphics.Color.rgb(0x1C, 0x1D, 0x21));
+                    nm.notify(NOTIF_MAIN, buildMain(lastNotifText));
+                } else if (notifWave != null) {
+                    // живого баса нет — обычное уведомление, без выдуманной волны
+                    notifWave = null;
+                    nm.notify(NOTIF_MAIN, buildMain(lastNotifText));
+                }
+            }
+            main.postDelayed(this, WAVE_TICK_MS);
+        }
+    };
+
+    /** Экран включили или выключили — волна только при включённом. */
+    private final BroadcastReceiver screenReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context c, Intent i) {
+            updateWaveLoop();
+        }
+    };
 
     /** Music Time: раз в 15 с — играет ли музыка и кто. Виджет — раз в минуту. */
     private final Runnable statsTick = new Runnable() {
@@ -174,6 +280,7 @@ public class EqService extends Service {
             public void onNowPlayingChanged() {
                 updateWidget();
                 checkAppPreset();
+                updateWaveLoop();
             }
         });
 
@@ -203,6 +310,10 @@ public class EqService extends Service {
             registerReceiver(sessionReceiver, f);
         }
 
+        IntentFilter sf = new IntentFilter(Intent.ACTION_SCREEN_ON);
+        sf.addAction(Intent.ACTION_SCREEN_OFF);
+        registerReceiver(screenReceiver, sf);
+
         link.addListener(budsListener);
         air.addListener(airListener);
         monitor.addListener(deviceListener);
@@ -231,6 +342,7 @@ public class EqService extends Service {
             syncProfileAndAuto();   // сменили «телефон / магнитола» — профиль и автовключение
             checkAppPreset();
             updateNotification();
+            updateWaveLoop();   // выдали доступ к звуку, переключили «Волна в шторке», поставили виджет
             return START_STICKY;
         }
         monitor.refresh();
@@ -343,6 +455,10 @@ public class EqService extends Service {
         try { am.unregisterAudioPlaybackCallback(playbackCallback); } catch (Exception ignored) { }
         np.stop();
         try { unregisterReceiver(sessionReceiver); } catch (Exception ignored) { }
+        try { unregisterReceiver(screenReceiver); } catch (Exception ignored) { }
+        waveRunning = false;
+        main.removeCallbacks(waveTick);
+        AudioPulse.get().release(waveKey);
         link.removeListener(budsListener);
         air.removeListener(airListener);
         air.stop();
@@ -671,14 +787,29 @@ public class EqService extends Service {
     private Notification buildMain(String text) {
         PendingIntent open = PendingIntent.getActivity(this, 0,
                 new Intent(this, MainActivity.class), PendingIntent.FLAG_IMMUTABLE);
-        return new Notification.Builder(this, CHANNEL)
+        String title = getString(eq != null && !eq.enabled ? R.string.notif_off : R.string.notif_running);
+        Notification.Builder b = new Notification.Builder(this, CHANNEL)
                 .setSmallIcon(R.drawable.ic_headset)
-                .setContentTitle(getString(eq != null && !eq.enabled ? R.string.notif_off : R.string.notif_running))
+                .setContentTitle(title)
                 .setContentText(text)
                 .setContentIntent(open)
                 .setOngoing(true)
-                .setOnlyAlertOnce(true)
-                .build();
+                .setShowWhen(false)
+                .setOnlyAlertOnce(true);
+        if (notifWave != null) {
+            // играет музыка — в шторке волна-всплески от баса
+            RemoteViews small = new RemoteViews(getPackageName(), R.layout.notif_wave);
+            small.setTextViewText(R.id.n_title, title);
+            small.setImageViewBitmap(R.id.n_wave, notifWave);
+            RemoteViews big = new RemoteViews(getPackageName(), R.layout.notif_wave_big);
+            big.setTextViewText(R.id.n_title, title);
+            big.setTextViewText(R.id.n_text, text);
+            big.setImageViewBitmap(R.id.n_wave, notifWave);
+            b.setStyle(new Notification.DecoratedCustomViewStyle())
+                    .setCustomContentView(small)
+                    .setCustomBigContentView(big);
+        }
+        return b.build();
     }
 
     // =====================================================================
@@ -738,6 +869,7 @@ public class EqService extends Service {
         int sleep = sleepMinutesLeft();
         if (sleep > 0) text = getString(R.string.sleep_left, sleep) + " · " + text;
         if (eq.gameSoundOn()) text = getString(R.string.game_notif, eq.gameLabel) + " · " + text;
+        lastNotifText = text;
         nm.notify(NOTIF_MAIN, buildMain(text));
         updateWidget();
     }

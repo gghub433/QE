@@ -495,4 +495,8 @@
     <string name="car_delay_note">The numbers by the speakers are the delay for the chosen seat (ms, and the same in cm); the farthest speaker gets 0. The phone sends only stereo to the car and can\'t delay a single speaker, so enter these numbers on the head unit (sound field tab, ms or cm for each speaker). Speakers are elsewhere? Place them on the ZONE tab and the numbers update.</string>
     <string name="car_ms">%1$.1f ms</string>
     <string name="car_cm">%1$d cm</string>
+    <string name="wave_live_btn">Live wave from the bass</string>
+    <string name="wave_perm">For the wave to move with the bass, EQ needs access to the phone\'s sound. Android calls it the «microphone», but nothing is recorded: the wave listens only to what is playing, and only to the bass.</string>
+    <string name="notif_wave">Wave in the notification shade</string>
+    <string name="notif_wave_hint">While music plays, the EQ notification shows spikes from the bass. Uses a little more battery.</string>
 </resources>

@@ -5,8 +5,8 @@ set -e
 cd "$(dirname "$0")"
 
 # Версия — та же, что в app/build.gradle (поднимать в обоих местах)
-VERSION_CODE=24
-VERSION_NAME=6.5
+VERSION_CODE=25
+VERSION_NAME=6.6
 
 SDK="$HOME/android-sdk"
 JAR="$SDK/android-36.jar"

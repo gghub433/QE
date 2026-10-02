@@ -495,4 +495,8 @@
     <string name="car_delay_note">Skaitļi pie skaļruņiem ir aizture izvēlētajai vietai (ms un tas pats cm), tālākajam — 0. Tālrunis mašīnai sūta tikai stereo un nevar aizturēt atsevišķu skaļruni — ierakstiet šos skaitļus magnetolā (cilne «Apkārtējā skaņa», ms vai cm katram skaļrunim). Skaļruņi atrodas citur? Izvietojiet tos cilnē ZONE — skaitļi pārrēķināsies.</string>
     <string name="car_ms">%1$.1f ms</string>
     <string name="car_cm">%1$d cm</string>
+    <string name="wave_live_btn">Dzīvs vilnis no basiem</string>
+    <string name="wave_perm">Lai vilnis kustētos līdz ar basiem, EQ vajag piekļuvi tālruņa skaņai. Android to sauc par «mikrofonu», bet nekas netiek ierakstīts: vilnis klausās tikai to, kas skan, un tikai basus.</string>
+    <string name="notif_wave">Vilnis paziņojumu panelī</string>
+    <string name="notif_wave_hint">Kamēr skan mūzika, EQ paziņojumā redzami basu pīķi. Nedaudz vairāk tērē akumulatoru.</string>
 </resources>

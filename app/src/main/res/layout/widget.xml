@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Виджет: Android требует XML-разметку. Всё содержимое рисуется кодом (EqWidget) в w_image,
-     здесь только кнопки плеера поверх картинки. -->
+     здесь только полоса волны и кнопки плеера поверх картинки. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
@@ -11,6 +11,21 @@
         android:layout_height="match_parent"
         android:contentDescription="@string/widget_name"
         android:scaleType="fitXY" />
+
+    <!-- волна-всплески: отдельная полоса, чтобы обновлять только её несколько раз в секунду;
+         место задаёт EqWidget отступами (setViewPadding) -->
+    <FrameLayout
+        android:id="@+id/w_wave_box"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <ImageView
+            android:id="@+id/w_wave"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:importantForAccessibility="no"
+            android:scaleType="fitXY" />
+    </FrameLayout>
 
     <LinearLayout
         android:layout_width="wrap_content"

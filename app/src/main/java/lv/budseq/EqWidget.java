@@ -20,8 +20,9 @@ import android.view.KeyEvent;
 import android.widget.RemoteViews;
 
 /**
- * Виджет на главный экран: трек и обложка, фирменная волна, кнопки плеера,
- * заряд наушников и Music Time за сегодня.
+ * Виджет на главный экран: трек и обложка, волна-всплески от баса, кнопки плеера,
+ * заряд наушников и Music Time за сегодня. Волна — отдельная полоса (w_wave): пока играет музыка,
+ * служба обновляет только её несколько раз в секунду.
  * Всё рисуется кодом в Bitmap; XML-разметка (res/layout/widget.xml) — только потому,
  * что Android не умеет виджеты без неё: там картинка и три кнопки.
  * Данные присылает EqService (у него «Сейчас играет», устройства и статистика).
@@ -49,6 +50,9 @@ public class EqWidget extends AppWidgetProvider {
     }
 
     private static volatile Data last;
+    /** Последние уровни волны (живой бас от службы) — чтобы полная перерисовка их не сбрасывала. */
+    private static volatile float[] lastWave;
+    private static volatile float lastGlow;
 
     @Override
     public void onUpdate(Context c, AppWidgetManager mgr, int[] ids) {
@@ -98,18 +102,21 @@ public class EqWidget extends AppWidgetProvider {
         float d = c.getResources().getDisplayMetrics().density;
         float scale = Math.min(d, 2.5f); // не раздуваем картинку: у виджетов есть лимит памяти
         for (int id : ids(c)) {
-            Bundle o = mgr.getAppWidgetOptions(id);
-            int wDp = o.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 320);
-            int hDp = o.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 150);
-            if (wDp <= 0) wDp = 320;
-            if (hDp <= 0) hDp = 150;
-            wDp = Math.max(180, Math.min(wDp, 600));
-            hDp = Math.max(100, Math.min(hDp, 300));
+            int[] sz = sizeDp(mgr, id);
+            int wDp = sz[0], hDp = sz[1];
             Bitmap bmp = Bitmap.createBitmap(Math.round(wDp * scale), Math.round(hDp * scale), Bitmap.Config.ARGB_8888);
             draw(new Canvas(bmp), bmp.getWidth(), bmp.getHeight(), scale, data, c);
 
             RemoteViews rv = new RemoteViews(c.getPackageName(), R.layout.widget);
             rv.setImageViewBitmap(R.id.w_image, bmp);
+            // полоса волны поверх картинки: место — отступами, картинка — отдельно
+            float[] wr = waveRect(wDp, hDp);
+            float dd = c.getResources().getDisplayMetrics().density;
+            rv.setViewPadding(R.id.w_wave_box, Math.round(wr[0] * dd), Math.round(wr[1] * dd),
+                    Math.round((wDp - wr[0] - wr[2]) * dd), Math.round((hDp - wr[1] - wr[3]) * dd));
+            rv.setImageViewBitmap(R.id.w_wave, waveBitmap(wr, data, lastWave, lastGlow,
+                    (System.currentTimeMillis() % 100000L) / 1000f));
+            rv.setOnClickPendingIntent(R.id.w_wave, openApp(c));
             rv.setImageViewResource(R.id.w_play, data.playing ? R.drawable.ic_pause : R.drawable.ic_play);
             if (Build.VERSION.SDK_INT >= 31) {
                 // кнопка «играть» — цветом акцента из темы (раньше Android 12 остаётся синей из XML)
@@ -118,12 +125,69 @@ public class EqWidget extends AppWidgetProvider {
             rv.setOnClickPendingIntent(R.id.w_prev, action(c, ACT_PREV, 1));
             rv.setOnClickPendingIntent(R.id.w_play, action(c, ACT_PLAY, 2));
             rv.setOnClickPendingIntent(R.id.w_next, action(c, ACT_NEXT, 3));
-            Intent open = new Intent(c, MainActivity.class);
-            open.putExtra(MainActivity.EXTRA_TAB, MainActivity.TAB_MUSIC);
-            open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            rv.setOnClickPendingIntent(R.id.w_image, PendingIntent.getActivity(c, 20, open,
-                    PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT));
+            rv.setOnClickPendingIntent(R.id.w_image, openApp(c));
             mgr.updateAppWidget(id, rv);
+        }
+    }
+
+    private static PendingIntent openApp(Context c) {
+        Intent open = new Intent(c, MainActivity.class);
+        open.putExtra(MainActivity.EXTRA_TAB, MainActivity.TAB_MUSIC);
+        open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        return PendingIntent.getActivity(c, 20, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+    }
+
+    /** Размер виджета в dp, как его рисуем (портретная ориентация: ширина min, высота max). */
+    private static int[] sizeDp(AppWidgetManager mgr, int id) {
+        Bundle o = mgr.getAppWidgetOptions(id);
+        int wDp = o.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 320);
+        int hDp = o.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 150);
+        if (wDp <= 0) wDp = 320;
+        if (hDp <= 0) hDp = 150;
+        return new int[]{Math.max(180, Math.min(wDp, 600)), Math.max(100, Math.min(hDp, 300))};
+    }
+
+    /** Где волна, dp: {слева, сверху, ширина, высота} — между обложкой и нижними строками (как в draw). */
+    static float[] waveRect(float wDp, float hDp) {
+        float pad = 14, bottomArea = 42;
+        float art = Math.max(28, Math.min(52, hDp - pad * 2 - bottomArea - 26));
+        float top = pad + art + 2;
+        float h = Math.max(14, hDp - pad - bottomArea - top);
+        return new float[]{pad, top, wDp - pad * 2, h};
+    }
+
+    /** Картинка волны: живой бас (half) или, пока его нет, спокойная линия без выдуманных пиков. */
+    private static Bitmap waveBitmap(float[] wr, Data data, float[] half, float glow, float time) {
+        int color = data.waveColor != 0 ? data.waveColor : data.accent;
+        float s = 2f;   // своя плотность: полоса маленькая, обновляется часто
+        if (half == null) {
+            half = new float[AudioPulse.BARS];
+            WaveView.synth(half, data.playing ? 0.12f : 0.06f, time);
+            glow = 0.3f;
+        }
+        return WaveView.bitmap(Math.round(wr[2] * s), Math.round(wr[3] * s), half, glow, time, color, s, 0);
+    }
+
+    /**
+     * Только полоса волны (несколько раз в секунду, пока играет музыка): маленькая картинка
+     * через partiallyUpdateAppWidget — остальной виджет не перерисовывается.
+     * half == null — живого баса нет, вернуть спокойную волну.
+     */
+    public static void pushWave(Context ctx, float[] half, float glow, float time) {
+        Context c = ctx.getApplicationContext();
+        Data data = last != null ? last : new Data();
+        lastWave = half != null ? half.clone() : null;
+        lastGlow = glow;
+        AppWidgetManager mgr = AppWidgetManager.getInstance(c);
+        for (int id : ids(c)) {
+            try {
+                int[] sz = sizeDp(mgr, id);
+                RemoteViews rv = new RemoteViews(c.getPackageName(), R.layout.widget);
+                rv.setImageViewBitmap(R.id.w_wave, waveBitmap(waveRect(sz[0], sz[1]), data, half, glow, time));
+                mgr.partiallyUpdateAppWidget(id, rv);
+            } catch (Exception ignored) {
+                // виджет удалили между проверкой и обновлением
+            }
         }
     }
 
@@ -198,12 +262,7 @@ public class EqWidget extends AppWidgetProvider {
             c.drawText(fit(eqs, t, tw - 12 * d), tx + 12 * d, y, t);
         }
 
-        // фирменная волна между обложкой и нижними строками
-        float waveTop = pad + art + 2 * d;
-        float waveH = Math.max(14 * d, h - pad - bottomArea - waveTop);
-        float time = (System.currentTimeMillis() % 100000L) / 1000f;
-        WaveView.paint(c, pad, waveTop, w - pad * 2, waveH, data.playing ? 0.9f : 0.15f, time,
-                wave, d, new Path(), new Paint(Paint.ANTI_ALIAS_FLAG));
+        // волна между обложкой и нижними строками — отдельной полосой поверх (w_wave, см. waveRect)
 
         // низ слева (справа — кнопки из разметки): Music Time сегодня и заряд
         float leftW = w - pad * 2 - 150 * d;
