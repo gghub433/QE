@@ -499,4 +499,8 @@
     <string name="wave_perm">For the wave to move with the bass, EQ needs access to the phone\'s sound. Android calls it the «microphone», but nothing is recorded: the wave listens only to what is playing, and only to the bass.</string>
     <string name="notif_wave">Wave in the notification shade</string>
     <string name="notif_wave_hint">While music plays, the EQ notification shows spikes from the bass. Uses a little more battery.</string>
+    <string name="wave_st_ok">Wave hears the sound · reconnects: %1$d</string>
+    <string name="wave_st_silent">Music is playing, but Android gives the wave silence: reconnecting (%1$d so far)</string>
+    <string name="wave_st_access">The wave has no access to the sound: tap «Live wave from the bass»</string>
+    <string name="wave_st_none">Android has not given the sound to the wave yet: trying again</string>
 </resources>

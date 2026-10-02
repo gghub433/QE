@@ -71,10 +71,11 @@ public class WaveView extends View {
         updatePulse();
     }
 
-    /** Доступ к звуку только что выдали — подключиться заново. */
+    /** Доступ к звуку только что выдали или вернулись в EQ — подключиться и проверить звук сейчас. */
     public void retryLive() {
-        acquired = false;
+        // пользователь уже записан в AudioPulse — сторож сам создаст визуализатор, когда появится доступ
         updatePulse();
+        AudioPulse.get().wake();
     }
 
     /** Есть ли настоящий звук (иначе волна рисует анимацию). */
@@ -82,8 +83,18 @@ public class WaveView extends View {
         return live && AudioPulse.get().live();
     }
 
+    /** Окно видно (EQ на экране). Свёрнутое приложение звук не слушает — бережём батарею. */
+    private boolean windowVisible = true;
+
+    @Override
+    protected void onWindowVisibilityChanged(int visibility) {
+        super.onWindowVisibilityChanged(visibility);
+        windowVisible = visibility == VISIBLE;
+        updatePulse();
+    }
+
     private void updatePulse() {
-        boolean want = live && isAttachedToWindow();
+        boolean want = live && windowVisible && isAttachedToWindow();
         if (want && !acquired) {
             AudioPulse.get().acquire(getContext(), this);
             acquired = true;
@@ -110,7 +121,11 @@ public class WaveView extends View {
     protected void onDetachedFromWindow() {
         running = false;
         super.onDetachedFromWindow();
-        updatePulse();
+        // здесь isAttachedToWindow() ещё true — отпускаем звук явно (иначе старый экран держал бы его вечно)
+        if (acquired) {
+            AudioPulse.get().release(this);
+            acquired = false;
+        }
     }
 
     private void startLoop() {

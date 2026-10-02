@@ -3963,6 +3963,13 @@ public class MainActivity extends Activity {
 
         wave = new WaveView(this);
         wave.setLive(true);   // пики от настоящего баса (AudioPulse)
+        // долгое нажатие — что с волной сейчас (слышит ли звук, сколько раз переподключалась)
+        wave.setOnLongClickListener(new View.OnLongClickListener() {
+            public boolean onLongClick(View v) {
+                Toast.makeText(MainActivity.this, waveStatusText(), Toast.LENGTH_LONG).show();
+                return true;
+            }
+        });
         LinearLayout.LayoutParams wlp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(52));
         wlp.topMargin = dp(8);
         npCard.addView(wave, wlp);
@@ -4322,12 +4329,22 @@ public class MainActivity extends Activity {
                 .show();
     }
 
-    /** Доступ к звуку выдали (здесь или в настройках Android) — волна, виджет и шторка от баса. */
+    /** Доступ к звуку выдали (здесь или в настройках Android) или вернулись в EQ — волна, виджет и шторка. */
     private void waveAccessChanged() {
         boolean ok = AudioPulse.allowed(this);
         if (waveAccessBtn != null) waveAccessBtn.setVisibility(ok ? View.GONE : View.VISIBLE);
-        if (ok && wave != null && !wave.isLive()) wave.retryLive();
+        if (ok && wave != null) wave.retryLive();   // заодно сторож сразу проверит, идёт ли звук
         if (ok) EqService.poke(this);
+    }
+
+    private String waveStatusText() {
+        AudioPulse p = AudioPulse.get();
+        switch (p.status(this)) {
+            case AudioPulse.ST_NO_ACCESS: return getString(R.string.wave_st_access);
+            case AudioPulse.ST_UNAVAILABLE: return getString(R.string.wave_st_none);
+            case AudioPulse.ST_SILENT: return getString(R.string.wave_st_silent, p.reconnects());
+            default: return getString(R.string.wave_st_ok, p.reconnects());
+        }
     }
 
     // ---------- спектр ----------
@@ -4369,7 +4386,7 @@ public class MainActivity extends Activity {
 
     private void startSpectrum() {
         spectrum.setBands(eq.freqs());
-        boolean ok = spectrum.start(new Spectrum.Listener() {
+        boolean ok = spectrum.start(this, new Spectrum.Listener() {
             public void onLevels(final float[] levels) {
                 ui.post(new Runnable() {
                     public void run() { graph.setSpectrum(levels); }

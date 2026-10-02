@@ -1,21 +1,22 @@
 package lv.budseq;
 
-import android.media.audiofx.Visualizer;
-import android.util.Log;
+import android.content.Context;
 
 /**
- * Визуализатор: берёт спектр того, что играет на телефоне (Visualizer, сессия 0),
- * и раскладывает его по полосам эквалайзера. Нужен доступ к микрофону —
- * так Android называет доступ к звуку для визуализаторов; сам микрофон не используется.
+ * Спектр на вкладке «Эквалайзер»: то, что играет на телефоне, разложенное по полосам эквалайзера.
+ * Звук берёт у AudioPulse — того же визуализатора, что и волна от баса. Раньше у спектра был свой
+ * визуализатор: в Android он общий на всех, поэтому спектр забирал звук у волны, а закрываясь — выключал
+ * его совсем, и волна до перезапуска получала тишину.
+ * Нужен доступ к микрофону — так Android называет доступ к звуку для визуализаторов; сам микрофон не используется.
  */
-public final class Spectrum {
+public final class Spectrum implements AudioPulse.SpectrumListener {
 
     public interface Listener {
         void onLevels(float[] levels);
     }
 
-    private Visualizer vis;
     private float[] edges = new float[0];
+    private volatile Listener listener;
 
     /** Границы полос: [low0, high0=low1, ..., highN]. */
     public void setBands(float[] freqs) {
@@ -26,57 +27,42 @@ public final class Spectrum {
         edges = e;
     }
 
-    public boolean start(final Listener l) {
+    /** Уровни приходят на главном потоке, ~20 раз в секунду. false — визуализатор недоступен. */
+    public boolean start(Context c, Listener l) {
         stop();
-        try {
-            vis = new Visualizer(0);
-            vis.setEnabled(false);
-            int[] range = Visualizer.getCaptureSizeRange();
-            vis.setCaptureSize(Math.min(2048, range[1]));
-            vis.setScalingMode(Visualizer.SCALING_MODE_NORMALIZED);
-            vis.setDataCaptureListener(new Visualizer.OnDataCaptureListener() {
-                public void onWaveFormDataCapture(Visualizer v, byte[] wave, int rate) { }
-
-                public void onFftDataCapture(Visualizer v, byte[] fft, int rateMilliHz) {
-                    l.onLevels(toLevels(fft, rateMilliHz / 1000f));
-                }
-            }, Math.min(Visualizer.getMaxCaptureRate(), 30000), false, true);
-            vis.setEnabled(true);
-            return true;
-        } catch (Throwable t) {
-            Log.w("EQ", "visualizer unavailable", t);
-            stop();
-            return false;
-        }
+        listener = l;
+        AudioPulse p = AudioPulse.get();
+        p.addSpectrum(this);
+        if (p.acquire(c, this)) return true;
+        stop();
+        return false;
     }
 
     public void stop() {
-        if (vis != null) {
-            try {
-                vis.setEnabled(false);
-            } catch (Throwable ignored) {
-            }
-            vis.release();
-            vis = null;
-        }
+        AudioPulse p = AudioPulse.get();
+        p.removeSpectrum(this);
+        p.release(this);
+        listener = null;
     }
 
-    private float[] toLevels(byte[] fft, float sampleRate) {
-        int bands = edges.length - 1;
+    public void onSpectrum(float[] re, float[] im, int n, float binHz) {
+        Listener l = listener;
+        if (l != null) l.onLevels(toLevels(re, im, n, binHz));
+    }
+
+    /** Мощность полос FFT кадра (float, окно Ханна, 1024 точки) → 0…1 по каждой полосе эквалайзера. */
+    float[] toLevels(float[] re, float[] im, int n, float binHz) {
+        float[] e = edges;
+        int bands = e.length - 1;
         float[] out = new float[Math.max(0, bands)];
-        int n = fft.length;           // n байт = n/2 комплексных бинов
-        if (n < 4 || bands <= 0) return out;
-        float binHz = sampleRate / n;
+        if (bands <= 0 || binHz <= 0) return out;
         for (int b = 0; b < bands; b++) {
-            int k0 = Math.max(1, (int) Math.floor(edges[b] / binHz));
-            int k1 = Math.min(n / 2 - 1, Math.max(k0, (int) Math.ceil(edges[b + 1] / binHz)));
+            int k0 = Math.max(1, (int) Math.floor(e[b] / binHz));
+            int k1 = Math.min(n / 2 - 1, Math.max(k0, (int) Math.ceil(e[b + 1] / binHz)));
             // энергия полосы = сумма мощностей бинов (для музыки это даёт ровную картину по октавам)
             double power = 0;
-            for (int k = k0; k <= k1; k++) {
-                float re = fft[2 * k], im = fft[2 * k + 1];
-                power += re * re + im * im;
-            }
-            double db = 10 * Math.log10(power + 1);   // ~0 … 70 dB
+            for (int k = k0; k <= k1; k++) power += re[k] * re[k] + im[k] * im[k];
+            double db = 10 * Math.log10(power + 1e-9);   // громкая музыка ~20 … 50 дБ
             out[b] = (float) Math.max(0, Math.min(1, (db - 10) / 40));
         }
         return out;

@@ -135,7 +135,10 @@ public class EqService extends Service {
             notifWave = null;
             nm.notify(NOTIF_MAIN, buildMain(lastNotifText));
         }
-        boolean want = (waveWidget || waveNotif) && AudioPulse.get().acquire(this, waveKey);
+        // доступ есть — крутим волну, даже если визуализатор с первого раза не дался:
+        // сторож AudioPulse подключит его сам, и волна оживёт без перезапуска
+        boolean want = (waveWidget || waveNotif) && AudioPulse.allowed(this);
+        if (want) AudioPulse.get().acquire(this, waveKey);
         if (want && !waveRunning) {
             waveRunning = true;
             main.post(waveTick);

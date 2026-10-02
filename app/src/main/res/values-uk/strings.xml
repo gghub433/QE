@@ -499,4 +499,8 @@
     <string name="wave_perm">Щоб хвиля йшла від басу, EQ потрібен доступ до звуку телефона. Android називає його «мікрофоном», але нічого не записується: хвиля слухає лише те, що грає, і лише бас.</string>
     <string name="notif_wave">Хвиля в шторці</string>
     <string name="notif_wave_hint">Поки грає музика, у сповіщенні EQ — піки від басу. Трохи більша витрата батареї.</string>
+    <string name="wave_st_ok">Хвиля чує звук · перепідключень: %1$d</string>
+    <string name="wave_st_silent">Музика грає, а Android віддає хвилі тишу — перепідключаю (вже %1$d)</string>
+    <string name="wave_st_access">У хвилі немає доступу до звуку — натисніть «Жива хвиля від басу»</string>
+    <string name="wave_st_none">Android поки не дав хвилі звук — пробую знову</string>
 </resources>

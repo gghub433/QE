@@ -499,4 +499,8 @@
     <string name="wave_perm">Lai vilnis kustētos līdz ar basiem, EQ vajag piekļuvi tālruņa skaņai. Android to sauc par «mikrofonu», bet nekas netiek ierakstīts: vilnis klausās tikai to, kas skan, un tikai basus.</string>
     <string name="notif_wave">Vilnis paziņojumu panelī</string>
     <string name="notif_wave_hint">Kamēr skan mūzika, EQ paziņojumā redzami basu pīķi. Nedaudz vairāk tērē akumulatoru.</string>
+    <string name="wave_st_ok">Vilnis dzird skaņu · atkārtotu savienojumu: %1$d</string>
+    <string name="wave_st_silent">Mūzika skan, bet Android vilnim dod klusumu — savienoju no jauna (jau %1$d)</string>
+    <string name="wave_st_access">Vilnim nav piekļuves skaņai — nospiediet «Dzīvs vilnis no basiem»</string>
+    <string name="wave_st_none">Android vēl nav devis vilnim skaņu — mēģinu vēlreiz</string>
 </resources>
