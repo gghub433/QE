@@ -187,6 +187,8 @@ public class MainActivity extends Activity {
     private SeekBar preBar, punchBar, boostBar, balanceBar;
     private TextView preVal, punchVal, boostVal, balanceVal;
     private Button punchListenBtn;
+    /** Где сейчас бьёт панч: динамик телефона (180 Гц) или наушники, колонка, машина (65 Гц). */
+    private TextView punchModeText;
     private Switch mainSwitch, levelSwitch, autoSwitch, perDeviceSwitch;
     private LinearLayout userBox;
 
@@ -758,6 +760,9 @@ public class MainActivity extends Activity {
         punchVal = text("", 14, Color.WHITE);
         root.addView(sliderRow(getString(R.string.punch), punchBar, punchVal));
         root.addView(hintText(getString(R.string.punch_hint)));
+        punchModeText = hintText("");
+        punchModeText.setTextColor(Color.rgb(0xC8, 0xCA, 0xD0));
+        root.addView(punchModeText);
         punchBar.setOnSeekBarChangeListener(new Seek() {
             public void onProgressChanged(SeekBar s, int p, boolean fromUser) {
                 punchVal.setText(p + "%");
@@ -4265,6 +4270,7 @@ public class MainActivity extends Activity {
         preVal.setText(String.format(Locale.US, "%.1f dB", eq.preamp));
         punchBar.setProgress(Math.round(eq.punch * 100));
         punchVal.setText(Math.round(eq.punch * 100) + "%");
+        punchModeText.setText(eq.smallSpeaker() ? R.string.punch_mode_speaker : R.string.punch_mode_full);
         boostBar.setProgress(Math.round(eq.boost * 2));
         boostVal.setText(String.format(Locale.US, "+%.1f dB", eq.boost));
         balanceBar.setProgress(Math.round(eq.balance * 100) + 100);

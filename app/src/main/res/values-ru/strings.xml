@@ -503,4 +503,6 @@
     <string name="wave_st_silent">Музыка играет, а Android отдаёт волне тишину — переподключаю (уже %1$d)</string>
     <string name="wave_st_access">У волны нет доступа к звуку — нажмите «Живая волна от баса»</string>
     <string name="wave_st_none">Android пока не дал волне звук — пробую снова</string>
+    <string name="punch_mode_speaker">Сейчас: динамик телефона. Глубокий бас он не играет, поэтому панч бьёт на 180 Гц и щелчком — это и слышно.</string>
+    <string name="punch_mode_full">Сейчас: наушники, колонка или машина — панч бьёт «бочкой» на 65 Гц.</string>
 </resources>

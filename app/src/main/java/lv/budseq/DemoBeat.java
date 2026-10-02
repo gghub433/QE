@@ -124,8 +124,9 @@ final class DemoBeat {
         for (int i = 0; i < kickN; i++) {
             double t = i / (double) RATE;
             double ph = 2 * Math.PI * (48 * t + (140 - 48) * 0.035 * (1 - Math.exp(-t / 0.035)));
-            kick[i] = (float) ((Math.sin(ph) * Math.exp(-t / 0.16) + 0.25 * rnd.nextGaussian() * Math.exp(-t / 0.004))
-                    * fade(i, kickN));
+            // обертон бочки — её слышно и в динамике телефона, который не играет 50 Гц
+            kick[i] = (float) (((Math.sin(ph) + 0.35 * Math.sin(2 * ph)) * Math.exp(-t / 0.16)
+                    + 0.25 * rnd.nextGaussian() * Math.exp(-t / 0.004)) * fade(i, kickN));
         }
         // малый: шум + 190 Гц
         int snareN = (int) (0.25 * RATE);
@@ -157,7 +158,10 @@ final class DemoBeat {
                 for (int i = 0; i < half && j + i < frames; i++) {
                     double t = i / (double) RATE;
                     double env = Math.min(1, t / 0.01) * Math.exp(-t / 0.35) * fade(i, half);
-                    float v = (float) ((Math.sin(2 * Math.PI * f * t) + 0.3 * Math.sin(4 * Math.PI * f * t)) * env * 0.55);
+                    // бас с обертонами (как в настоящей музыке): в динамике телефона слышны именно они
+                    double w = 2 * Math.PI * f * t;
+                    float v = (float) ((Math.sin(w) + 0.45 * Math.sin(2 * w) + 0.3 * Math.sin(3 * w)
+                            + 0.15 * Math.sin(4 * w)) * env * 0.5);
                     l[j + i] += v;
                     r[j + i] += v;
                 }

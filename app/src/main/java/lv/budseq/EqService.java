@@ -678,6 +678,8 @@ public class EqService extends Service {
     /** Автовключение, профиль и фокус машины под текущее звуковое устройство. */
     private void syncProfileAndAuto() {
         DeviceInfo p = monitor.primaryAudio();
+        // звук из динамика самого телефона — у панча своя форма (глубокий бас динамик не играет)
+        eq.setSmallSpeaker(p == null && !PhoneInfo.headUnit(this));
         // на магнитоле звук идёт в её динамики без Bluetooth — автовыключение не нужно
         if (eq.autoMode) eq.setEnabled(p != null || PhoneInfo.headUnit(this));
         if (eq.perDevice) {

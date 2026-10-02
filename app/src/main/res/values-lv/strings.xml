@@ -503,4 +503,6 @@
     <string name="wave_st_silent">Mūzika skan, bet Android vilnim dod klusumu — savienoju no jauna (jau %1$d)</string>
     <string name="wave_st_access">Vilnim nav piekļuves skaņai — nospiediet «Dzīvs vilnis no basiem»</string>
     <string name="wave_st_none">Android vēl nav devis vilnim skaņu — mēģinu vēlreiz</string>
+    <string name="punch_mode_speaker">Tagad: tālruņa skaļrunis. Dziļos basus tas nespēlē, tāpēc sitiens ir pie 180 Hz un ar klikšķi — to arī dzird.</string>
+    <string name="punch_mode_full">Tagad: austiņas, skaļrunis vai mašīna — sitiens ir bungās pie 65 Hz.</string>
 </resources>

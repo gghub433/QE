@@ -390,7 +390,24 @@ public final class EqEngine {
 
     /** Слои поверх кривой на частоте f: звук машины и панч. */
     private float layers(float f) {
-        return carLayer(f, carBassDb, carBassHz, carHpHz) + punchLayer(f, activePunch());
+        return carLayer(f, carBassDb, carBassHz, carHpHz) + punchLayer(f, activePunch(), smallSpeaker);
+    }
+
+    /**
+     * Звук идёт из динамика самого телефона. Он не играет бас ниже ~200–300 Гц, поэтому подъём 65 Гц
+     * в нём не слышен, а срез гула — слышен: панч делал звук тише. Для динамика у панча своя форма.
+     */
+    private boolean smallSpeaker;
+
+    public void setSmallSpeaker(boolean on) {
+        if (on == smallSpeaker) return;
+        smallSpeaker = on;
+        applyAll();
+        notifyChanged();
+    }
+
+    public boolean smallSpeaker() {
+        return smallSpeaker;
     }
 
     /** Итоговое усиление на частоте ползунка i (что слышно). */
@@ -404,12 +421,19 @@ public final class EqEngine {
     }
 
     /**
-     * Панч — форма удара: «бочка» около 65 Гц до +10 дБ и гул около 300 Гц до −2 дБ.
-     * Это кривая, а не порог компрессора, поэтому панч слышно одинаково на любой громкости
-     * (раньше на Bluetooth на полную он, наоборот, убирал бас до −11 дБ).
+     * Панч — форма удара. Это кривая, а не порог компрессора, поэтому панч слышно одинаково на любой
+     * громкости (раньше на Bluetooth на полную он, наоборот, убирал бас до −11 дБ).
+     * Наушники, колонки, машина: «бочка» около 65 Гц до +10 дБ и гул около 300 Гц до −2 дБ.
+     * Динамик телефона (small): удар около 180 Гц до +10 дБ и щелчок 3 кГц до +3 дБ — то, что динамик
+     * играет; ниже 100 Гц −10 дБ — он этого всё равно не играет, а запас громкости освобождается.
      */
-    static float punchLayer(float f, float p) {
+    static float punchLayer(float f, float p, boolean small) {
         if (p <= 0.01f) return 0f;
+        if (small) {
+            double k = Math.log(f / 180.0) / Math.log(2) / 0.7;
+            double c = Math.log(f / 3000.0) / Math.log(2) / 0.8;
+            return (float) (p * (10 * Math.exp(-0.5 * k * k) + 3 * Math.exp(-0.5 * c * c) - 10 * lowShelf(f, 60)));
+        }
         double k = Math.log(f / 65.0) / Math.log(2) / 0.8;
         double m = Math.log(f / 300.0) / Math.log(2) / 0.7;
         return (float) (p * (10 * Math.exp(-0.5 * k * k) - 2 * Math.exp(-0.5 * m * m)));
@@ -588,8 +612,8 @@ public final class EqEngine {
         dp.setLimiterAllChannelsTo(new DynamicsProcessing.Limiter(true, true, 0, 1f, 60f, 10f, -1f, 0f));
 
         float base = levelBase() + boost;
-        // панч: −1,5 дБ запаса на 100%, остальное держит бас-компрессор
-        if (bypass == BYPASS_NONE) base += corrHeadroom() + carHeadroom() + scnGain - 1.5f * p;
+        // панч: −1,5 дБ запаса на 100% (в динамике телефона −1: глубокий бас там срезан), остальное держит бас-компрессор
+        if (bypass == BYPASS_NONE) base += corrHeadroom() + carHeadroom() + scnGain - (smallSpeaker ? 1f : 1.5f) * p;
         else if (bypass == BYPASS_AB) base += abCompensation();
         // тест динамиков — без баланса и фокуса, иначе он сам себя исказит
         float bal = bypass == BYPASS_TEST ? 0f : Math.max(-1f, Math.min(1f, balance + carBalance));
@@ -607,7 +631,10 @@ public final class EqEngine {
         if (punch > 0.01f) {
             // бас до 120 Гц: на громком звуке держит поднятую «бочку» у −6 дБ (до 3:1), чтобы не было хрипа;
             // на тихом не включается. Без подъёма уровня: раньше он и сделал панч зависящим от громкости
-            return new DynamicsProcessing.MbcBand(true, 120f, 3f, 120f, 1f + 2f * punch, -6f, 6f, -90f, 1f, 0f, 0f);
+            // в динамике телефона удар выше (180 Гц) — компрессор держит до 250 Гц, порог −10 дБ
+            return smallSpeaker
+                    ? new DynamicsProcessing.MbcBand(true, 250f, 3f, 120f, 1f + 2f * punch, -10f, 6f, -90f, 1f, 0f, 0f)
+                    : new DynamicsProcessing.MbcBand(true, 120f, 3f, 120f, 1f + 2f * punch, -6f, 6f, -90f, 1f, 0f, 0f);
         }
         if (leveling) return levelBand(150f);
         return neutralBand(150f);

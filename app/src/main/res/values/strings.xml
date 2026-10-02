@@ -503,4 +503,6 @@
     <string name="wave_st_silent">Music is playing, but Android gives the wave silence: reconnecting (%1$d so far)</string>
     <string name="wave_st_access">The wave has no access to the sound: tap «Live wave from the bass»</string>
     <string name="wave_st_none">Android has not given the sound to the wave yet: trying again</string>
+    <string name="punch_mode_speaker">Now: phone speaker. It can\'t play deep bass, so Punch hits at 180 Hz with a click: that\'s what you hear.</string>
+    <string name="punch_mode_full">Now: headphones, speaker or car. Punch hits the kick at 65 Hz.</string>
 </resources>
