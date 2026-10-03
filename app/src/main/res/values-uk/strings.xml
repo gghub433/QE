@@ -579,4 +579,13 @@
     <string name="cabin_hint">«Салон» — як звучить машина (від середньої гучності 300–3000 Гц), стрілка — поправка до цільової кривої машини (трохи більше басу, м\'який верх). Провали піднімаються до +6 дБ, горби зрізаються до −10 дБ, нижче 80 Гц не більше +3 дБ (там мікрофон телефона бреше), загальна гучність не змінюється.</string>
     <string name="cabin_apply">Зберегти й застосувати</string>
     <string name="cabin_preset">Салон: %1$s</string>
+    <string name="step_minus">Менше</string>
+    <string name="step_plus">Більше</string>
+    <string name="eq_fine">Точно</string>
+    <string name="eq_fine_title">Точне налаштування смуг</string>
+    <string name="eq_fine_hint">Крок 0,1 дБ, утримуйте − або +, щоб змінювати швидше. Натисніть на значення — стане 0.</string>
+    <string name="eq_fine_hz">%1$s Гц</string>
+    <string name="eq_fine_khz">%1$s кГц</string>
+    <string name="car_filter_cut">Зріз нижче</string>
+    <string name="punch_detail">Точно: %1$s дБ на %2$d Гц, %3$s дБ на %4$d Гц, компресор басу 1:%5$s.</string>
 </resources>

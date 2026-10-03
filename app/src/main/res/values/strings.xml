@@ -579,4 +579,13 @@
     <string name="cabin_hint">«Cabin» is how the car sounds (from the average of 300–3000 Hz), the arrow is the correction to the car target curve (a bit more bass, smooth treble). Dips are lifted up to +6 dB, peaks cut down to −10 dB, below 80 Hz at most +3 dB (the phone microphone is unreliable there), the overall loudness stays the same.</string>
     <string name="cabin_apply">Save and apply</string>
     <string name="cabin_preset">Cabin: %1$s</string>
+    <string name="step_minus">Less</string>
+    <string name="step_plus">More</string>
+    <string name="eq_fine">Exact</string>
+    <string name="eq_fine_title">Exact band settings</string>
+    <string name="eq_fine_hint">Step 0.1 dB, hold − or + to change faster. Tap a value to set it to 0.</string>
+    <string name="eq_fine_hz">%1$s Hz</string>
+    <string name="eq_fine_khz">%1$s kHz</string>
+    <string name="car_filter_cut">Cut below</string>
+    <string name="punch_detail">Exactly: %1$s dB at %2$d Hz, %3$s dB at %4$d Hz, bass compressor 1:%5$s.</string>
 </resources>

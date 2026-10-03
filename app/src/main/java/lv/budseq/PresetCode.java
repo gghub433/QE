@@ -5,14 +5,16 @@ import java.util.Locale;
 
 /**
  * Пресет коротким кодом: EQ-XXXX-XXXX-… (base32) и ссылкой — для QR и «Ввести код».
- * Байты: [версия=1][число полос][полосы по 0,5 дБ со знаком][панч 0..100][усиление 0..24 (×0,5 дБ)]
+ * Байты: [версия][число полос][полосы со знаком][панч 0..100][усиление 0..24 (×0,5 дБ)]
  * [баланс -100..100][запас 0..24 (×-0,5 дБ)][флаги: 1 = выравнивание][CRC-8] — опечатку код заметит.
+ * Версия 1 — полосы по 0,5 дБ; версия 2 — по 0,1 дБ (только если кривая настроена точнее 0,5 дБ,
+ * иначе код как раньше — его поймут и старые версии EQ).
  */
 public final class PresetCode {
     public static final String LINK = "https://gghub433.github.io/QE/p/";
     public static final String SCHEME = "eq://preset/";
     private static final String ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-    private static final int VERSION = 1;
+    private static final int VERSION = 1, VERSION_FINE = 2;
 
     public static final class Preset {
         public int bands;
@@ -29,9 +31,12 @@ public final class PresetCode {
 
     static byte[] toBytes(Preset p) {
         ByteArrayOutputStream o = new ByteArrayOutputStream();
-        o.write(VERSION);
+        boolean fine = fine(p.gains, p.bands);
+        o.write(fine ? VERSION_FINE : VERSION);
         o.write(p.bands);
-        for (int i = 0; i < p.bands; i++) o.write((byte) clamp(Math.round(p.gains[i] * 2), -48, 48));
+        for (int i = 0; i < p.bands; i++) {
+            o.write((byte) (fine ? clamp(Math.round(p.gains[i] * 10), -120, 120) : clamp(Math.round(p.gains[i] * 2), -48, 48)));
+        }
         o.write(clamp(Math.round(p.punch * 100), 0, 100));
         o.write(clamp(Math.round(p.boost * 2), 0, 24));
         o.write((byte) clamp(Math.round(p.balance * 100), -100, 100));
@@ -45,7 +50,8 @@ public final class PresetCode {
     }
 
     static Preset fromBytes(byte[] b) {
-        if (b == null || b.length < 4 || b[0] != VERSION) return null;
+        if (b == null || b.length < 4 || (b[0] != VERSION && b[0] != VERSION_FINE)) return null;
+        float unit = b[0] == VERSION_FINE ? 10f : 2f;
         int bands = b[1] & 0xFF;
         if (bands != 9 && bands != 15 && bands != 31) return null;
         int len = 2 + bands + 5 + 1;
@@ -53,7 +59,7 @@ public final class PresetCode {
         Preset p = new Preset();
         p.bands = bands;
         p.gains = new float[bands];
-        for (int i = 0; i < bands; i++) p.gains[i] = b[2 + i] / 2f;   // байт со знаком
+        for (int i = 0; i < bands; i++) p.gains[i] = b[2 + i] / unit;   // байт со знаком
         int k = 2 + bands;
         p.punch = clamp(b[k] & 0xFF, 0, 100) / 100f;
         p.boost = clamp(b[k + 1] & 0xFF, 0, 24) / 2f;
@@ -61,6 +67,14 @@ public final class PresetCode {
         p.preamp = -clamp(b[k + 3] & 0xFF, 0, 24) / 2f;
         p.leveling = (b[k + 4] & 1) != 0;
         return p;
+    }
+
+    /** Кривая настроена точнее 0,5 дБ (кнопками «−»/«+» по 0,1 дБ)? */
+    private static boolean fine(float[] g, int n) {
+        for (int i = 0; i < n; i++) {
+            if (Math.abs(g[i] * 2 - Math.round(g[i] * 2)) > 0.01f) return true;
+        }
+        return false;
     }
 
     /** CRC-8 (полином 0x07). */

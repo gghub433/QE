@@ -89,14 +89,16 @@ enum PresetCode {
     }
 
     static func fromBytes(_ b: [UInt8]) -> EQPreset? {
-        guard b.count >= 4, b[0] == 1 else { return nil }
+        // версия 1 — полосы по 0,5 дБ, версия 2 — по 0,1 дБ (Android 7.7+)
+        guard b.count >= 4, b[0] == 1 || b[0] == 2 else { return nil }
+        let unit: Float = b[0] == 2 ? 10 : 2
         let bands = Int(b[1])
         guard bands == 9 || bands == 15 || bands == 31 else { return nil }
         let len = 2 + bands + 5 + 1
         guard b.count == len, crc8(b, len - 1) == b[len - 1] else { return nil }
         var p = EQPreset(name: "", bands: bands, gains: [])
         for i in 0..<bands {
-            p.gains.append(Float(Int8(bitPattern: b[2 + i])) / 2)
+            p.gains.append(Float(Int8(bitPattern: b[2 + i])) / unit)
         }
         let k = 2 + bands
         p.punch = Float(min(100, Int(b[k]))) / 100

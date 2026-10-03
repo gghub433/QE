@@ -579,4 +579,13 @@
     <string name="cabin_hint">«Salons» — kā skan mašīna (no vidējā 300–3000 Hz), bulta — korekcija līdz mašīnas mērķa līknei (nedaudz vairāk basu, maiga augšdaļa). Iedobes paceļ līdz +6 dB, kalnus nogriež līdz −10 dB, zem 80 Hz ne vairāk kā +3 dB (tur tālruņa mikrofons melo), kopējais skaļums nemainās.</string>
     <string name="cabin_apply">Saglabāt un lietot</string>
     <string name="cabin_preset">Salons: %1$s</string>
+    <string name="step_minus">Mazāk</string>
+    <string name="step_plus">Vairāk</string>
+    <string name="eq_fine">Precīzi</string>
+    <string name="eq_fine_title">Precīza joslu regulēšana</string>
+    <string name="eq_fine_hint">Solis 0,1 dB, turiet − vai +, lai mainītu ātrāk. Pieskarieties vērtībai — būs 0.</string>
+    <string name="eq_fine_hz">%1$s Hz</string>
+    <string name="eq_fine_khz">%1$s kHz</string>
+    <string name="car_filter_cut">Griezt zem</string>
+    <string name="punch_detail">Precīzi: %1$s dB pie %2$d Hz, %3$s dB pie %4$d Hz, basa kompresors 1:%5$s.</string>
 </resources>

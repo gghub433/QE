@@ -7,8 +7,8 @@ import java.util.Locale;
  * Настройки машины коротким кодом EQC-XXXX-… (base32, как у пресетов) и ссылкой для QR —
  * передать другу с такой же машиной: Bass Boost, фильтр баса, объёмный звук, место и сила фокуса,
  * руль, где стоят динамики, задержки «вручную» и громкость при подключении.
- * Байты: [версия=1][флаги: 1 руль справа, 2 каналы перепутаны, 4 моно][режим фокуса][место+1]
- * [Bass Boost дБ][до частоты /5][фильтр баса /5][объёмный 0..100][громкость+1]
+ * Байты: [версия=1][флаги: 1 руль справа, 2 каналы перепутаны, 4 моно, 8 Bass Boost по 0,5 дБ][режим фокуса]
+ * [место+1][Bass Boost дБ (с флагом 8 — ×2)][до частоты /5][фильтр баса /5][объёмный 0..100][громкость+1]
  * [число динамиков n][по динамику x, y ×250][маска мест с задержками]
  * [по каждому такому месту n задержек ×10 мс, 255 — рассчитать][CRC-8].
  */
@@ -19,7 +19,8 @@ public final class CarCode {
     /** Что внутри кода (то же, что в DeviceSettings машины). */
     public static final class Car {
         public boolean rhd, swap, mono;
-        public int mode, focus, bass, bassHz, hp, surround, volume;
+        public int mode, focus, bassHz, hp, surround, volume;
+        public float bass;
         public float[] speakers;
         public float[][] delays = new float[CarFocusView.POINTS][];
     }
@@ -62,10 +63,13 @@ public final class CarCode {
     static byte[] toBytes(Car c) {
         ByteArrayOutputStream o = new ByteArrayOutputStream();
         o.write(VERSION);
-        o.write((c.rhd ? 1 : 0) | (c.swap ? 2 : 0) | (c.mono ? 4 : 0));
+        // целые дБ — как раньше (код поймут и старые версии EQ), с половинкой — флаг 8 и ×2
+        int half = Math.round(c.bass * 2);
+        boolean fine = half % 2 != 0;
+        o.write((c.rhd ? 1 : 0) | (c.swap ? 2 : 0) | (c.mono ? 4 : 0) | (fine ? 8 : 0));
         o.write(clamp(c.mode, 0, 2));
         o.write(clamp(c.focus + 1, 0, CarFocusView.POINTS));
-        o.write(clamp(c.bass, 0, 12));
+        o.write(fine ? clamp(half, 0, 24) : clamp(half / 2, 0, 12));
         o.write(clamp(Math.round(c.bassHz / 5f), 0, 255));
         o.write(clamp(Math.round(c.hp / 5f), 0, 255));
         o.write(clamp(c.surround, 0, 100));
@@ -112,7 +116,7 @@ public final class CarCode {
         c.mono = (f & 4) != 0;
         c.mode = clamp(b[2] & 0xFF, 0, 2);
         c.focus = clamp(b[3] & 0xFF, 0, CarFocusView.POINTS) - 1;
-        c.bass = clamp(b[4] & 0xFF, 0, 12);
+        c.bass = (f & 8) != 0 ? clamp(b[4] & 0xFF, 0, 24) / 2f : clamp(b[4] & 0xFF, 0, 12);
         c.bassHz = (b[5] & 0xFF) * 5;
         if (c.bassHz <= 0) c.bassHz = 80;
         c.hp = (b[6] & 0xFF) * 5;

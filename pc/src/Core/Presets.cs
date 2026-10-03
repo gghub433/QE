@@ -198,10 +198,12 @@ namespace EQ
 
         public static EqPreset FromBytes(byte[] b)
         {
-            if (b == null || b.Length < 4 || b[0] != 1)
+            // версия 1 — полосы по 0,5 дБ, версия 2 — по 0,1 дБ (Android 7.7+)
+            if (b == null || b.Length < 4 || (b[0] != 1 && b[0] != 2))
             {
                 return null;
             }
+            float unit = b[0] == 2 ? 10f : 2f;
             int bands = b[1];
             if (bands != 9 && bands != 15 && bands != 31)
             {
@@ -215,7 +217,7 @@ namespace EQ
             var p = new EqPreset { Bands = bands, Gains = new float[bands] };
             for (int i = 0; i < bands; i++)
             {
-                p.Gains[i] = (sbyte)b[2 + i] / 2f;
+                p.Gains[i] = (sbyte)b[2 + i] / unit;
             }
             int k = 2 + bands;
             p.Punch = Math.Min(100, (int)b[k]) / 100f;

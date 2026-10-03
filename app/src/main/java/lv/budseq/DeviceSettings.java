@@ -29,7 +29,9 @@ public final class DeviceSettings {
      */
     public String sound;
     /** Машина «как в магнитоле»: Bass Boost (дБ и до какой частоты), фильтр баса (Гц, 0 — выкл), объёмный звук 0…100. */
-    public int carBass, carBassHz = 80, carHp, carSurround;
+    /** Bass Boost, дБ (шаг 0,5). */
+    public float carBass;
+    public int carBassHz = 80, carHp, carSurround;
     /**
      * Задержки «вручную» («+» и «−», как в магнитоле): по каждому месту (0..5) — мс по динамикам,
      * −1 — считать само; null — всё рассчитано.
@@ -66,7 +68,7 @@ public final class DeviceSettings {
                 s.carSwap = o.optBoolean("swap", false);
                 s.carMono = o.optBoolean("mono", false);
                 if (o.has("sound")) s.sound = o.optString("sound", "");
-                s.carBass = o.optInt("bass", 0);
+                s.carBass = (float) o.optDouble("bass", 0);
                 s.carBassHz = o.optInt("bassHz", 80);
                 s.carHp = o.optInt("hp", 0);
                 s.carSurround = o.optInt("sur", 0);
@@ -141,7 +143,7 @@ public final class DeviceSettings {
             o.put("swap", carSwap);
             o.put("mono", carMono);
             if (sound != null) o.put("sound", sound);
-            o.put("bass", carBass);
+            o.put("bass", (double) carBass);
             o.put("bassHz", carBassHz);
             o.put("hp", carHp);
             o.put("sur", carSurround);

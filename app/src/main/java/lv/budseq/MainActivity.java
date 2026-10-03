@@ -33,6 +33,7 @@ import android.text.Editable;
 import android.text.InputType;
 import android.text.TextWatcher;
 import android.view.Gravity;
+import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -126,6 +127,7 @@ public class MainActivity extends Activity {
             R.drawable.ic_bass, R.drawable.ic_car, R.drawable.ic_filter};
     private static final int[] CAR_BASS_HZ = {60, 80, 100, 120};
     private static final int[] CAR_HP_HZ = {0, 40, 60, 80, 100, 120, 150, 200};
+    private static final int CAR_BASS_HZ_MIN = 40, CAR_BASS_HZ_MAX = 150, CAR_HP_MIN = 20, CAR_HP_MAX = 250;
     /** Места, как в списке магнитолы: весь салон, водитель, пассажир, сзади слева, сзади справа, спереди по центру. */
     private static final int SEAT_ALL = 4, SEAT_DRIVER = -10, SEAT_PASSENGER = -11;
     private static final int[] CAR_SEATS = {SEAT_ALL, SEAT_DRIVER, SEAT_PASSENGER, 3, 5, 1};
@@ -144,8 +146,8 @@ public class MainActivity extends Activity {
     private boolean carUpdating;
     private EqGraphView carEqGraph;
     private Switch carSurSwitch;
-    private SeekBar carSurBar, carBassBar;
-    private TextView carSurVal, carSurNa, carBassVal;
+    private SeekBar carSurBar, carBassBar, carBassHzBar, carHpBar;
+    private TextView carSurVal, carSurNa, carBassVal, carBassHzVal, carHpVal;
     private final Button[] carBassHzBtns = new Button[CAR_BASS_HZ.length];
     private final Button[] carHpBtns = new Button[CAR_HP_HZ.length];
     private String carAddress;
@@ -199,7 +201,8 @@ public class MainActivity extends Activity {
     private SeekBar loudBar;
     private TextView loudVal, loudNow;
     /** Где сейчас бьёт панч: динамик телефона (180 Гц) или наушники, колонка, машина (65 Гц). */
-    private TextView punchModeText;
+    private TextView punchModeText, punchDetail;
+    private boolean balanceDrag;
     private Switch mainSwitch, levelSwitch, autoSwitch, perDeviceSwitch;
     private LinearLayout userBox;
 
@@ -665,6 +668,9 @@ public class MainActivity extends Activity {
             public void onClick(View v) { toggleSpectrum(); }
         });
         row.addView(specBtn);
+        row.addView(chip(getString(R.string.eq_fine), 0, CHIP, new View.OnClickListener() {
+            public void onClick(View v) { showFineBands(); }
+        }));
         root.addView(hscroll(row));
 
         graph = new EqGraphView(this);
@@ -676,7 +682,7 @@ public class MainActivity extends Activity {
         buildAbButton(root);
 
         // запас громкости (preamp)
-        preBar = new SeekBar(this);
+        preBar = new FineSeek(this);
         preBar.setMax(24);
         preVal = text("", 14, Color.WHITE);
         root.addView(sliderRow(getString(R.string.preamp), preBar, preVal));
@@ -690,6 +696,84 @@ public class MainActivity extends Activity {
         TextView hint = text(getString(R.string.preamp_hint), 12, GREY);
         hint.setPadding(dp(4), 0, dp(4), dp(8));
         root.addView(hint);
+    }
+
+    /**
+     * Точная настройка: каждая полоса отдельной строкой — частота точно, значение с десятыми,
+     * «−»/«+» по 0,1 дБ (удержание — быстро), нажатие на значение — 0.
+     */
+    private void showFineBands() {
+        final float[] f = eq.freqs();
+        LinearLayout list = new LinearLayout(this);
+        list.setOrientation(LinearLayout.VERTICAL);
+        list.setPadding(dp(20), dp(4), dp(20), dp(8));
+        TextView hint = text(getString(R.string.eq_fine_hint), 13, GREY);
+        hint.setPadding(0, 0, 0, dp(8));
+        list.addView(hint);
+        for (int i = 0; i < f.length; i++) {
+            final int band = i;
+            LinearLayout row = new LinearLayout(this);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setPadding(0, dp(3), 0, dp(3));
+            row.addView(text(exactHz(f[i]), 15, Color.WHITE),
+                    new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+            final TextView val = text("", 15, Color.WHITE);
+            val.setGravity(Gravity.CENTER);
+            val.setMinWidth(dp(80));
+            final Stepper st = new Stepper() {
+                public boolean step(int dir) {
+                    float now = eq.gains[band];
+                    float next = Math.max(EqEngine.MIN_DB, Math.min(EqEngine.MAX_DB, Math.round(now * 10 + dir) / 10f));
+                    if (next == now) return false;
+                    set(next);
+                    return true;
+                }
+
+                public void done() { }
+
+                void set(float db) {
+                    eq.setGain(band, db);
+                    val.setText(fmtDb(eq.gains[band]) + " dB");
+                    graph.setBands(eq.freqs(), eq.gains);
+                }
+            };
+            val.setText(fmtDb(eq.gains[band]) + " dB");
+            val.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) {
+                    eq.setGain(band, 0f);
+                    val.setText(fmtDb(eq.gains[band]) + " dB");
+                    graph.setBands(eq.freqs(), eq.gains);
+                }
+            });
+            row.addView(stepBtn(-1, st), new LinearLayout.LayoutParams(dp(40), dp(40)));
+            row.addView(val);
+            row.addView(stepBtn(1, st), new LinearLayout.LayoutParams(dp(40), dp(40)));
+            list.addView(row);
+        }
+        ScrollView sv = new ScrollView(this);
+        sv.addView(list);
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.eq_fine_title)
+                .setView(sv)
+                .setPositiveButton(R.string.ok, null)
+                .setOnDismissListener(new DialogInterface.OnDismissListener() {
+                    public void onDismiss(DialogInterface d) {
+                        eq.notifyChanged();   // уведомление, виджеты и «Свой» пресет — по новой кривой
+                    }
+                })
+                .show();
+    }
+
+    /** Частота точно: 31.5 Hz, 125 Hz, 1.25 kHz, 12.5 kHz. */
+    private String exactHz(float f) {
+        if (f < 1000) {
+            String v = f == Math.floor(f) ? String.valueOf((int) f) : String.format(Locale.US, "%.1f", f);
+            return getString(R.string.eq_fine_hz, v);
+        }
+        String k = String.format(Locale.US, "%.2f", f / 1000f);
+        while (k.endsWith("0")) k = k.substring(0, k.length() - 1);
+        if (k.endsWith(".")) k = k.substring(0, k.length() - 1);
+        return getString(R.string.eq_fine_khz, k);
     }
 
     // =====================================================================
@@ -768,7 +852,7 @@ public class MainActivity extends Activity {
     private void buildSound(LinearLayout root) {
         root.addView(section(getString(R.string.sec_sound)));
 
-        punchBar = new SeekBar(this);
+        punchBar = new FineSeek(this);
         punchBar.setMax(100);
         punchVal = text("", 14, Color.WHITE);
         root.addView(sliderRow(getString(R.string.punch), punchBar, punchVal));
@@ -776,10 +860,14 @@ public class MainActivity extends Activity {
         punchModeText = hintText("");
         punchModeText.setTextColor(Color.rgb(0xC8, 0xCA, 0xD0));
         root.addView(punchModeText);
+        punchDetail = hintText("");
+        punchDetail.setTextColor(Color.rgb(0xC8, 0xCA, 0xD0));
+        root.addView(punchDetail);
         punchBar.setOnSeekBarChangeListener(new Seek() {
             public void onProgressChanged(SeekBar s, int p, boolean fromUser) {
                 punchVal.setText(p + "%");
                 if (fromUser) eq.setPunch(p / 100f);
+                refreshPunchDetail(p / 100f);
             }
         });
         // бит по кругу через EQ: двигаешь панч — сразу слышно, даже без музыки
@@ -799,7 +887,7 @@ public class MainActivity extends Activity {
         listen.addView(punchListenBtn);
         root.addView(hscroll(listen));
 
-        boostBar = new SeekBar(this);
+        boostBar = new FineSeek(this);
         boostBar.setMax((int) (EqEngine.MAX_BOOST * 2));
         boostVal = text("", 14, Color.WHITE);
         root.addView(sliderRow(getString(R.string.boost), boostBar, boostVal));
@@ -821,14 +909,18 @@ public class MainActivity extends Activity {
             }
         });
 
-        balanceBar = new SeekBar(this);
+        balanceBar = new FineSeek(this);
         balanceBar.setMax(200);
         balanceVal = text("", 14, Color.WHITE);
         root.addView(sliderRow(getString(R.string.balance), balanceBar, balanceVal));
         balanceBar.setOnSeekBarChangeListener(new Seek() {
+            public void onStartTrackingTouch(SeekBar s) { balanceDrag = true; }
+
+            public void onStopTrackingTouch(SeekBar s) { balanceDrag = false; }
+
             public void onProgressChanged(SeekBar s, int p, boolean fromUser) {
                 int v = p - 100;
-                if (fromUser && Math.abs(v) <= 4) { // «прилипает» к центру
+                if (fromUser && balanceDrag && Math.abs(v) <= 4) { // пальцем «прилипает» к центру, «−»/«+» — по 1%
                     v = 0;
                     s.setProgress(100);
                 }
@@ -855,7 +947,7 @@ public class MainActivity extends Activity {
                 if (!updating) eq.setLoudness(on);
             }
         });
-        loudBar = new SeekBar(this);
+        loudBar = new FineSeek(this);
         loudBar.setMax(100);
         loudVal = text("", 14, Color.WHITE);
         root.addView(sliderRow(getString(R.string.loud_amount), loudBar, loudVal));
@@ -1258,7 +1350,8 @@ public class MainActivity extends Activity {
         selectTab(TAB_DEVICE, false);
         StringBuilder sb = new StringBuilder();
         sb.append(getString(R.string.car_tab_bass)).append(": ")
-                .append(c.bass > 0 ? "+" + c.bass + " dB · " + getString(R.string.car_hz, c.bassHz) : getString(R.string.off));
+                .append(c.bass > 0 ? String.format(Locale.US, "+%.1f dB · ", c.bass) + getString(R.string.car_hz, c.bassHz)
+                        : getString(R.string.off));
         sb.append('\n').append(getString(R.string.car_tab_filter)).append(": ")
                 .append(c.hp > 0 ? getString(R.string.car_hz, c.hp) : getString(R.string.off));
         sb.append('\n').append(getString(R.string.car_tab_surround)).append(": ")
@@ -1630,7 +1723,7 @@ public class MainActivity extends Activity {
         root.addView(hscroll(defs));
         root.addView(hintText(getString(R.string.games_profiles_hint)));
 
-        gameStrengthBar = new SeekBar(this);
+        gameStrengthBar = new FineSeek(this);
         gameStrengthBar.setMax(100);
         gameStrengthVal = text("", 14, Color.WHITE);
         root.addView(sliderRow(getString(R.string.game_strength), gameStrengthBar, gameStrengthVal));
@@ -2884,7 +2977,7 @@ public class MainActivity extends Activity {
         // стартовая громкость: подключилась машина — громкость сама становится такой (по 1%)
         carVolSwitch = styledSwitch();
         p.addView(switchRow(getString(R.string.ds_volume), getString(R.string.car_vol_hint), carVolSwitch));
-        carVolBar = new SeekBar(this);
+        carVolBar = new FineSeek(this);
         carVolBar.setMax(100);
         carVolVal = text("", 15, Color.WHITE);
         p.addView(sliderRow(getString(R.string.car_vol_level), carVolBar, carVolVal));
@@ -2980,7 +3073,7 @@ public class MainActivity extends Activity {
                 saveCarSound(ds);
             }
         });
-        carSurBar = new SeekBar(this);
+        carSurBar = new FineSeek(this);
         carSurBar.setMax(100);
         carSurVal = text("", 15, Color.WHITE);
         carSurBar.setOnSeekBarChangeListener(new Seek() {
@@ -2999,22 +3092,35 @@ public class MainActivity extends Activity {
         p.addView(carSurNa);
     }
 
-    /** Bass Boost: подъём низа 0…12 дБ до выбранной частоты. */
+    /** Bass Boost: подъём низа 0…12 дБ (шаг 0,5) до частоты 40…150 Гц (шаг 5). */
     private void buildCarBassPanel(LinearLayout p) {
-        carBassBar = new SeekBar(this);
-        carBassBar.setMax(12);
+        carBassBar = new FineSeek(this);
+        carBassBar.setMax(24);
         carBassVal = text("", 15, Color.WHITE);
         carBassBar.setOnSeekBarChangeListener(new Seek() {
             public void onProgressChanged(SeekBar s, int v, boolean user) {
                 if (!user || carUpdating) return;
                 DeviceSettings ds = carSettings();
                 if (ds == null) return;
-                ds.carBass = v;
+                ds.carBass = v / 2f;
                 saveCarSound(ds);
             }
         });
         p.addView(sliderRow(getString(R.string.car_tab_bass), carBassBar, carBassVal));
-        p.addView(label(getString(R.string.car_bass_upto)));
+        carBassHzBar = new FineSeek(this);
+        carBassHzBar.setMax((CAR_BASS_HZ_MAX - CAR_BASS_HZ_MIN) / 5);
+        carBassHzVal = text("", 15, Color.WHITE);
+        carBassHzBar.setOnSeekBarChangeListener(new Seek() {
+            public void onProgressChanged(SeekBar s, int v, boolean user) {
+                if (!user || carUpdating) return;
+                DeviceSettings ds = carSettings();
+                if (ds == null) return;
+                ds.carBassHz = CAR_BASS_HZ_MIN + v * 5;
+                if (ds.carBass == 0) ds.carBass = 6;   // выбрали частоту — сразу слышно
+                saveCarSound(ds);
+            }
+        });
+        p.addView(sliderRow(getString(R.string.car_bass_upto), carBassHzBar, carBassHzVal));
         LinearLayout hz = new LinearLayout(this);
         for (int i = 0; i < CAR_BASS_HZ.length; i++) {
             final int f = CAR_BASS_HZ[i];
@@ -3033,9 +3139,21 @@ public class MainActivity extends Activity {
         p.addView(hintText(getString(R.string.car_bass_note)));
     }
 
-    /** Фильтр баса: срез ниже частоты (выкл, 40…120 Гц). */
+    /** Фильтр баса: срез ниже частоты — выкл или 20…250 Гц с шагом 5 Гц (кнопки — частые значения). */
     private void buildCarFilterPanel(LinearLayout p) {
-        p.addView(label(getString(R.string.car_tab_filter)));
+        carHpBar = new FineSeek(this);
+        carHpBar.setMax((CAR_HP_MAX - CAR_HP_MIN) / 5 + 1);   // 0 — выкл
+        carHpVal = text("", 15, Color.WHITE);
+        carHpBar.setOnSeekBarChangeListener(new Seek() {
+            public void onProgressChanged(SeekBar s, int v, boolean user) {
+                if (!user || carUpdating) return;
+                DeviceSettings ds = carSettings();
+                if (ds == null) return;
+                ds.carHp = v == 0 ? 0 : CAR_HP_MIN + (v - 1) * 5;
+                saveCarSound(ds);
+            }
+        });
+        p.addView(sliderRow(getString(R.string.car_filter_cut), carHpBar, carHpVal));
         LinearLayout hz = new LinearLayout(this);
         for (int i = 0; i < CAR_HP_HZ.length; i++) {
             final int f = CAR_HP_HZ[i];
@@ -3381,8 +3499,12 @@ public class MainActivity extends Activity {
         carSurBar.setProgress(sur ? ds.carSurround : settings.getInt("car_sur_last", 50));
         carSurVal.setText(sur ? ds.carSurround + "%" : getString(R.string.off));
         carSurNa.setVisibility(sur && !eq.surroundSupported ? View.VISIBLE : View.GONE);
-        carBassBar.setProgress(ds.carBass);
-        carBassVal.setText(ds.carBass > 0 ? String.format(Locale.US, "+%d dB", ds.carBass) : getString(R.string.off));
+        carBassBar.setProgress(Math.round(ds.carBass * 2));
+        carBassVal.setText(ds.carBass > 0 ? String.format(Locale.US, "+%.1f dB", ds.carBass) : getString(R.string.off));
+        carBassHzBar.setProgress(Math.round((ds.carBassHz - CAR_BASS_HZ_MIN) / 5f));
+        carBassHzVal.setText(getString(R.string.car_hz, ds.carBassHz));
+        carHpBar.setProgress(ds.carHp <= 0 ? 0 : Math.round((ds.carHp - CAR_HP_MIN) / 5f) + 1);
+        carHpVal.setText(ds.carHp > 0 ? getString(R.string.car_hz, ds.carHp) : getString(R.string.off));
         for (int i = 0; i < carBassHzBtns.length; i++) {
             carBassHzBtns[i].setBackground(round(CAR_BASS_HZ[i] == ds.carBassHz ? ACCENT : CHIP, 24));
         }
@@ -3839,11 +3961,11 @@ public class MainActivity extends Activity {
         final Switch edgeSwitch = styledSwitch();
         edgeSwitch.setChecked(EdgeGlow.enabled(this));
         root.addView(switchRow(getString(R.string.edge_glow), getString(R.string.edge_glow_hint), edgeSwitch));
-        final SeekBar edgeBright = new SeekBar(this);
+        final SeekBar edgeBright = new FineSeek(this);
         edgeBright.setMax(90);   // 10…100 %
         final TextView edgeBrightVal = text("", 14, Color.WHITE);
         root.addView(sliderRow(getString(R.string.edge_bright), edgeBright, edgeBrightVal));
-        final SeekBar edgeWidth = new SeekBar(this);
+        final SeekBar edgeWidth = new FineSeek(this);
         edgeWidth.setMax(22);    // 2…24 dp
         final TextView edgeWidthVal = text("", 14, Color.WHITE);
         root.addView(sliderRow(getString(R.string.edge_width), edgeWidth, edgeWidthVal));
@@ -4809,6 +4931,28 @@ public class MainActivity extends Activity {
         setChipIcon(punchListenBtn, on ? R.drawable.ic_stop : R.drawable.ic_play);
     }
 
+    /** Панч подробно: сколько дБ и на какой частоте добавлено сейчас, сжатие баса. */
+    private void refreshPunchDetail(float p) {
+        if (punchDetail == null) return;
+        if (p <= 0.01f) {
+            punchDetail.setVisibility(View.GONE);
+            return;
+        }
+        boolean small = eq.smallSpeaker();
+        int f1 = small ? 180 : 65, f2 = small ? 3000 : 300;
+        punchDetail.setVisibility(View.VISIBLE);
+        punchDetail.setText(getString(R.string.punch_detail,
+                fmtDb(EqEngine.punchLayer(f1, p, small)), f1,
+                fmtDb(EqEngine.punchLayer(f2, p, small)), f2,
+                String.format(Locale.US, "%.1f", 1 + 2 * p)));
+    }
+
+    /** +2.5 / −1.0 / 0.0 (без «dB»). */
+    private static String fmtDb(float v) {
+        if (Math.abs(v) < 0.05f) return "0.0";
+        return String.format(Locale.US, v > 0 ? "+%.1f" : "%.1f", v).replace('-', '\u2212');
+    }
+
     private void refreshEq() {
         updating = true;
         mainSwitch.setChecked(eq.enabled);
@@ -4822,6 +4966,7 @@ public class MainActivity extends Activity {
         punchBar.setProgress(Math.round(eq.punch * 100));
         punchVal.setText(Math.round(eq.punch * 100) + "%");
         punchModeText.setText(eq.smallSpeaker() ? R.string.punch_mode_speaker : R.string.punch_mode_full);
+        refreshPunchDetail(eq.punch);
         boostBar.setProgress(Math.round(eq.boost * 2));
         boostVal.setText(String.format(Locale.US, "+%.1f dB", eq.boost));
         balanceBar.setProgress(Math.round(eq.balance * 100) + 100);
@@ -5216,6 +5361,94 @@ public class MainActivity extends Activity {
         public void onStopTrackingTouch(SeekBar s) { }
     }
 
+    /** Ползунок, который помнит слушателя: «−»/«+» сообщают ему, что кнопку отпустили (как палец). */
+    private static final class FineSeek extends SeekBar {
+        private SeekBar.OnSeekBarChangeListener l;
+
+        FineSeek(Context c) {
+            super(c);
+        }
+
+        @Override
+        public void setOnSeekBarChangeListener(SeekBar.OnSeekBarChangeListener x) {
+            l = x;
+            super.setOnSeekBarChangeListener(x);
+        }
+
+        void released() {
+            if (l != null) l.onStopTrackingTouch(this);
+        }
+    }
+
+    /** Что делают «−» / «+». */
+    private interface Stepper {
+        /** Шаг на одно деление в сторону dir (−1 / +1); false — дальше некуда. */
+        boolean step(int dir);
+
+        /** Кнопку отпустили. */
+        void done();
+    }
+
+    /** Шаг ползунка, как будто его сдвинул человек: слушатель получает fromUser = true. */
+    private Stepper seekStepper(final SeekBar bar) {
+        return new Stepper() {
+            public boolean step(int dir) {
+                if (!bar.isEnabled()) return false;
+                int before = bar.getProgress();
+                if (bar.getLayoutDirection() == View.LAYOUT_DIRECTION_RTL) dir = -dir;
+                int key = dir < 0 ? KeyEvent.KEYCODE_DPAD_LEFT : KeyEvent.KEYCODE_DPAD_RIGHT;
+                bar.setKeyProgressIncrement(1);
+                bar.onKeyDown(key, new KeyEvent(KeyEvent.ACTION_DOWN, key));
+                return bar.getProgress() != before;
+            }
+
+            public void done() {
+                if (bar instanceof FineSeek) ((FineSeek) bar).released();
+            }
+        };
+    }
+
+    /** Круглая кнопка «−» / «+»: нажатие — шаг, удержание — шаги подряд. */
+    private TextView stepBtn(final int dir, final Stepper s) {
+        final TextView b = text(dir < 0 ? "\u2212" : "+", 20, Color.WHITE);
+        b.setGravity(Gravity.CENTER);
+        b.setBackground(round(CHIP, 18));
+        b.setContentDescription(getString(dir < 0 ? R.string.step_minus : R.string.step_plus));
+        final Runnable repeat = new Runnable() {
+            public void run() {
+                if (s.step(dir)) b.postDelayed(this, 60);
+            }
+        };
+        b.setOnTouchListener(new View.OnTouchListener() {
+            public boolean onTouch(View v, MotionEvent e) {
+                switch (e.getActionMasked()) {
+                    case MotionEvent.ACTION_DOWN:
+                        v.getParent().requestDisallowInterceptTouchEvent(true);   // прокрутка не отнимет палец
+                        v.setBackground(round(ACCENT, 18));
+                        s.step(dir);
+                        v.postDelayed(repeat, 400);
+                        return true;
+                    case MotionEvent.ACTION_UP:
+                    case MotionEvent.ACTION_CANCEL:
+                        v.removeCallbacks(repeat);
+                        v.setBackground(round(CHIP, 18));
+                        s.done();
+                        return true;
+                    default:
+                        return true;
+                }
+            }
+        });
+        // TalkBack: двойное касание — один шаг
+        b.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                s.step(dir);
+                s.done();
+            }
+        });
+        return b;
+    }
+
     private int dp(int v) {
         return Math.round(v * getResources().getDisplayMetrics().density);
     }
@@ -5279,7 +5512,11 @@ public class MainActivity extends Activity {
         LinearLayout row = new LinearLayout(this);
         row.setGravity(Gravity.CENTER_VERTICAL);
         tint(bar);
+        // «−» / «+» по одному делению (как в магнитоле): точное значение без охоты пальцем
+        Stepper st = seekStepper(bar);
+        row.addView(stepBtn(-1, st), new LinearLayout.LayoutParams(dp(36), dp(36)));
         row.addView(bar, new LinearLayout.LayoutParams(0, dp(40), 1));
+        row.addView(stepBtn(1, st), new LinearLayout.LayoutParams(dp(36), dp(36)));
         value.setMinWidth(dp(72));
         value.setGravity(Gravity.END);
         row.addView(value);
