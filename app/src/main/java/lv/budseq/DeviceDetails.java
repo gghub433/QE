@@ -102,8 +102,8 @@ final class DeviceDetails {
         // заряд: у Galaxy Buds и AirPods — каждый наушник и кейс
         BudsLink.State bs = budsState(dev);
         if (bs != null) {
-            if (bs.batL >= 0) add(out, c, R.string.dd_left, bud(c, bs.batL, bs.placeL, bs.chgL));
-            if (bs.batR >= 0) add(out, c, R.string.dd_right, bud(c, bs.batR, bs.placeR, bs.chgR));
+            if (bs.batL >= 0 || bs.placeL == BudsLink.P_DISCONNECTED) add(out, c, R.string.dd_left, bud(c, bs.batL, bs.placeL, bs.chgL));
+            if (bs.batR >= 0 || bs.placeR == BudsLink.P_DISCONNECTED) add(out, c, R.string.dd_right, bud(c, bs.batR, bs.placeR, bs.chgR));
             if (bs.batCase >= 0) {
                 add(out, c, R.string.dd_case, bs.batCase + "%" + (bs.chgCase ? " · " + c.getString(R.string.dd_charging) : ""));
             }
@@ -475,16 +475,13 @@ final class DeviceDetails {
     }
 
     private static String bud(Context c, int bat, int place, boolean charging) {
-        int p;
-        switch (place) {
-            case BudsLink.P_WEARING: p = R.string.dd_in_ear; break;
-            case BudsLink.P_IDLE: p = R.string.dd_out; break;
-            case BudsLink.P_CASE: p = R.string.dd_in_case_open; break;
-            case BudsLink.P_CASE_CLOSED: p = R.string.dd_in_case; break;
-            default: p = 0; break;
-        }
-        String s = bat + "%";
-        if (p != 0) s += " · " + c.getString(p);
+        // «не на связи» и заряжающийся — в кейсе (как на картинке)
+        int p = place == BudsLink.P_WEARING ? R.string.dd_in_ear
+                : BudsLink.State.out(place, charging) ? R.string.dd_out
+                : place == BudsLink.P_CASE ? R.string.dd_in_case_open : R.string.dd_in_case;
+        // выключен в закрытом кейсе — заряд не сообщает
+        if (place == BudsLink.P_DISCONNECTED) return c.getString(p);
+        String s = bat + "%" + " · " + c.getString(p);
         if (charging) s += " · " + c.getString(R.string.dd_charging);
         return s;
     }

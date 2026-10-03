@@ -59,6 +59,14 @@ public final class BudsLink {
         public boolean lidOpen() { return connected && (placeL == P_CASE || placeR == P_CASE); }
         public static boolean inCase(int p) { return p == P_CASE || p == P_CASE_CLOSED; }
 
+        /**
+         * Наушник снаружи кейса: в ухе или вынут (и не заряжается). Наушник «не на связи» лежит в закрытом
+         * кейсе (там он выключается, пока вторым пользуются), а заряжающийся — точно в кейсе.
+         */
+        public static boolean out(int place, boolean charging) {
+            return place == P_WEARING || (place == P_IDLE && !charging);
+        }
+
         State copy() {
             State s = new State();
             s.connected = connected; s.name = name; s.address = address;

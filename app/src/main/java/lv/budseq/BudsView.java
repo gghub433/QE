@@ -200,8 +200,9 @@ public class BudsView extends View {
     void step() {
         BudsLink.State s = state;
         float tLid = s.lidOpen() ? 1f : 0f;
-        float tL = s.connected && !BudsLink.State.inCase(s.placeL) ? 1f : 0f;
-        float tR = s.connected && !BudsLink.State.inCase(s.placeR) ? 1f : 0f;
+        // один наушник в ухе — второй остаётся в кейсе, даже если он «не на связи» (выключен в закрытом кейсе)
+        float tL = s.connected && BudsLink.State.out(s.placeL, s.chgL) ? 1f : 0f;
+        float tR = s.connected && BudsLink.State.out(s.placeR, s.chgR) ? 1f : 0f;
         float tA = s.connected ? 1f : 0.45f;
         // крышка открывается первой, наушники вылетают после неё
         lid += (tLid - lid) * 0.12f;
@@ -398,7 +399,8 @@ public class BudsView extends View {
     private final StemBud stemBud = new StemBud();
 
     private void drawBattery(Canvas c, float x, float y, String label, int bat, boolean chg, int place) {
-        boolean known = state.connected && bat >= 0 && bat <= 100;
+        // наушник выключен в закрытом кейсе: его заряд неизвестен (присылает 0) — «—», а не красные 0%
+        boolean known = state.connected && bat >= 0 && bat <= 100 && place != BudsLink.P_DISCONNECTED;
         String t = known ? bat + "%" : "—";
         text.setColor(!known ? Color.rgb(0x77, 0x77, 0x77) : bat <= 15 ? RED : Color.WHITE);
         if (known && chg) {
@@ -427,8 +429,8 @@ public class BudsView extends View {
         String sub = label;
         if (state.connected && place >= 0) {
             if (place == BudsLink.P_WEARING) sub += " · " + getContext().getString(R.string.in_ear);
-            else if (place == BudsLink.P_IDLE) sub += " · " + getContext().getString(R.string.taken_out);
-            else if (BudsLink.State.inCase(place)) sub += " · " + getContext().getString(R.string.in_case);
+            else if (BudsLink.State.out(place, chg)) sub += " · " + getContext().getString(R.string.taken_out);
+            else sub += " · " + getContext().getString(R.string.in_case);
         }
         small.setAlpha(255);
         c.drawText(sub, x, by + bh + 15 * d, small);
