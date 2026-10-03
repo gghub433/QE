@@ -920,7 +920,127 @@ public class MainActivity extends Activity {
         actions.addView(chip(getString(R.string.enter_code), R.drawable.ic_keyboard, CHIP, new View.OnClickListener() {
             public void onClick(View v) { askPresetCode(); }
         }));
+        // подстройка под слух: тест тонами в наушниках → пресет «Мой слух»
+        actions.addView(chip(getString(R.string.hear_btn), R.drawable.ic_headset, CHIP, new View.OnClickListener() {
+            public void onClick(View v) { askHearingTest(); }
+        }));
         root.addView(hscroll(actions));
+    }
+
+    // =====================================================================
+    // Подстройка под слух
+    // =====================================================================
+
+    private HearingTest hearing;
+
+    private void askHearingTest() {
+        DeviceInfo out = DeviceMonitor.get().primaryAudio();
+        boolean phones = out != null && out.isHeadphones();
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.hear_btn)
+                .setMessage(getString(R.string.hear_intro) + (phones ? "" : "\n\n" + getString(R.string.hear_no_phones)))
+                .setPositiveButton(R.string.hear_start, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface d, int w) { runHearingTest(); }
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    private void runHearingTest() {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setGravity(Gravity.CENTER_HORIZONTAL);
+        box.setPadding(dp(20), dp(16), dp(20), dp(8));
+        final TextView prog = text(getString(R.string.hear_wait), 15, Color.WHITE);
+        prog.setGravity(Gravity.CENTER);
+        box.addView(prog, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        final TextView lvl = text("", 13, GREY);
+        lvl.setGravity(Gravity.CENTER);
+        lvl.setPadding(0, dp(4), 0, dp(14));
+        box.addView(lvl, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        Button heard = chip(getString(R.string.hear_heard), R.drawable.ic_headset, ACCENT, null);
+        heard.setTextSize(20);
+        LinearLayout.LayoutParams hlp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(72));
+        box.addView(heard, hlp);
+        final AlertDialog dlg = new AlertDialog.Builder(this)
+                .setTitle(R.string.hear_btn)
+                .setView(box)
+                .setCancelable(false)
+                .setNegativeButton(R.string.hear_stop, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface d, int w) {
+                        if (hearing != null) hearing.stop();
+                    }
+                })
+                .show();
+        hearing = new HearingTest();
+        heard.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                if (hearing != null) hearing.heard();
+                v.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY);
+            }
+        });
+        hearing.start(this, new HearingTest.Ui() {
+            public void onTrial(int index, int total, int freq) {
+                prog.setText(getString(R.string.hear_trial, index, total, freq < 1000 ? freq + " " + getString(R.string.hz)
+                        : (freq / 1000f) + " k" + getString(R.string.hz)));
+            }
+
+            public void onLevel(float db) {
+                lvl.setText(getString(R.string.hear_level, db));
+            }
+
+            public void onDone(float[] th) {
+                dlg.dismiss();
+                showHearingResult(th);
+            }
+
+            public void onStopped() {
+                if (dlg.isShowing()) dlg.dismiss();
+            }
+        });
+    }
+
+    /** Подробно: кривая, по каждой частоте порог и поправка; «Сохранить и применить» — пресет «Мой слух». */
+    private void showHearingResult(float[] th) {
+        final float[] g = HearingTest.correction(th);
+        final float[] f = HearingTest.freqs();
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(dp(16), dp(8), dp(16), 0);
+        EqGraphView graph = new EqGraphView(this);   // только смотреть
+        graph.setBackground(round(CARD, 24));
+        graph.setBands(f, g);
+        box.addView(graph, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(200)));
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < f.length; i++) {
+            if (i > 0) sb.append('\n');
+            sb.append(getString(R.string.hear_row, EqEngine.label(f[i]), th[i], g[i]));
+        }
+        TextView t = text(sb.toString(), 13, Color.rgb(0xC8, 0xCA, 0xD0));
+        t.setTypeface(Typeface.MONOSPACE);
+        t.setPadding(dp(4), dp(10), dp(4), 0);
+        box.addView(t);
+        TextView h = hintText(getString(R.string.hear_result_hint));
+        h.setPadding(dp(4), dp(8), dp(4), 0);
+        box.addView(h);
+        ScrollView sv = new ScrollView(this);
+        sv.addView(box);
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.hear_result)
+                .setView(sv)
+                .setPositiveButton(R.string.hear_apply, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface d, int w) {
+                        String name = getString(R.string.hear_preset);
+                        eq.setCurve(g, f);
+                        eq.savePreset(name);
+                        eq.lastPreset = name;
+                        eq.notifyChanged();
+                        refreshEq();
+                        Toast.makeText(MainActivity.this, getString(R.string.import_ok, name), Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
     }
 
     // =====================================================================
@@ -3821,6 +3941,7 @@ public class MainActivity extends Activity {
     protected void onPause() {
         visible = false;
         DemoBeat.stop();   // ушли из EQ — бит не играет в фоне
+        if (hearing != null && hearing.isRunning()) hearing.stop();   // тест слуха — только на экране
         if (abBtn != null) setAbHeld(false);   // ушли с экрана с пальцем на кнопке — вернуть EQ
         np.stop();
         ui.removeCallbacks(npTicker);

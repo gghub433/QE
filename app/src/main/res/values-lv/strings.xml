@@ -550,4 +550,19 @@
     <string name="bk_bad">Šī nav EQ rezerves kopija</string>
     <string name="bk_info">Kopija no %1$s (EQ %2$s):\n• ierīces un mašīnas: %3$d\n• savi iestatījumi: %4$d\n• spēļu iestatījumi: %5$d\n• kopā iestatījumu: %6$d\n\nPašreizējie iestatījumi tiks aizstāti, EQ restartēsies.</string>
     <string name="bk_done">Atjaunots — EQ restartējas</string>
+    <string name="hz">Hz</string>
+    <string name="hear_btn">Pielāgot dzirdei</string>
+    <string name="hear_intro">Uzlieciet austiņas, klusā vietā, skaļums apmēram pusē. Skanēs klusi dažāda augstuma signāli, katrs nākamais nedaudz skaļāks. Nospiediet «Dzirdu», tiklīdz sadzirdat. 20 signāli, apmēram 3 minūtes. Testa laikā EQ ir izslēgts.</string>
+    <string name="hear_no_phones">Šķiet, austiņas nav pieslēgtas — ar austiņām rezultāts būs precīzāks.</string>
+    <string name="hear_start">Sākt</string>
+    <string name="hear_wait">Sagatavojieties…</string>
+    <string name="hear_heard">Dzirdu</string>
+    <string name="hear_stop">Apturēt</string>
+    <string name="hear_trial">Signāls %1$d no %2$d · %3$s</string>
+    <string name="hear_level">Skaļums %1$.1f dB</string>
+    <string name="hear_result">Mana dzirde</string>
+    <string name="hear_preset">Mana dzirde</string>
+    <string name="hear_row">%1$6s Hz: dzirdēts pie %2$6.1f dB → %3$+5.1f dB</string>
+    <string name="hear_result_hint">Korekcija ir puse no atšķirības no normālas dzirdes (ISO 226), ne vairāk kā +8 dB, kopējais skaļums nemainās. «Saglabāt un lietot» — iestatījums «Mana dzirde».</string>
+    <string name="hear_apply">Saglabāt un lietot</string>
 </resources>

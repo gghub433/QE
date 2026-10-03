@@ -550,4 +550,19 @@
     <string name="bk_bad">This is not an EQ backup</string>
     <string name="bk_info">Backup from %1$s (EQ %2$s):\n• devices and cars: %3$d\n• your presets: %4$d\n• game settings: %5$d\n• settings in total: %6$d\n\nCurrent settings will be replaced and EQ will restart.</string>
     <string name="bk_done">Restored: EQ is restarting</string>
+    <string name="hz">Hz</string>
+    <string name="hear_btn">Tune to my hearing</string>
+    <string name="hear_intro">Put on headphones, find a quiet place, set the volume to about half. Quiet beeps of different pitch will sound, each a little louder than the last. Tap «I hear it» as soon as you hear one. 20 beeps, about 3 minutes. EQ is switched off during the test.</string>
+    <string name="hear_no_phones">Headphones don\'t seem to be connected: the result will be more accurate in headphones.</string>
+    <string name="hear_start">Start</string>
+    <string name="hear_wait">Get ready…</string>
+    <string name="hear_heard">I hear it</string>
+    <string name="hear_stop">Stop</string>
+    <string name="hear_trial">Beep %1$d of %2$d · %3$s</string>
+    <string name="hear_level">Volume %1$.1f dB</string>
+    <string name="hear_result">My hearing</string>
+    <string name="hear_preset">My hearing</string>
+    <string name="hear_row">%1$6s Hz: heard at %2$6.1f dB → %3$+5.1f dB</string>
+    <string name="hear_result_hint">The correction is half of the difference from normal hearing (ISO 226), at most +8 dB, and the overall loudness stays the same. «Save and apply» creates the preset «My hearing».</string>
+    <string name="hear_apply">Save and apply</string>
 </resources>

@@ -550,4 +550,19 @@
     <string name="bk_bad">Це не резервна копія EQ</string>
     <string name="bk_info">Копія від %1$s (EQ %2$s):\n• пристроїв і машин: %3$d\n• своїх пресетів: %4$d\n• налаштувань ігор: %5$d\n• усього налаштувань: %6$d\n\nПоточні налаштування заміняться, EQ перезапуститься.</string>
     <string name="bk_done">Відновлено — EQ перезапускається</string>
+    <string name="hz">Гц</string>
+    <string name="hear_btn">Підлаштування під слух</string>
+    <string name="hear_intro">Надіньте навушники, тихе місце, гучність приблизно наполовину. Звучатимуть тихі гудки різної висоти, кожен наступний трохи гучніший. Натисніть «Чую», щойно почуєте. 20 гудків, близько 3 хвилин. Під час тесту EQ вимкнено.</string>
+    <string name="hear_no_phones">Схоже, навушники не підключені — у навушниках результат буде точнішим.</string>
+    <string name="hear_start">Почати</string>
+    <string name="hear_wait">Приготуйтеся…</string>
+    <string name="hear_heard">Чую</string>
+    <string name="hear_stop">Зупинити</string>
+    <string name="hear_trial">Гудок %1$d з %2$d · %3$s</string>
+    <string name="hear_level">Гучність %1$.1f дБ</string>
+    <string name="hear_result">Мій слух</string>
+    <string name="hear_preset">Мій слух</string>
+    <string name="hear_row">%1$6s Гц: почули при %2$6.1f дБ → %3$+5.1f дБ</string>
+    <string name="hear_result_hint">Поправка — половина відмінності від нормального слуху (ISO 226), не більше +8 дБ, загальна гучність не змінюється. «Зберегти й застосувати» — пресет «Мій слух».</string>
+    <string name="hear_apply">Зберегти й застосувати</string>
 </resources>
