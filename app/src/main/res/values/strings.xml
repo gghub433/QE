@@ -520,4 +520,10 @@
     <string name="car_delay_reset">Reset</string>
     <string name="car_vol_level">Volume</string>
     <string name="car_vol_hint">The car connects and the volume becomes exactly this, so the head unit doesn\'t blast you (step 1%).</string>
+    <string name="car_code">Car code</string>
+    <string name="car_code_title">Car settings as a code</string>
+    <string name="car_code_hint">A friend with the same car scans the QR with the camera or enters the code in EQ: Equalizer → Enter code. Inside: Bass Boost, bass filter, surround, seat, speakers, delays and start volume.</string>
+    <string name="car_code_apply">Apply to this car</string>
+    <string name="car_code_no_car">Connect to the car first: the code is applied to it</string>
+    <string name="car_code_applied">Car settings from the code applied</string>
 </resources>

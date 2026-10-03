@@ -520,4 +520,10 @@
     <string name="car_delay_reset">Скинути</string>
     <string name="car_vol_level">Гучність</string>
     <string name="car_vol_hint">Підключилась машина — гучність сама стає такою, щоб магнітола не оглушувала (крок 1%).</string>
+    <string name="car_code">Код машини</string>
+    <string name="car_code_title">Налаштування машини кодом</string>
+    <string name="car_code_hint">Друг із такою ж машиною сканує QR камерою або вводить код в EQ: «Еквалайзер» → «Ввести код». Усередині: Bass Boost, фільтр басу, об\'ємний звук, місце, динаміки, затримки й стартова гучність.</string>
+    <string name="car_code_apply">Застосувати до цієї машини</string>
+    <string name="car_code_no_car">Спочатку підключіться до машини — код застосується до неї</string>
+    <string name="car_code_applied">Налаштування машини з коду застосовано</string>
 </resources>

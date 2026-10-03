@@ -75,7 +75,7 @@
   }
 
   // код — только буквы base32 и дефисы, иначе ничего не показываем
-  var m = /\/p\/(EQ-[A-Z2-7-]{6,120})\/?$/i.exec(location.pathname);
+  var m = /\/p\/(EQC?-[A-Z2-7-]{6,240})\/?$/i.exec(location.pathname);   // EQ- пресет, EQC- машина
   if (!m) { $("lead").textContent = t.none; return; }
   var code = m[1].toUpperCase();
   $("lead").textContent = t.lead;

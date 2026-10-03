@@ -353,7 +353,9 @@ public class MainActivity extends Activity {
             i.setData(null);
             selectTab(TAB_EQ, false);
             PresetCode.Preset p = PresetCode.decode(link);
+            CarCode.Car car = p == null ? CarCode.decode(link) : null;
             if (p != null) showPresetPreview(p);
+            else if (car != null) showCarCodePreview(car);
             else Toast.makeText(this, R.string.code_bad, Toast.LENGTH_LONG).show();
         }
         if (i.getBooleanExtra(EXTRA_CAR, false)) {
@@ -900,7 +902,19 @@ public class MainActivity extends Activity {
     // =====================================================================
 
     private void showPresetCode() {
-        final String code = PresetCode.encode(PresetCode.current(eq));
+        String code = PresetCode.encode(PresetCode.current(eq));
+        showCodeQr(code, R.string.code_title, R.string.code_hint);
+    }
+
+    /** Код машины: Bass Boost, фильтр, объёмный, место, динамики, задержки, громкость — кодом и QR. */
+    private void showCarCode() {
+        DeviceSettings ds = carSettings();
+        if (ds == null) return;
+        showCodeQr(CarCode.encode(CarCode.from(ds)), R.string.car_code_title, R.string.car_code_hint);
+    }
+
+    /** Окно с QR, кодом и кнопками «Поделиться» и «Скопировать» (пресет или машина). */
+    private void showCodeQr(final String code, int titleRes, int hintRes) {
         final String link = PresetCode.link(code);
         boolean[][] m = QrCode.encode(link);
         if (m == null) {
@@ -922,11 +936,11 @@ public class MainActivity extends Activity {
         c.setTextIsSelectable(true);
         c.setPadding(0, dp(14), 0, dp(6));
         box.addView(c, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        TextView h = text(getString(R.string.code_hint), 12, GREY);
+        TextView h = text(getString(hintRes), 12, GREY);
         h.setGravity(Gravity.CENTER);
         box.addView(h);
         new AlertDialog.Builder(this)
-                .setTitle(R.string.code_title)
+                .setTitle(titleRes)
                 .setView(box)
                 .setPositiveButton(R.string.share, new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface d, int w) { shareText(getString(R.string.code_share_text, code, link)); }
@@ -978,15 +992,57 @@ public class MainActivity extends Activity {
         // своя кнопка: при опечатке окно остаётся открытым
         dlg.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
-                PresetCode.Preset p = PresetCode.decode(input.getText().toString());
-                if (p == null) {
+                String text = input.getText().toString();
+                PresetCode.Preset p = PresetCode.decode(text);
+                CarCode.Car car = p == null ? CarCode.decode(text) : null;
+                if (p == null && car == null) {
                     input.setError(getString(R.string.code_bad));
                     return;
                 }
                 dlg.dismiss();
-                showPresetPreview(p);
+                if (p != null) showPresetPreview(p);
+                else showCarCodePreview(car);
             }
         });
+    }
+
+    /** Что в коде машины — списком, и «Применить к этой машине». */
+    private void showCarCodePreview(final CarCode.Car c) {
+        selectTab(TAB_DEVICE, false);
+        StringBuilder sb = new StringBuilder();
+        sb.append(getString(R.string.car_tab_bass)).append(": ")
+                .append(c.bass > 0 ? "+" + c.bass + " dB · " + getString(R.string.car_hz, c.bassHz) : getString(R.string.off));
+        sb.append('\n').append(getString(R.string.car_tab_filter)).append(": ")
+                .append(c.hp > 0 ? getString(R.string.car_hz, c.hp) : getString(R.string.off));
+        sb.append('\n').append(getString(R.string.car_tab_surround)).append(": ")
+                .append(c.surround > 0 ? c.surround + "%" : getString(R.string.off));
+        sb.append('\n').append(getString(R.string.car_seat)).append(": ")
+                .append(getString(CarFocusView.labelRes(c.focus, c.rhd)));
+        int manual = 0;
+        for (float[] d : c.delays) if (d != null) manual++;
+        sb.append('\n').append(getString(R.string.car_speakers)).append(": ").append(c.speakers.length / 2)
+                .append(" · ").append(getString(R.string.car_delay_manual)).append(": ").append(manual);
+        sb.append('\n').append(getString(R.string.ds_volume)).append(": ")
+                .append(c.volume >= 0 ? c.volume + "%" : getString(R.string.ds_volume_off));
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.car_code_title)
+                .setMessage(sb.toString())
+                .setPositiveButton(R.string.car_code_apply, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface d, int w) {
+                        DeviceSettings ds = carSettings();
+                        if (ds == null) {
+                            Toast.makeText(MainActivity.this, R.string.car_code_no_car, Toast.LENGTH_LONG).show();
+                            return;
+                        }
+                        CarCode.apply(c, ds);
+                        ds.save(MainActivity.this);
+                        CarFocusView.applyFocus(MainActivity.this);
+                        refreshCar();
+                        Toast.makeText(MainActivity.this, R.string.car_code_applied, Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
     }
 
     /** Превью кривой из кода и «Применить». */
@@ -2564,6 +2620,13 @@ public class MainActivity extends Activity {
         LinearLayout b = new LinearLayout(this);
         b.addView(chip(getString(R.string.car_eq_open), R.drawable.ic_equalizer, CHIP, new View.OnClickListener() {
             public void onClick(View v) { selectTab(TAB_EQ, true); }
+        }));
+        // настройки машины другу с такой же машиной: код и QR; «Ввести код» понимает и пресеты, и машины
+        b.addView(chip(getString(R.string.car_code), R.drawable.ic_qr, CHIP, new View.OnClickListener() {
+            public void onClick(View v) { showCarCode(); }
+        }));
+        b.addView(chip(getString(R.string.enter_code), R.drawable.ic_keyboard, CHIP, new View.OnClickListener() {
+            public void onClick(View v) { askPresetCode(); }
         }));
         p.addView(hscroll(b));
 

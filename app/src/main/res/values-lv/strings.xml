@@ -520,4 +520,10 @@
     <string name="car_delay_reset">Atiestatīt</string>
     <string name="car_vol_level">Skaļums</string>
     <string name="car_vol_hint">Pieslēdzās mašīna — skaļums pats kļūst tieši tāds, lai magnetola neapdullinātu (solis 1%).</string>
+    <string name="car_code">Mašīnas kods</string>
+    <string name="car_code_title">Mašīnas iestatījumi kodā</string>
+    <string name="car_code_hint">Draugs ar tādu pašu mašīnu noskenē QR ar kameru vai ievada kodu EQ: «Ekvalaizers» → «Ievadīt kodu». Iekšā: Bass Boost, basu filtrs, telpiskā skaņa, vieta, skaļruņi, aiztures un sākuma skaļums.</string>
+    <string name="car_code_apply">Lietot šai mašīnai</string>
+    <string name="car_code_no_car">Vispirms pieslēdzieties mašīnai — kods tiks lietots tai</string>
+    <string name="car_code_applied">Mašīnas iestatījumi no koda lietoti</string>
 </resources>
