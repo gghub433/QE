@@ -153,8 +153,73 @@ public final class EqEngine {
         bands = sanitizeBands(prefs.getInt("bands", 9));
         profileKey = prefs.getString("profile", "default");
         profileName = prefs.getString("profileName", "");
+        loudness = prefs.getBoolean("loud", false);
+        loudnessAmt = prefs.getInt("loudAmt", 60);
         gains = new float[bands];
         if (!loadProfile(profileKey)) migrateOld();
+    }
+
+    // ---- тонкомпенсация ----
+
+    /**
+     * Тонкомпенсация: на тихой громкости ухо хуже слышит бас и верх (кривые равной громкости),
+     * EQ их подтягивает — чем тише, тем больше: до +10 дБ баса и +4 дБ верха при силе 100%.
+     * От 85% громкости и выше не действует. Общая для всех устройств.
+     */
+    public boolean loudness;
+    /** Сила тонкомпенсации, % (шаг 1%). */
+    public int loudnessAmt = 60;
+    /** Громкость музыки 0…1 (присылает служба). */
+    private float volLevel = 1f;
+
+    public void setLoudness(boolean on) {
+        loudness = on;
+        prefs.edit().putBoolean("loud", on).apply();
+        applyAll();
+        notifyChanged();
+    }
+
+    public void setLoudnessAmount(int pct) {
+        loudnessAmt = Math.max(0, Math.min(100, pct));
+        prefs.edit().putInt("loudAmt", loudnessAmt).apply();
+        if (loudness) applyAll();
+        notifyChanged();
+    }
+
+    /** Громкость музыки сменилась (0…1). */
+    public void setVolumeLevel(float v) {
+        v = Math.max(0f, Math.min(1f, v));
+        if (Math.abs(v - volLevel) < 0.004f) return;
+        volLevel = v;
+        if (loudness) applyAll();
+        notifyChanged();
+    }
+
+    public float volumeLevel() {
+        return volLevel;
+    }
+
+    /** Насколько тише «полной» громкости: 0 от 85% и выше, 1 — в тишине. */
+    private float loudDeficit() {
+        return Math.max(0f, Math.min(1f, (0.85f - volLevel) / 0.85f));
+    }
+
+    /** Подъём баса тонкомпенсацией сейчас, дБ. */
+    public float loudBassDb() {
+        return loudness ? loudnessAmt / 100f * 10f * (float) Math.pow(loudDeficit(), 1.2) : 0f;
+    }
+
+    /** Подъём верха тонкомпенсацией сейчас, дБ. */
+    public float loudTrebleDb() {
+        return loudness ? loudnessAmt / 100f * 4f * loudDeficit() : 0f;
+    }
+
+    /** Бас до 100 Гц полностью (к 200 Гц сходит на нет), верх от 6 кГц к 12 кГц нарастает. */
+    static float loudLayer(float f, float bassDb, float trebleDb) {
+        float g = 0f;
+        if (bassDb > 0f) g += bassDb * lowShelf(f, 100);
+        if (trebleDb > 0f && f > 6000f) g += trebleDb * (float) Math.min(1.0, Math.log(f / 6000.0) / Math.log(2));
+        return g;
     }
 
     private static int outputRate(Context ctx) {
@@ -390,7 +455,8 @@ public final class EqEngine {
 
     /** Слои поверх кривой на частоте f: звук машины и панч. */
     private float layers(float f) {
-        return carLayer(f, carBassDb, carBassHz, carHpHz) + punchLayer(f, activePunch(), smallSpeaker);
+        return carLayer(f, carBassDb, carBassHz, carHpHz) + punchLayer(f, activePunch(), smallSpeaker)
+                + loudLayer(f, loudBassDb(), loudTrebleDb());
     }
 
     /**
@@ -613,7 +679,8 @@ public final class EqEngine {
 
         float base = levelBase() + boost;
         // панч: −1,5 дБ запаса на 100% (в динамике телефона −1: глубокий бас там срезан), остальное держит бас-компрессор
-        if (bypass == BYPASS_NONE) base += corrHeadroom() + carHeadroom() + scnGain - (smallSpeaker ? 1f : 1.5f) * p;
+        if (bypass == BYPASS_NONE) base += corrHeadroom() + carHeadroom() + scnGain - (smallSpeaker ? 1f : 1.5f) * p
+                - 0.5f * loudBassDb();   // тонкомпенсация: половина подъёма баса — запасом, без хрипа
         else if (bypass == BYPASS_AB) base += abCompensation();
         // тест динамиков — без баланса и фокуса, иначе он сам себя исказит
         float bal = bypass == BYPASS_TEST ? 0f : Math.max(-1f, Math.min(1f, balance + carBalance));

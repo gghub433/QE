@@ -526,4 +526,8 @@
     <string name="car_code_apply">Lietot šai mašīnai</string>
     <string name="car_code_no_car">Vispirms pieslēdzieties mašīnai — kods tiks lietots tai</string>
     <string name="car_code_applied">Mašīnas iestatījumi no koda lietoti</string>
+    <string name="loud">Skaļuma kompensācija</string>
+    <string name="loud_hint">Klusā skaļumā auss sliktāk dzird basus un augšas — EQ tos paceļ, jo klusāk, jo vairāk. No 85% skaļuma nedarbojas.</string>
+    <string name="loud_amount">Stiprums</string>
+    <string name="loud_now">Tagad: skaļums %1$d%% → basi +%2$.1f dB, augšas +%3$.1f dB</string>
 </resources>

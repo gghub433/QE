@@ -194,6 +194,9 @@ public class MainActivity extends Activity {
     private SeekBar preBar, punchBar, boostBar, balanceBar;
     private TextView preVal, punchVal, boostVal, balanceVal;
     private Button punchListenBtn;
+    private Switch loudSwitch;
+    private SeekBar loudBar;
+    private TextView loudVal, loudNow;
     /** Где сейчас бьёт панч: динамик телефона (180 Гц) или наушники, колонка, машина (65 Гц). */
     private TextView punchModeText;
     private Switch mainSwitch, levelSwitch, autoSwitch, perDeviceSwitch;
@@ -842,6 +845,28 @@ public class MainActivity extends Activity {
                 if (!updating) eq.setLeveling(on);
             }
         });
+
+        // тонкомпенсация: чем тише громкость, тем больше баса и верха (шаг силы 1%)
+        loudSwitch = styledSwitch();
+        root.addView(switchRow(getString(R.string.loud), getString(R.string.loud_hint), loudSwitch));
+        loudSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            public void onCheckedChanged(CompoundButton v, boolean on) {
+                if (!updating) eq.setLoudness(on);
+            }
+        });
+        loudBar = new SeekBar(this);
+        loudBar.setMax(100);
+        loudVal = text("", 14, Color.WHITE);
+        root.addView(sliderRow(getString(R.string.loud_amount), loudBar, loudVal));
+        loudBar.setOnSeekBarChangeListener(new Seek() {
+            public void onProgressChanged(SeekBar s, int p, boolean fromUser) {
+                loudVal.setText(p + "%");
+                if (fromUser) eq.setLoudnessAmount(p);
+            }
+        });
+        loudNow = hintText("");
+        loudNow.setTextColor(Color.rgb(0xC8, 0xCA, 0xD0));
+        root.addView(loudNow);
 
         // моно — только через системные настройки
         LinearLayout mono = new LinearLayout(this);
@@ -4471,6 +4496,13 @@ public class MainActivity extends Activity {
         balanceBar.setProgress(Math.round(eq.balance * 100) + 100);
         balanceVal.setText(balanceLabel(Math.round(eq.balance * 100)));
         levelSwitch.setChecked(eq.leveling);
+        loudSwitch.setChecked(eq.loudness);
+        loudBar.setProgress(eq.loudnessAmt);
+        loudBar.setEnabled(eq.loudness);
+        loudVal.setText(eq.loudnessAmt + "%");
+        // подробно: громкость сейчас и сколько добавлено
+        loudNow.setText(getString(R.string.loud_now, Math.round(eq.volumeLevel() * 100),
+                eq.loudBassDb(), eq.loudTrebleDb()));
         refreshCarEq();
         int car = Math.round(eq.carBalance * 100);
         carNote.setVisibility(car != 0 ? View.VISIBLE : View.GONE);

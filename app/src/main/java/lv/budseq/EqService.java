@@ -195,6 +195,22 @@ public class EqService extends Service {
         }
     };
 
+    /** Громкость музыки (0…1) — для тонкомпенсации. */
+    private void updateVolumeLevel() {
+        try {
+            int max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+            if (max > 0) eq.setVolumeLevel(am.getStreamVolume(AudioManager.STREAM_MUSIC) / (float) max);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private final BroadcastReceiver volumeReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context c, Intent i) {
+            updateVolumeLevel();
+        }
+    };
+
     /** Экран включили или выключили — волна только при включённом. */
     private final BroadcastReceiver screenReceiver = new BroadcastReceiver() {
         @Override
@@ -316,6 +332,14 @@ public class EqService extends Service {
         IntentFilter sf = new IntentFilter(Intent.ACTION_SCREEN_ON);
         sf.addAction(Intent.ACTION_SCREEN_OFF);
         registerReceiver(screenReceiver, sf);
+        // громкость для тонкомпенсации
+        IntentFilter vf = new IntentFilter("android.media.VOLUME_CHANGED_ACTION");
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(volumeReceiver, vf, 0x4); // Context.RECEIVER_NOT_EXPORTED: только от системы
+        } else {
+            registerReceiver(volumeReceiver, vf);
+        }
+        updateVolumeLevel();
 
         link.addListener(budsListener);
         air.addListener(airListener);
@@ -459,6 +483,7 @@ public class EqService extends Service {
         np.stop();
         try { unregisterReceiver(sessionReceiver); } catch (Exception ignored) { }
         try { unregisterReceiver(screenReceiver); } catch (Exception ignored) { }
+        try { unregisterReceiver(volumeReceiver); } catch (Exception ignored) { }
         waveRunning = false;
         main.removeCallbacks(waveTick);
         AudioPulse.get().release(waveKey);
@@ -680,6 +705,7 @@ public class EqService extends Service {
         DeviceInfo p = monitor.primaryAudio();
         // звук из динамика самого телефона — у панча своя форма (глубокий бас динамик не играет)
         eq.setSmallSpeaker(p == null && !PhoneInfo.headUnit(this));
+        updateVolumeLevel();
         // на магнитоле звук идёт в её динамики без Bluetooth — автовыключение не нужно
         if (eq.autoMode) eq.setEnabled(p != null || PhoneInfo.headUnit(this));
         if (eq.perDevice) {
