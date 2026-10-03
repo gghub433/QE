@@ -3,9 +3,12 @@ package lv.budseq;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.RadialGradient;
 import android.graphics.RectF;
+import android.graphics.Shader;
 import android.view.View;
 
 /**
@@ -35,8 +38,6 @@ public class BudsView extends View {
     private final Paint caseStroke = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint inner = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint budFill = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint budShade = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint grill = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint ring = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint text = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint small = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -50,10 +51,30 @@ public class BudsView extends View {
     private final Path bolt = new Path();
     private final Paint boltPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final float d;
+    /** Подробные наушники-«фасолины» (те же, что на картинке устройства). */
+    private final DeviceArt art;
+    // объём кейса: гнёзда с контактами, блики, кромка, тень (градиенты — при смене размера или стиля)
+    private final Paint well = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint pins = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint gloss = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint ledge = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint shadowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private float shadeKey = Float.NaN;
+    private int glossAlpha = 0x38;
+    private int shadeStyle = -1;
 
     public BudsView(Context c) {
         super(c);
         d = getResources().getDisplayMetrics().density;
+        art = new DeviceArt(d);
+        ledge.setStyle(Paint.Style.STROKE);
+        ledge.setStrokeWidth(1.2f * d);
+        ledge.setStrokeCap(Paint.Cap.ROUND);
+        pins.setColor(Color.rgb(0xD4, 0xB0, 0x5A));
+        shadowPaint.setShader(new RadialGradient(0, 0, 0.5f, new int[]{0x8C000000, 0x00000000}, null,
+                Shader.TileMode.CLAMP));
+        gloss.setShader(new RadialGradient(0, 0, 0.5f, new int[]{0xFFFFFFFF, 0x00FFFFFF}, null,
+                Shader.TileMode.CLAMP));
         caseStroke.setStyle(Paint.Style.STROKE);
         caseStroke.setStrokeWidth(1.5f * d);
         lidRim.setStyle(Paint.Style.STROKE);
@@ -82,8 +103,6 @@ public class BudsView extends View {
             lidInner.setColor(Color.rgb(0xE3, 0xE4, 0xE8));
             lidRim.setColor(Color.rgb(0xD0, 0xD2, 0xD8));
             budFill.setColor(Color.rgb(0xFA, 0xFA, 0xFB));
-            budShade.setColor(Color.rgb(0xB9, 0xBB, 0xC2));
-            grill.setColor(Color.rgb(0x3A, 0x3C, 0x42));
         } else if (st == STYLE_BUDS3) {
             // Buds3/Buds4: тёмный кейс, серебристые наушники с ножками
             caseFill.setColor(Color.rgb(0x2B, 0x2D, 0x33));
@@ -92,8 +111,6 @@ public class BudsView extends View {
             lidInner.setColor(Color.rgb(0x3A, 0x3D, 0x46));
             lidRim.setColor(Color.rgb(0x55, 0x58, 0x62));
             budFill.setColor(Color.rgb(0xD9, 0xDC, 0xE2));
-            budShade.setColor(Color.rgb(0xA4, 0xA8, 0xB2));
-            grill.setColor(Color.rgb(0x3A, 0x3C, 0x42));
         } else {
             caseFill.setColor(Color.rgb(0x2B, 0x2D, 0x33));
             caseStroke.setColor(Color.rgb(0x55, 0x58, 0x60));
@@ -101,10 +118,36 @@ public class BudsView extends View {
             lidInner.setColor(Color.rgb(0x20, 0x22, 0x27));
             lidRim.setColor(Color.rgb(0x33, 0x36, 0x3D));
             budFill.setColor(Color.rgb(0xEE, 0xEE, 0xF0));
-            budShade.setColor(Color.rgb(0xC9, 0xCA, 0xCF));
-            grill.setColor(Color.rgb(0x6A, 0x6C, 0x72));
         }
         invalidate();
+    }
+
+    /** Градиенты кейса — только когда поменялся размер или стиль (не на каждом кадре). */
+    private void ensureShaders(float top, float bottom, float seam, float depth) {
+        float key = top * 31f + bottom * 7f + seam * 3f + depth;
+        if (key == shadeKey && style == shadeStyle) return;
+        shadeKey = key;
+        shadeStyle = style;
+        boolean white = style == STYLE_AIRPODS;
+        int[] body = white ? new int[]{0xFFFFFFFF, 0xFFF3F3F5, 0xFFD0D2D7}
+                : style == STYLE_BUDS3 ? new int[]{0xFF4A4D57, 0xFF2D2F36, 0xFF1A1B20}
+                : new int[]{0xFF474A52, 0xFF2C2E34, 0xFF17181B};
+        caseFill.setShader(new LinearGradient(0, top, 0, bottom, body, new float[]{0f, 0.5f, 1f}, Shader.TileMode.CLAMP));
+        int[] lid = white ? new int[]{0xFFF0F1F3, 0xFFCDCFD4}
+                : style == STYLE_BUDS3 ? new int[]{0xFF4A4D57, 0xFF2A2C33} : new int[]{0xFF2C2E33, 0xFF161719};
+        lidInner.setShader(new LinearGradient(0, seam - depth, 0, seam, lid, null, Shader.TileMode.CLAMP));
+        well.setColor(white ? 0xFFB9BCC2 : 0xFF08090A);
+        glossAlpha = white ? 0xB0 : 0x38;
+        ledge.setColor(white ? 0xFFFFFFFF : 0x40FFFFFF);
+    }
+
+    /** Мягкий блик: белое пятно, плавно гаснущее к краям (ширина w, высота h). */
+    private void softSpot(Canvas c, float x, float y, float w, float h) {
+        c.save();
+        c.translate(x, y);
+        c.scale(w, h);
+        c.drawCircle(0, 0, 0.5f, gloss);
+        c.restore();
     }
 
     /** Какой стиль рисовать для устройства. */
@@ -189,7 +232,16 @@ public class BudsView extends View {
         float budH = budW * 0.82f;
 
         int a = (int) (255 * alpha);
+        ensureShaders(caseTop, caseBottom, seam, caseH * 0.62f);
         setAlphaAll(a);
+
+        // тень под кейсом
+        c.save();
+        c.translate(cx, caseBottom + 3 * d);
+        c.scale(caseW * 1.3f, 22 * d);
+        shadowPaint.setAlpha(a);
+        c.drawCircle(0, 0, 0.5f, shadowPaint);
+        c.restore();
 
         // Позиции наушников: в кейсе -> снаружи
         float inY = seam + budH * 0.08f;
@@ -221,12 +273,21 @@ public class BudsView extends View {
                 float lr2 = Math.min(lr, lidRect.height() / 2f);
                 c.drawRoundRect(lidRect, lr2, lr2, lidRim);
             }
-            // углубления для наушников
+            // углубления для наушников: гнёзда с позолоченными контактами зарядки
             float pit = Math.min(1f, lid * 2f);
             inner.setAlpha((int) (a * pit));
             lidRect.set(cx - caseW / 2 + 8 * d, seam - 5 * d, cx + caseW / 2 - 8 * d, seam + 10 * d);
             c.drawRoundRect(lidRect, 8 * d, 8 * d, inner);
             inner.setAlpha(a);
+            well.setAlpha((int) (a * pit));
+            pins.setAlpha((int) (a * pit));
+            for (int k = -1; k <= 1; k += 2) {
+                float px = cx + k * caseW * 0.21f;
+                r.set(px - budW * 0.48f, seam - 3.5f * d, px + budW * 0.48f, seam + 7 * d);
+                c.drawOval(r, well);
+                c.drawCircle(px - 3 * d, seam + 2 * d, 1.3f * d, pins);
+                c.drawCircle(px + 3 * d, seam + 2 * d, 1.3f * d, pins);
+            }
         }
 
         // 2) наушники, которые ещё в кейсе (в закрытом кейсе их не видно — кроме прозрачной крышки Buds3)
@@ -238,13 +299,30 @@ public class BudsView extends View {
         c.save();
         c.clipRect(cx - caseW, seam, cx + caseW, caseBottom + 4 * d);
         c.drawRoundRect(caseRect, rad, rad, caseFill);
+        // блик спереди и светлая кромка у разъёма
+        gloss.setAlpha(glossAlpha * a / 255);
+        softSpot(c, cx - caseW * 0.2f, seam + (caseBottom - seam) * 0.3f, caseW * 0.5f, (caseBottom - seam) * 0.36f);
         c.drawRoundRect(caseRect, rad, rad, caseStroke);
         c.restore();
-        // светодиод
+        int ledgeA = style == STYLE_AIRPODS ? 255 : 0x40;
+        ledge.setAlpha(ledgeA * a / 255);
+        c.drawLine(cx - caseW / 2 + rad * 0.3f, seam + 1.6f * d, cx + caseW / 2 - rad * 0.3f, seam + 1.6f * d, ledge);
+        // светодиод со свечением
         led.setColor(!state.connected ? Color.rgb(0x55, 0x55, 0x55)
                 : state.chgCase ? ORANGE : GREEN);
-        led.setAlpha(state.connected ? (int) (a * (0.6f + 0.4f * (float) Math.sin(time * 3))) : a);
-        c.drawCircle(cx, seam + (caseBottom - seam) * 0.40f, 3.5f * d, led);
+        float ledY = seam + (caseBottom - seam) * 0.40f;
+        float pulse = state.connected ? 0.6f + 0.4f * (float) Math.sin(time * 3) : 1f;
+        if (state.connected) {
+            // мягкое свечение — несколько полупрозрачных кругов
+            float[] rr = {9f, 7f, 5.2f};
+            float[] aa = {0.07f, 0.11f, 0.18f};
+            for (int i = 0; i < rr.length; i++) {
+                led.setAlpha((int) (a * pulse * aa[i]));
+                c.drawCircle(cx, ledY, rr[i] * d, led);
+            }
+        }
+        led.setAlpha((int) (a * pulse));
+        c.drawCircle(cx, ledY, 3.5f * d, led);
 
         // 4) внешний купол крышки — пока крышка не перевалила за вертикаль
         if (cosT > 0.02f) {
@@ -261,6 +339,8 @@ public class BudsView extends View {
             } else {
                 c.drawRoundRect(caseRect, rad, rad, caseFill);
             }
+            // блик на куполе крышки
+            softSpot(c, cx - caseW * 0.14f, caseTop + caseH * 0.14f, caseW * 0.56f, caseH * 0.16f);
             c.drawRoundRect(caseRect, rad, rad, caseStroke);
             c.restore();
         }
@@ -292,14 +372,8 @@ public class BudsView extends View {
             drawStemBud(c, x, y, bw, bh, right, wear);
             return;
         }
-        // корпус "фасолина"
-        r.set(x - bw / 2, y - bh / 2, x + bw / 2, y + bh / 2);
-        c.drawOval(r, budFill);
-        r.set(x - bw / 2 + bw * 0.08f, y, x + bw / 2 - bw * 0.08f, y + bh / 2);
-        c.drawArc(r, 0, 180, false, budShade);
-        // сенсорная панель / сетка
-        float gx = x + (right ? bw * 0.12f : -bw * 0.12f);
-        c.drawCircle(gx, y - bh * 0.05f, bw * 0.17f, grill);
+        // «фасолина»: амбушюр, сенсорная панель, микрофон, блик (объёмная, как на картинке устройства)
+        art.bean(c, x, y, bw / 0.21f, right, budFill.getAlpha());
         if (wear > 0.02f) {
             ring.setAlpha((int) (255 * wear));
             c.drawCircle(x, y, bw * 0.62f + (1 - wear) * 10 * d, ring);
@@ -383,8 +457,6 @@ public class BudsView extends View {
         caseStroke.setAlpha(a);
         inner.setAlpha(a);
         budFill.setAlpha(a);
-        budShade.setAlpha(a);
-        grill.setAlpha(a);
     }
 
     private static float lerp(float a, float b, float t) {

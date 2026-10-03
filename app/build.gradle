@@ -15,8 +15,8 @@ android {
         applicationId 'lv.budseq'
         minSdk 28
         targetSdk 36
-        versionCode 38
-        versionName '7.9'
+        versionCode 39
+        versionName '8.0'
     }
 
     signingConfigs {
