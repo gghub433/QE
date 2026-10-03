@@ -315,6 +315,7 @@ public class EqService extends Service {
         public void run() {
             updateNotification();
             updateWidget();
+            QuickWidget.update(EqService.this);   // быстрые кнопки: EQ, пресет, панч
         }
     };
 

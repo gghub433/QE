@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Кнопка виджета: включено (акцент #3E7BFA; на Android 12+ перекрашивается в цвет темы) -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="#FF3E7BFA" />
+    <corners android:radius="18dp" />
+</shape>

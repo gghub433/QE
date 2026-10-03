@@ -536,4 +536,10 @@
     <string name="edge_width">Товщина</string>
     <string name="edge_width_dp">%1$d dp</string>
     <string name="edge_overlay">Дозвольте EQ «Поверх інших застосунків» — підсвітка малюється поверх них</string>
+    <string name="qw_name">EQ: швидкі кнопки</string>
+    <string name="qw_desc">EQ увімк/вимк, наступний пресет і панч в один рядок</string>
+    <string name="qw_on">EQ увімк</string>
+    <string name="qw_off">EQ вимк</string>
+    <string name="qw_preset">Пресет ▸</string>
+    <string name="qw_punch">Панч ▸</string>
 </resources>

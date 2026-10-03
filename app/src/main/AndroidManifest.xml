@@ -152,6 +152,19 @@
                 android:resource="@xml/widget_info" />
         </receiver>
 
+        <!-- Виджет «EQ: быстрые кнопки»: EQ вкл/выкл, пресет, панч -->
+        <receiver
+            android:name=".QuickWidget"
+            android:exported="true"
+            android:label="@string/qw_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_quick_info" />
+        </receiver>
+
         <!-- Автозапуск службы после перезагрузки и после обновления приложения -->
         <receiver
             android:name=".BootReceiver"
