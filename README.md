@@ -207,12 +207,15 @@ Android ставит обновление, только если оно подп
 2. Сохрани его в Termux: `echo ТОКЕН > ~/.eq-github-token`
 3. Подними версию (см. ниже) и выполни `bash publish.sh` — соберёт APK и выложит релиз `vX.Y`.
 
-**Способ 2: собирает GitHub Actions**
-1. В репозитории: Settings → Secrets and variables → Actions → добавь секреты:
-   - `KEYSTORE_BASE64` — ключ в base64 (в Termux: `base64 -w0 ~/.budseq-debug.keystore`);
+**Способ 2: всё делает GitHub, Termux больше не нужен** (рекомендую)
+1. Один раз в Termux: `cd ~/QE && git pull && bash ci-key.sh` — скопирует ключ в буфер обмена
+   (с Termux:API) или напечатает его. Ключ никому не присылайте.
+2. В репозитории на GitHub: Settings → Secrets and variables → Actions → New repository secret, 4 секрета:
+   - `KEYSTORE_BASE64` — строка из шага 1;
    - `KEYSTORE_PASSWORD` = `android`, `KEY_ALIAS` = `debug`, `KEY_PASSWORD` = `android`.
-2. Подними версию, закоммить и выполни `bash publish.sh --tag` (или поставь тег `v6.3` на GitHub).
-   Actions соберёт подписанный APK и опубликует релиз. Без секретов APK собирается, но релиз не публикуется.
+3. Всё. Каждая новая версия в `app/build.gradle`, для которой ещё нет релиза, после сборки сама становится
+   релизом `vX.Y` с APK, подписанным вашим ключом, — и приходит в приложение обновлением.
+   Без секретов APK собирается, но релиз не публикуется (как раньше).
 
 Описание релиза берётся из раздела «Что нового» ниже (`### X.Y`).
 

@@ -1,7 +1,9 @@
 name: Build APK
 
 # Любой push — собрать APK (артефакт BudsEQ-apk).
-# Тег vX.Y (например, v5.0) — ещё и выложить релиз: телефоны получат автообновление.
+# Есть секреты с ключом подписи (тем же, что в Termux, см. ci-key.sh) и новая версия в app/build.gradle,
+# для которой ещё нет релиза vX.Y, — выложить релиз сразу: телефоны получат автообновление без Termux.
+# Тег vX.Y — тоже выложить релиз (как раньше).
 on:
   push:
   workflow_dispatch:
@@ -56,16 +58,30 @@ jobs:
           name: BudsEQ-apk
           path: EQ-*.apk
 
+      # новая версия? (релиза vX.Y ещё нет) — тогда выкладываем сами, без тега и без Termux
+      - name: New version
+        if: env.SIGNED == 'true' && !startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          CODE=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $GH_TOKEN" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/v$VER")
+          echo "release v$VER: HTTP $CODE"
+          if [ "$CODE" = "404" ]; then echo "NEW=true" >> "$GITHUB_ENV"; fi
+
       - name: Release notes
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || env.NEW == 'true'
         run: |
           awk -v v="### $VER" '$0==v{f=1;next} f&&/^##/{exit} f' README.md > notes.md
           [ -s notes.md ] || echo "EQ $VER" > notes.md
 
       - name: Publish release
-        if: startsWith(github.ref, 'refs/tags/v') && env.SIGNED == 'true'
+        if: (startsWith(github.ref, 'refs/tags/v') || env.NEW == 'true') && env.SIGNED == 'true'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ env.VER }}
+          target_commitish: ${{ github.sha }}
+          make_latest: true
           name: EQ ${{ env.VER }}
           body_path: notes.md
           files: |
