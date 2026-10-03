@@ -617,6 +617,74 @@ public class MainActivity extends Activity {
         more.addView(fwEqBtn);
         budsBox.addView(hscroll(more));
         root.addView(budsBox);
+
+        // подробно об устройстве: как узнали тип, подключение, кодек, задержка, громкость, заряд, динамики машины
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(16), dp(12), dp(16), dp(12));
+        card.setBackground(round(CARD, 24));
+        TextView title = text(getString(R.string.dd_title), 16, Color.WHITE);
+        title.getPaint().setFakeBoldText(true);
+        card.addView(title);
+        detailsRows = new LinearLayout(this);
+        detailsRows.setOrientation(LinearLayout.VERTICAL);
+        card.addView(detailsRows);
+        TextView hint = text(getString(R.string.dd_hint), 12, GREY);
+        hint.setPadding(0, dp(10), 0, 0);
+        card.addView(hint);
+        LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        clp.topMargin = dp(12);
+        root.addView(card, clp);
+    }
+
+    private LinearLayout detailsRows;
+
+    /** Пока открыта вкладка «Устройство» — «Подробно» обновляется (громкость, задержка, заряд, время). */
+    private final Runnable detailsTick = new Runnable() {
+        public void run() {
+            if (!visible) return;
+            if (tab == TAB_DEVICE) refreshDetails();
+            ui.postDelayed(this, 2000);
+        }
+    };
+
+    private void refreshDetails() {
+        if (detailsRows == null) return;
+        DeviceDetails.init(this);
+        DeviceInfo sel = DeviceMonitor.get().find(selected);
+        List<DeviceDetails.Row> rows = DeviceDetails.rows(this, sel);
+        if (sel != null && sel.isAudio()) {
+            // свои настройки устройства — перед адресом
+            DeviceSettings ds = DeviceSettings.get(this, sel.address);
+            int at = rows.size();
+            String addr = getString(R.string.dd_address);
+            for (int i = 0; i < rows.size(); i++) if (rows.get(i).label.equals(addr)) at = i;
+            rows.add(at, new DeviceDetails.Row(getString(R.string.ds_sound), connectSoundLabel(sel, ds)));
+            if (sel.type != DeviceInfo.T_CAR && ds.volume >= 0) {
+                rows.add(at + 1, new DeviceDetails.Row(getString(R.string.ds_volume), ds.volume + "%"));
+            }
+        }
+        // строки переиспользуем — при обновлении раз в 2 с ничего не мигает
+        while (detailsRows.getChildCount() > rows.size()) detailsRows.removeViewAt(detailsRows.getChildCount() - 1);
+        for (int i = 0; i < rows.size(); i++) {
+            LinearLayout row;
+            if (i < detailsRows.getChildCount()) {
+                row = (LinearLayout) detailsRows.getChildAt(i);
+            } else {
+                row = new LinearLayout(this);
+                row.setPadding(0, dp(7), 0, 0);
+                TextView l = text("", 13, GREY);
+                l.setPadding(0, 0, dp(10), 0);
+                row.addView(l, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 0.42f));
+                TextView v = text("", 13, Color.WHITE);
+                v.setGravity(Gravity.END);
+                row.addView(v, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 0.58f));
+                detailsRows.addView(row);
+            }
+            ((TextView) row.getChildAt(0)).setText(rows.get(i).label);
+            ((TextView) row.getChildAt(1)).setText(rows.get(i).value);
+        }
     }
 
     private View.OnClickListener ncClick(final int mode) {
@@ -4162,6 +4230,8 @@ public class MainActivity extends Activity {
         refreshNowPlaying();
         ui.removeCallbacks(npTicker);
         ui.post(npTicker);
+        ui.removeCallbacks(detailsTick);
+        ui.postDelayed(detailsTick, 2000);
     }
 
     @Override
@@ -4173,6 +4243,7 @@ public class MainActivity extends Activity {
         if (abBtn != null) setAbHeld(false);   // ушли с экрана с пальцем на кнопке — вернуть EQ
         np.stop();
         ui.removeCallbacks(npTicker);
+        ui.removeCallbacks(detailsTick);
         BudsLink.get().removeListener(budsListener);
         AirPods.get().removeListener(airListener);
         DeviceMonitor.get().removeListener(deviceListener);
@@ -4277,6 +4348,7 @@ public class MainActivity extends Activity {
         refreshCar();
         refreshPhone();
         refreshAutoEq();
+        refreshDetails();
     }
 
     /** До Android 12 BLE-поиск требует геолокацию — объясняем, зачем. */

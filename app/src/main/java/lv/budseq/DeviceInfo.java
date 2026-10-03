@@ -24,6 +24,11 @@ public final class DeviceInfo {
     public int type;
     /** Тип, определённый автоматически (type может быть изменён вручную). */
     public int detectedType;
+    /** Как узнали тип (для «Подробно»): BY_*. */
+    public int detectedBy;
+    public static final int BY_UNKNOWN = 0, BY_SAMSUNG = 1, BY_CLASS = 2, BY_NAME = 3, BY_PORT = 4;
+    /** Проводной выход: id AudioDeviceInfo (формат звука для «Подробно»), -1 — нет. */
+    public int outputId = -1;
     public int battery = -1;
     public long connectedAt;
     public BluetoothDevice device;
@@ -70,11 +75,59 @@ public final class DeviceInfo {
         i.device = d;
         i.name = nameOf(d);
         i.apple = hasUuid(d, APPLE_AAP);
-        i.detectedType = detect(d, i.name);
+        int[] by = new int[1];
+        i.detectedType = detect(d, i.name, by);
+        i.detectedBy = by[0];
         i.type = i.detectedType;
-        i.battery = batteryOf(d);
         i.connectedAt = System.currentTimeMillis();
+        i.setBattery(batteryOf(d));
         return i;
+    }
+
+    // ход заряда: от первого замеченного падения до последнего — так расход точнее (оба края — моменты смены)
+    private int trendFrom = -1, trendTo = -1;
+    private long trendFromT, trendToT;
+
+    /** Новый заряд от системы (-1 — неизвестно); заодно считаем расход. */
+    public void setBattery(int level) {
+        setBattery(level, System.currentTimeMillis());
+    }
+
+    void setBattery(int level, long now) {
+        battery = level >= 0 && level <= 100 ? level : -1;
+        if (battery < 0) return;
+        if (trendTo < 0 || battery > trendTo) {   // первый замер или поставили на зарядку — заново
+            trendFrom = -1;
+            trendTo = battery;
+            trendToT = now;
+        } else if (battery < trendTo) {
+            if (trendFrom < 0) {                   // первое падение: отсюда и меряем
+                trendFrom = battery;
+                trendFromT = now;
+            }
+            trendTo = battery;
+            trendToT = now;
+        }
+    }
+
+    /** Расход заряда, % в час; -1 — пока мало данных (два падения заряда и не меньше 10 минут между ними). */
+    public float drainPerHour() {
+        if (trendFrom < 0 || trendFrom <= trendTo) return -1f;
+        long dt = trendToT - trendFromT;
+        if (dt < 10 * 60000L) return -1f;
+        return (trendFrom - trendTo) * 3600000f / dt;
+    }
+
+    /** Сколько ещё проработает, мин; -1 — неизвестно. */
+    public int minutesLeft() {
+        return minutesLeft(System.currentTimeMillis());
+    }
+
+    int minutesLeft(long now) {
+        float r = drainPerHour();
+        if (r <= 0 || battery < 0) return -1;
+        float left = battery / r * 60f - (now - trendToT) / 60000f;
+        return Math.max(0, Math.round(left));
     }
 
     public static String nameOf(BluetoothDevice d) {
@@ -137,8 +190,16 @@ public final class DeviceInfo {
     }
 
     public static int detect(BluetoothDevice d, String name) {
+        return detect(d, name, null);
+    }
+
+    /** by[0] — как узнали (BY_*), можно null. */
+    static int detect(BluetoothDevice d, String name, int[] by) {
+        int[] b = by != null ? by : new int[1];
         String n = name == null ? "" : name.toLowerCase(Locale.ROOT);
+        b[0] = BY_SAMSUNG;
         if (isGalaxyBuds(d, n)) return T_GALAXY_BUDS;
+        b[0] = BY_CLASS;
 
         int cls = -1, major = -1;
         try {
@@ -177,7 +238,10 @@ public final class DeviceInfo {
 
         // 2) по названию
         int byName = byName(n);
-        if (byName >= 0) return byName;
+        if (byName >= 0) {
+            b[0] = BY_NAME;
+            return byName;
+        }
 
         // 3) «слабые» классы
         switch (cls) {
@@ -200,6 +264,7 @@ public final class DeviceInfo {
             case BluetoothClass.Device.Major.PHONE:
                 return T_PHONE;
             default:
+                b[0] = BY_UNKNOWN;
                 return T_OTHER;
         }
     }

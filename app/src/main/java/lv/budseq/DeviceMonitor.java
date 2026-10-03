@@ -206,7 +206,7 @@ public final class DeviceMonitor {
             } else {
                 info.device = d;
                 int b = DeviceInfo.batteryOf(d);
-                if (b >= 0) info.battery = b;
+                if (b >= 0) info.setBattery(b);
             }
         }
         if (info.isGalaxyBuds() && !BudsLink.get().state().connected) {
@@ -242,7 +242,7 @@ public final class DeviceMonitor {
             }
             if (info == null) return;
         }
-        info.battery = level >= 0 && level <= 100 ? level : -1;
+        info.setBattery(level);
         notifyChanged(null);
     }
 
@@ -427,6 +427,8 @@ public final class DeviceMonitor {
         DeviceInfo w = new DeviceInfo(DeviceInfo.WIRED + key);
         w.name = name;
         w.type = w.detectedType = type;
+        w.detectedBy = DeviceInfo.BY_PORT;
+        w.outputId = d.getId();
         return w;
     }
 

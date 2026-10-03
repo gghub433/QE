@@ -120,6 +120,18 @@ public class CarFocusView extends View {
         return out;
     }
 
+    /** Расстояние от места до каждого динамика, м (null — место не выбрано). */
+    public static float[] distancesM(int point, float[] spk) {
+        if (point < 0 || point >= POINTS || spk == null) return null;
+        float px = POINT_POS[point * 2], py = POINT_POS[point * 2 + 1];
+        float[] out = new float[spk.length / 2];
+        for (int i = 0; i < out.length; i++) {
+            double dx = (spk[i * 2] - px) * CAR_W, dy = (spk[i * 2 + 1] - py) * CAR_L;
+            out[i] = (float) Math.sqrt(dx * dx + dy * dy);
+        }
+        return out;
+    }
+
     /** Та же задержка в сантиметрах (многие магнитолы спрашивают расстояние): путь звука за это время. */
     public static int delayCm(float ms) {
         return Math.round(ms * SOUND / 10f);

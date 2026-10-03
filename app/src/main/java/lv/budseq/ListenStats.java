@@ -251,6 +251,22 @@ public final class ListenStats {
 
     // ---------- чтение ----------
 
+    /** Сколько сегодня слушали через устройство с таким названием, с. */
+    public synchronized long deviceToday(String name) {
+        if (name == null) return 0;
+        JSONObject d = days.optJSONObject(dayKey(Calendar.getInstance()));
+        JSONObject m = d == null ? null : d.optJSONObject("d");
+        String n = name.trim();
+        if (n.length() > 80) n = n.substring(0, 80);
+        return m == null ? 0 : m.optLong(n, 0);
+    }
+
+    /** Сколько всего слушали в этих наушниках, с. */
+    public synchronized long headphonesTotal(String name) {
+        if (name == null || lifeHeadphones == null) return 0;
+        return lifeHeadphones.optLong(name.trim(), 0);
+    }
+
     public synchronized long today() {
         JSONObject d = days.optJSONObject(dayKey(Calendar.getInstance()));
         return d == null ? 0 : d.optLong("t", 0);
