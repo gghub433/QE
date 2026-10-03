@@ -542,4 +542,12 @@
     <string name="qw_off">EQ izsl.</string>
     <string name="qw_preset">Iestatījums ▸</string>
     <string name="qw_punch">Sitiens ▸</string>
+    <string name="bk_title">Rezerves kopija</string>
+    <string name="bk_hint">Visi EQ iestatījumi vienā failā: ekvalaizers un savi iestatījumi, ierīces un mašīnas (aiztures, Bass Boost…), spēles, Music Time, noformējums. Steam atslēga netiek saglabāta — tā ir parole.</string>
+    <string name="bk_save">Saglabāt failā</string>
+    <string name="bk_restore">Atjaunot no faila</string>
+    <string name="bk_fail">Neizdevās izveidot kopiju</string>
+    <string name="bk_bad">Šī nav EQ rezerves kopija</string>
+    <string name="bk_info">Kopija no %1$s (EQ %2$s):\n• ierīces un mašīnas: %3$d\n• savi iestatījumi: %4$d\n• spēļu iestatījumi: %5$d\n• kopā iestatījumu: %6$d\n\nPašreizējie iestatījumi tiks aizstāti, EQ restartēsies.</string>
+    <string name="bk_done">Atjaunots — EQ restartējas</string>
 </resources>

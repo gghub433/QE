@@ -542,4 +542,12 @@
     <string name="qw_off">EQ off</string>
     <string name="qw_preset">Preset ▸</string>
     <string name="qw_punch">Punch ▸</string>
+    <string name="bk_title">Backup</string>
+    <string name="bk_hint">All EQ settings in one file: equalizer and your presets, devices and cars (delays, Bass Boost…), games, Music Time, appearance. The Steam key is not saved: it\'s a password.</string>
+    <string name="bk_save">Save to file</string>
+    <string name="bk_restore">Restore from file</string>
+    <string name="bk_fail">Could not create the backup</string>
+    <string name="bk_bad">This is not an EQ backup</string>
+    <string name="bk_info">Backup from %1$s (EQ %2$s):\n• devices and cars: %3$d\n• your presets: %4$d\n• game settings: %5$d\n• settings in total: %6$d\n\nCurrent settings will be replaced and EQ will restart.</string>
+    <string name="bk_done">Restored: EQ is restarting</string>
 </resources>

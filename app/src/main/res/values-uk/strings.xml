@@ -542,4 +542,12 @@
     <string name="qw_off">EQ вимк</string>
     <string name="qw_preset">Пресет ▸</string>
     <string name="qw_punch">Панч ▸</string>
+    <string name="bk_title">Резервна копія</string>
+    <string name="bk_hint">Усі налаштування EQ в одному файлі: еквалайзер і свої пресети, пристрої та машини (затримки, Bass Boost…), ігри, Music Time, оформлення. Ключ Steam не зберігається — це пароль.</string>
+    <string name="bk_save">Зберегти у файл</string>
+    <string name="bk_restore">Відновити з файлу</string>
+    <string name="bk_fail">Не вдалося зробити копію</string>
+    <string name="bk_bad">Це не резервна копія EQ</string>
+    <string name="bk_info">Копія від %1$s (EQ %2$s):\n• пристроїв і машин: %3$d\n• своїх пресетів: %4$d\n• налаштувань ігор: %5$d\n• усього налаштувань: %6$d\n\nПоточні налаштування заміняться, EQ перезапуститься.</string>
+    <string name="bk_done">Відновлено — EQ перезапускається</string>
 </resources>

@@ -75,7 +75,8 @@ public class MainActivity extends Activity {
     private static final int DANGER = Color.rgb(0xE5, 0x48, 0x48);
     private static final int GREY = Color.rgb(0x80, 0x83, 0x8A);
 
-    private static final int REQ_PERMS = 1, REQ_AUDIO = 2, REQ_AIRPODS = 3, REQ_WAVE = 4, REQ_SAVE = 10, REQ_OPEN = 11;
+    private static final int REQ_PERMS = 1, REQ_AUDIO = 2, REQ_AIRPODS = 3, REQ_WAVE = 4, REQ_SAVE = 10, REQ_OPEN = 11,
+            REQ_BACKUP = 12;
 
     /** Вкладки: Устройство / Эквалайзер / Музыка / Настройки. */
     static final int TAB_DEVICE = 0, TAB_EQ = 1, TAB_GAMES = 2, TAB_MUSIC = 3, TAB_SETTINGS = 4, TAB_COUNT = 5;
@@ -3498,9 +3499,66 @@ public class MainActivity extends Activity {
         });
         root.addView(card);
 
+        // резервная копия всех настроек в файл
+        root.addView(section(getString(R.string.bk_title)));
+        root.addView(hintText(getString(R.string.bk_hint)));
+        LinearLayout bk = new LinearLayout(this);
+        bk.addView(chip(getString(R.string.bk_save), R.drawable.ic_download, CHIP, new View.OnClickListener() {
+            public void onClick(View v) {
+                try {
+                    String day = new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).format(new java.util.Date());
+                    saveToFile("EQ-backup-" + day, Backup.export(MainActivity.this, Updater.currentVersion(MainActivity.this)));
+                } catch (Exception e) {
+                    Toast.makeText(MainActivity.this, R.string.bk_fail, Toast.LENGTH_SHORT).show();
+                }
+            }
+        }));
+        bk.addView(chip(getString(R.string.bk_restore), R.drawable.ic_upload, CHIP, new View.OnClickListener() {
+            public void onClick(View v) {
+                Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                i.addCategory(Intent.CATEGORY_OPENABLE);
+                i.setType("*/*");
+                startActivityForResult(i, REQ_BACKUP);
+            }
+        }));
+        root.addView(hscroll(bk));
+
         root.addView(section(getString(R.string.sec_about)));
         root.addView(hintText(getString(R.string.tagline) + " · " + getString(R.string.upd_version,
                 Updater.currentVersion(this))));
+    }
+
+    /** Подробно, что в копии, — и «Восстановить» (EQ перезапустится с этими настройками). */
+    private void confirmRestore(final String json) {
+        Backup.Info in = Backup.info(json);
+        if (in == null) {
+            Toast.makeText(this, R.string.bk_bad, Toast.LENGTH_LONG).show();
+            return;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.bk_restore)
+                .setMessage(getString(R.string.bk_info, in.created, in.version, in.devices, in.presets, in.games, in.keys))
+                .setPositiveButton(R.string.bk_restore, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface d, int w) {
+                        if (!Backup.restore(MainActivity.this, json)) {
+                            Toast.makeText(MainActivity.this, R.string.bk_bad, Toast.LENGTH_LONG).show();
+                            return;
+                        }
+                        Toast.makeText(MainActivity.this, R.string.bk_done, Toast.LENGTH_LONG).show();
+                        // настройки читаются при запуске — перезапускаем EQ целиком
+                        stopService(new Intent(MainActivity.this, EqService.class));
+                        Intent i = getPackageManager().getLaunchIntentForPackage(getPackageName());
+                        if (i != null) {
+                            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                            startActivity(i);
+                        }
+                        ui.postDelayed(new Runnable() {
+                            public void run() { Runtime.getRuntime().exit(0); }
+                        }, 400);
+                    }
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
     }
 
     // ---------- оформление ----------
@@ -4838,6 +4896,16 @@ public class MainActivity extends Activity {
                 }
                 pendingExport = null;
                 Toast.makeText(this, R.string.saved_file, Toast.LENGTH_SHORT).show();
+            } else if (req == REQ_BACKUP) {
+                InputStream is = getContentResolver().openInputStream(uri);
+                StringBuilder sb = new StringBuilder();
+                if (is != null) {
+                    BufferedReader br = new BufferedReader(new InputStreamReader(is, "UTF-8"));
+                    String line;
+                    while ((line = br.readLine()) != null && sb.length() < 8000000) sb.append(line).append('\n');
+                    br.close();
+                }
+                confirmRestore(sb.toString());
             } else if (req == REQ_OPEN) {
                 InputStream is = getContentResolver().openInputStream(uri);
                 StringBuilder sb = new StringBuilder();
