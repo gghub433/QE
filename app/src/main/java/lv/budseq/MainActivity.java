@@ -3552,6 +3552,52 @@ public class MainActivity extends Activity {
             }
         });
 
+        // подсветка краёв экрана от баса (поверх всех приложений)
+        final Switch edgeSwitch = styledSwitch();
+        edgeSwitch.setChecked(EdgeGlow.enabled(this));
+        root.addView(switchRow(getString(R.string.edge_glow), getString(R.string.edge_glow_hint), edgeSwitch));
+        final SeekBar edgeBright = new SeekBar(this);
+        edgeBright.setMax(90);   // 10…100 %
+        final TextView edgeBrightVal = text("", 14, Color.WHITE);
+        root.addView(sliderRow(getString(R.string.edge_bright), edgeBright, edgeBrightVal));
+        final SeekBar edgeWidth = new SeekBar(this);
+        edgeWidth.setMax(22);    // 2…24 dp
+        final TextView edgeWidthVal = text("", 14, Color.WHITE);
+        root.addView(sliderRow(getString(R.string.edge_width), edgeWidth, edgeWidthVal));
+        edgeBright.setProgress(EdgeGlow.brightness(this) - 10);
+        edgeBrightVal.setText(EdgeGlow.brightness(this) + "%");
+        edgeWidth.setProgress(EdgeGlow.widthDp(this) - 2);
+        edgeWidthVal.setText(getString(R.string.edge_width_dp, EdgeGlow.widthDp(this)));
+        edgeSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            public void onCheckedChanged(CompoundButton v, boolean on) {
+                settings.edit().putBoolean("edge_glow", on).apply();
+                if (on && !Settings.canDrawOverlays(MainActivity.this)) {
+                    Toast.makeText(MainActivity.this, R.string.edge_overlay, Toast.LENGTH_LONG).show();
+                    startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            Uri.parse("package:" + getPackageName())));
+                } else if (on && !AudioPulse.allowed(MainActivity.this)) {
+                    askWaveAccess();
+                }
+                EqService.pokeEdge(MainActivity.this, on);
+            }
+        });
+        edgeBright.setOnSeekBarChangeListener(new Seek() {
+            public void onProgressChanged(SeekBar s, int p, boolean fromUser) {
+                edgeBrightVal.setText((p + 10) + "%");
+                if (fromUser) settings.edit().putInt("edge_bright", p + 10).apply();
+            }
+
+            public void onStopTrackingTouch(SeekBar s) { EqService.pokeEdge(MainActivity.this, true); }
+        });
+        edgeWidth.setOnSeekBarChangeListener(new Seek() {
+            public void onProgressChanged(SeekBar s, int p, boolean fromUser) {
+                edgeWidthVal.setText(getString(R.string.edge_width_dp, p + 2));
+                if (fromUser) settings.edit().putInt("edge_width", p + 2).apply();
+            }
+
+            public void onStopTrackingTouch(SeekBar s) { EqService.pokeEdge(MainActivity.this, true); }
+        });
+
         final Switch coverSwitch = styledSwitch();
         coverSwitch.setChecked(Theme.coverEnabled());
         root.addView(switchRow(getString(R.string.theme_cover), getString(R.string.theme_cover_hint), coverSwitch));

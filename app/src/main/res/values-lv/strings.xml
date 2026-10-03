@@ -530,4 +530,10 @@
     <string name="loud_hint">Klusā skaļumā auss sliktāk dzird basus un augšas — EQ tos paceļ, jo klusāk, jo vairāk. No 85% skaļuma nedarbojas.</string>
     <string name="loud_amount">Stiprums</string>
     <string name="loud_now">Tagad: skaļums %1$d%% → basi +%2$.1f dB, augšas +%3$.1f dB</string>
+    <string name="edge_glow">Ekrāna malas mirdz no basiem</string>
+    <string name="edge_glow_hint">Plāns mirdzošs rāmis gar ekrāna malu uzzib uz katra bungu sitiena — virs jebkuras lietotnes (YouTube, spēles, sākuma ekrāns). Tikai kamēr skan mūzika un ekrāns ir ieslēgts.</string>
+    <string name="edge_bright">Spilgtums</string>
+    <string name="edge_width">Biezums</string>
+    <string name="edge_width_dp">%1$d dp</string>
+    <string name="edge_overlay">Atļaujiet EQ «Rādīt virs citām lietotnēm» — mirdzums tiek zīmēts virs tām</string>
 </resources>

@@ -530,4 +530,10 @@
     <string name="loud_hint">At low volume the ear hears bass and treble worse: EQ lifts them, the quieter the more. From 85% volume it does nothing.</string>
     <string name="loud_amount">Strength</string>
     <string name="loud_now">Now: volume %1$d%% → bass +%2$.1f dB, treble +%3$.1f dB</string>
+    <string name="edge_glow">Screen edges glow to the bass</string>
+    <string name="edge_glow_hint">A thin glowing frame around the screen flashes on every kick, on top of any app (YouTube, games, home screen). Only while music plays and the screen is on.</string>
+    <string name="edge_bright">Brightness</string>
+    <string name="edge_width">Thickness</string>
+    <string name="edge_width_dp">%1$d dp</string>
+    <string name="edge_overlay">Allow EQ «Display over other apps»: the glow is drawn on top of other apps</string>
 </resources>

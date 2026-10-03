@@ -84,6 +84,23 @@ public class EqService extends Service {
     private final Games.Tracker gameTracker = new Games.Tracker();
     static final String ACT_POKE = "lv.budseq.POKE";
 
+    static final String EXTRA_EDGE_DEMO = "edge_demo";
+
+    /** Подсветка краёв: настройки поменяли — перечитать и показать вспышки 2,5 с (demo). */
+    static void pokeEdge(Context c, boolean demo) {
+        Intent i = new Intent(c, EqService.class);
+        i.setAction(ACT_POKE);
+        i.putExtra(EXTRA_EDGE_DEMO, demo);
+        try {
+            c.startService(i);
+        } catch (Exception e) {
+            try {
+                c.startForegroundService(i);
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
     /** Экран поменял игры или сценарии, нажали «Играть» — пересчитать сразу, не ждать 15 с. */
     static void poke(Context c) {
         Intent i = new Intent(c, EqService.class);
@@ -125,8 +142,27 @@ public class EqService extends Service {
         return pm == null || pm.isInteractive();
     }
 
+    // ---- подсветка краёв экрана от баса ----
+    private EdgeGlow edge;
+
+    private final Runnable edgeCheck = new Runnable() {
+        public void run() { updateEdgeGlow(); }
+    };
+
+    /** Подсветка только пока играет музыка, включён экран и всё разрешено. */
+    private void updateEdgeGlow() {
+        boolean want = EdgeGlow.enabled(this) && EdgeGlow.canShow(this) && musicPlaying() && screenOn();
+        if (want) {
+            if (edge == null) edge = new EdgeGlow(this);
+            edge.show();
+        } else if (edge != null) {
+            edge.hide();
+        }
+    }
+
     /** Запустить или остановить волну по обстоятельствам (играет ли, экран, виджет, настройка). */
     private void updateWaveLoop() {
+        updateEdgeGlow();
         boolean playing = musicPlaying() && screenOn();
         waveWidget = playing && EqWidget.exists(this);
         waveNotif = playing && notifWaveOn(this);
@@ -155,6 +191,8 @@ public class EqService extends Service {
         waveRunning = false;
         main.removeCallbacks(waveTick);
         AudioPulse.get().release(waveKey);
+        main.removeCallbacks(edgeCheck);
+        if (edge != null) edge.hide();
         java.util.Arrays.fill(waveShown, 0f);
         if (EqWidget.exists(this)) EqWidget.pushWave(this, null, 0f, SystemClock.uptimeMillis() / 1000f);
         if (notifWave != null) {
@@ -370,6 +408,17 @@ public class EqService extends Service {
             checkAppPreset();
             updateNotification();
             updateWaveLoop();   // выдали доступ к звуку, переключили «Волна в шторке», поставили виджет
+            if (intent.getBooleanExtra(EXTRA_EDGE_DEMO, false) && EdgeGlow.enabled(this) && EdgeGlow.canShow(this)) {
+                // показать, как выглядит подсветка, даже без музыки — потом сама решит, нужна ли
+                if (edge == null) edge = new EdgeGlow(this);
+                edge.show();
+                edge.reload();
+                edge.demo();
+                main.removeCallbacks(edgeCheck);
+                main.postDelayed(edgeCheck, 2700);
+            } else if (edge != null) {
+                edge.reload();
+            }
             return START_STICKY;
         }
         monitor.refresh();

@@ -530,4 +530,10 @@
     <string name="loud_hint">На тихой громкости ухо хуже слышит бас и верх — EQ их подтягивает, чем тише, тем больше. От 85% громкости не действует.</string>
     <string name="loud_amount">Сила</string>
     <string name="loud_now">Сейчас: громкость %1$d%% → бас +%2$.1f дБ, верх +%3$.1f дБ</string>
+    <string name="edge_glow">Подсветка краёв от баса</string>
+    <string name="edge_glow_hint">Тонкая светящаяся рамка по краю экрана вспыхивает на каждом ударе бочки — поверх любого приложения (ютуб, игры, рабочий стол). Только пока играет музыка и включён экран.</string>
+    <string name="edge_bright">Яркость</string>
+    <string name="edge_width">Толщина</string>
+    <string name="edge_width_dp">%1$d dp</string>
+    <string name="edge_overlay">Разрешите EQ «Поверх других приложений» — подсветка рисуется поверх них</string>
 </resources>
