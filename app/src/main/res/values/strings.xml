@@ -565,4 +565,18 @@
     <string name="hear_row">%1$6s Hz: heard at %2$6.1f dB → %3$+5.1f dB</string>
     <string name="hear_result_hint">The correction is half of the difference from normal hearing (ISO 226), at most +8 dB, and the overall loudness stays the same. «Save and apply» creates the preset «My hearing».</string>
     <string name="hear_apply">Save and apply</string>
+    <string name="cabin_btn">Auto-tune by microphone</string>
+    <string name="cabin_intro">Sit in the driver\'s seat and hold the phone at head height, microphone up. Close the windows, engine can run. Set the volume to about 60–70%%. EQ will listen to the cabin silence for 2 s, then play noise through the speakers for 8 s and listen to how the car sounds. EQ is switched off during the measurement.</string>
+    <string name="cabin_start">Start</string>
+    <string name="cabin_step0">Silence: listening to the cabin noise… %1$d%%</string>
+    <string name="cabin_step1">Playing noise and listening… %1$d%%</string>
+    <string name="cabin_step2">Calculating…</string>
+    <string name="cabin_err_quiet">The noise from the speakers is barely louder than the cabin noise: turn the volume up (about 60–70%) and try again</string>
+    <string name="cabin_err_mic">Could not record with the microphone: check EQ\'s microphone access</string>
+    <string name="cabin_result">Cabin: result</string>
+    <string name="cabin_row">%1$6s Hz: cabin %2$+5.1f dB → %3$+5.1f dB</string>
+    <string name="cabin_snr">Margin over the cabin noise: %1$.0f dB</string>
+    <string name="cabin_hint">«Cabin» is how the car sounds (from the average of 300–3000 Hz), the arrow is the correction to the car target curve (a bit more bass, smooth treble). Dips are lifted up to +6 dB, peaks cut down to −10 dB, below 80 Hz at most +3 dB (the phone microphone is unreliable there), the overall loudness stays the same.</string>
+    <string name="cabin_apply">Save and apply</string>
+    <string name="cabin_preset">Cabin: %1$s</string>
 </resources>

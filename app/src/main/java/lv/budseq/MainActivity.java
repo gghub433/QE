@@ -928,6 +928,107 @@ public class MainActivity extends Activity {
     }
 
     // =====================================================================
+    // Автонастройка салона по микрофону
+    // =====================================================================
+
+    private CabinTune cabin;
+
+    private void askCabinTune() {
+        if (!AudioPulse.allowed(this)) {
+            Toast.makeText(this, R.string.cabin_err_mic, Toast.LENGTH_LONG).show();
+            requestPermissions(new String[]{"android.permission.RECORD_AUDIO"}, REQ_WAVE);
+            return;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.cabin_btn)
+                .setMessage(R.string.cabin_intro)
+                .setPositiveButton(R.string.cabin_start, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface d, int w) { runCabinTune(); }
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    private void runCabinTune() {
+        final TextView prog = text(getString(R.string.cabin_step0, 0), 15, Color.WHITE);
+        prog.setPadding(dp(24), dp(20), dp(24), dp(8));
+        final AlertDialog dlg = new AlertDialog.Builder(this)
+                .setTitle(R.string.cabin_btn)
+                .setView(prog)
+                .setCancelable(false)
+                .setNegativeButton(R.string.hear_stop, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface d, int w) {
+                        if (cabin != null) cabin.stop();
+                    }
+                })
+                .show();
+        cabin = new CabinTune();
+        cabin.start(this, new CabinTune.Ui() {
+            public void onStep(int step, float p) {
+                int pct = Math.round(p * 100);
+                prog.setText(step == 0 ? getString(R.string.cabin_step0, pct)
+                        : step == 1 ? getString(R.string.cabin_step1, pct) : getString(R.string.cabin_step2));
+            }
+
+            public void onDone(CabinTune.Result r) {
+                if (dlg.isShowing()) dlg.dismiss();
+                showCabinResult(r);
+            }
+
+            public void onError(int msgRes) {
+                if (dlg.isShowing()) dlg.dismiss();
+                new AlertDialog.Builder(MainActivity.this)
+                        .setTitle(R.string.cabin_btn)
+                        .setMessage(msgRes)
+                        .setPositiveButton(R.string.ok, null)
+                        .show();
+            }
+        });
+    }
+
+    /** Подробно: график поправки, по каждой трети октавы «салон → поправка», запас над шумом. */
+    private void showCabinResult(final CabinTune.Result r) {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(dp(16), dp(8), dp(16), 0);
+        EqGraphView graph = new EqGraphView(this);   // только смотреть
+        graph.setBackground(round(CARD, 24));
+        graph.setBands(r.freqs, r.correction);
+        box.addView(graph, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(200)));
+        StringBuilder sb = new StringBuilder(getString(R.string.cabin_snr, r.snr));
+        for (int i = 0; i < r.freqs.length; i++) {
+            sb.append('\n').append(getString(R.string.cabin_row, EqEngine.label(r.freqs[i]), r.response[i], r.correction[i]));
+        }
+        TextView t = text(sb.toString(), 12, Color.rgb(0xC8, 0xCA, 0xD0));
+        t.setTypeface(Typeface.MONOSPACE);
+        t.setPadding(dp(4), dp(10), dp(4), 0);
+        box.addView(t);
+        TextView h = hintText(getString(R.string.cabin_hint));
+        h.setPadding(dp(4), dp(8), dp(4), 0);
+        box.addView(h);
+        ScrollView sv = new ScrollView(this);
+        sv.addView(box);
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.cabin_result)
+                .setView(sv)
+                .setPositiveButton(R.string.cabin_apply, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface d, int w) {
+                        DeviceInfo car = carKeyShown != null ? DeviceMonitor.get().find(carKeyShown) : null;
+                        String carName = car != null ? car.name : getString(R.string.hu_unit);
+                        String name = getString(R.string.cabin_preset, carName);
+                        eq.setCurve(r.correction, r.freqs);
+                        eq.savePreset(name);
+                        eq.lastPreset = name;
+                        eq.notifyChanged();
+                        refreshEq();
+                        Toast.makeText(MainActivity.this, getString(R.string.import_ok, name), Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    // =====================================================================
     // Подстройка под слух
     // =====================================================================
 
@@ -2767,6 +2868,10 @@ public class MainActivity extends Activity {
         b.addView(chip(getString(R.string.car_eq_open), R.drawable.ic_equalizer, CHIP, new View.OnClickListener() {
             public void onClick(View v) { selectTab(TAB_EQ, true); }
         }));
+        // автонастройка салона: розовый шум из динамиков, микрофон на месте водителя
+        b.addView(chip(getString(R.string.cabin_btn), R.drawable.ic_car, CHIP, new View.OnClickListener() {
+            public void onClick(View v) { askCabinTune(); }
+        }));
         // настройки машины другу с такой же машиной: код и QR; «Ввести код» понимает и пресеты, и машины
         b.addView(chip(getString(R.string.car_code), R.drawable.ic_qr, CHIP, new View.OnClickListener() {
             public void onClick(View v) { showCarCode(); }
@@ -3942,6 +4047,7 @@ public class MainActivity extends Activity {
         visible = false;
         DemoBeat.stop();   // ушли из EQ — бит не играет в фоне
         if (hearing != null && hearing.isRunning()) hearing.stop();   // тест слуха — только на экране
+        if (cabin != null && cabin.isRunning()) cabin.stop();         // и замер салона
         if (abBtn != null) setAbHeld(false);   // ушли с экрана с пальцем на кнопке — вернуть EQ
         np.stop();
         ui.removeCallbacks(npTicker);

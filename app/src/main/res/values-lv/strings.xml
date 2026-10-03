@@ -565,4 +565,18 @@
     <string name="hear_row">%1$6s Hz: dzirdēts pie %2$6.1f dB → %3$+5.1f dB</string>
     <string name="hear_result_hint">Korekcija ir puse no atšķirības no normālas dzirdes (ISO 226), ne vairāk kā +8 dB, kopējais skaļums nemainās. «Saglabāt un lietot» — iestatījums «Mana dzirde».</string>
     <string name="hear_apply">Saglabāt un lietot</string>
+    <string name="cabin_btn">Autoiestatīšana ar mikrofonu</string>
+    <string name="cabin_intro">Apsēdieties vadītāja vietā, turiet tālruni galvas augstumā, mikrofonu uz augšu. Logi aizvērti, motors var darboties. Skaļums apmēram 60–70%%. EQ 2 s klausīsies salona klusumu, tad 8 s atskaņos troksni caur skaļruņiem un klausīsies, kā skan mašīna. Mērījuma laikā EQ ir izslēgts.</string>
+    <string name="cabin_start">Sākt</string>
+    <string name="cabin_step0">Klusums: klausos salona troksni… %1$d%%</string>
+    <string name="cabin_step1">Atskaņoju troksni un klausos… %1$d%%</string>
+    <string name="cabin_step2">Rēķinu…</string>
+    <string name="cabin_err_quiet">Troksnis no skaļruņiem gandrīz nav skaļāks par salona troksni — palieliniet skaļumu (apmēram 60–70%) un atkārtojiet</string>
+    <string name="cabin_err_mic">Neizdevās ierakstīt ar mikrofonu — pārbaudiet EQ piekļuvi mikrofonam</string>
+    <string name="cabin_result">Salons: rezultāts</string>
+    <string name="cabin_row">%1$6s Hz: salons %2$+5.1f dB → %3$+5.1f dB</string>
+    <string name="cabin_snr">Rezerve virs salona trokšņa: %1$.0f dB</string>
+    <string name="cabin_hint">«Salons» — kā skan mašīna (no vidējā 300–3000 Hz), bulta — korekcija līdz mašīnas mērķa līknei (nedaudz vairāk basu, maiga augšdaļa). Iedobes paceļ līdz +6 dB, kalnus nogriež līdz −10 dB, zem 80 Hz ne vairāk kā +3 dB (tur tālruņa mikrofons melo), kopējais skaļums nemainās.</string>
+    <string name="cabin_apply">Saglabāt un lietot</string>
+    <string name="cabin_preset">Salons: %1$s</string>
 </resources>

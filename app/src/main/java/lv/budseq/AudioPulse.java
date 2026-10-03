@@ -334,7 +334,7 @@ public final class AudioPulse {
     }
 
     /** Быстрое преобразование Фурье на месте (N — степень двойки). */
-    private static void fft(float[] re, float[] im) {
+    static void fft(float[] re, float[] im) {
         int n = re.length;
         for (int i = 1, j = 0; i < n; i++) {
             int bit = n >> 1;
