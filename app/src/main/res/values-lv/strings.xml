@@ -505,4 +505,19 @@
     <string name="wave_st_none">Android vēl nav devis vilnim skaņu — mēģinu vēlreiz</string>
     <string name="punch_mode_speaker">Tagad: tālruņa skaļrunis. Dziļos basus tas nespēlē, tāpēc sitiens ir pie 180 Hz un ar klikšķi — to arī dzird.</string>
     <string name="punch_mode_full">Tagad: austiņas, skaļrunis vai mašīna — sitiens ir bungās pie 65 Hz.</string>
+    <string name="spk_front_l">Priekšējais kreisais</string>
+    <string name="spk_front_r">Priekšējais labais</string>
+    <string name="spk_rear_l">Aizmugurējais kreisais</string>
+    <string name="spk_rear_r">Aizmugurējais labais</string>
+    <string name="spk_tw_l">Kreisais augstfrekvences</string>
+    <string name="spk_tw_r">Labais augstfrekvences</string>
+    <string name="spk_center">Centrs</string>
+    <string name="spk_sub">Zemfrekvences skaļrunis</string>
+    <string name="car_delay_pick">Pieskarieties skaļruņa lodziņam shēmā — «+» un «−» maina tā aizturi (0,1 ms, ilgi turot — 1 ms)</string>
+    <string name="car_delay_noseat">Vispirms izvēlieties vietu</string>
+    <string name="car_delay_manual">manuāli</string>
+    <string name="car_delay_auto">aprēķināts</string>
+    <string name="car_delay_reset">Atiestatīt</string>
+    <string name="car_vol_level">Skaļums</string>
+    <string name="car_vol_hint">Pieslēdzās mašīna — skaļums pats kļūst tieši tāds, lai magnetola neapdullinātu (solis 1%).</string>
 </resources>

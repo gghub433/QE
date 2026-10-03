@@ -505,4 +505,19 @@
     <string name="wave_st_none">Android поки не дав хвилі звук — пробую знову</string>
     <string name="punch_mode_speaker">Зараз: динамік телефона. Глибокий бас він не грає, тому панч б\'є на 180 Гц і клацанням — це й чути.</string>
     <string name="punch_mode_full">Зараз: навушники, колонка або машина — панч б\'є «бочкою» на 65 Гц.</string>
+    <string name="spk_front_l">Передній лівий</string>
+    <string name="spk_front_r">Передній правий</string>
+    <string name="spk_rear_l">Задній лівий</string>
+    <string name="spk_rear_r">Задній правий</string>
+    <string name="spk_tw_l">Твітер лівий</string>
+    <string name="spk_tw_r">Твітер правий</string>
+    <string name="spk_center">Центр</string>
+    <string name="spk_sub">Сабвуфер</string>
+    <string name="car_delay_pick">Натисніть на табличку динаміка на схемі — «+» і «−» змінюють його затримку (0,1 мс, довге натискання — 1 мс)</string>
+    <string name="car_delay_noseat">Спочатку виберіть місце</string>
+    <string name="car_delay_manual">вручну</string>
+    <string name="car_delay_auto">розраховано</string>
+    <string name="car_delay_reset">Скинути</string>
+    <string name="car_vol_level">Гучність</string>
+    <string name="car_vol_hint">Підключилась машина — гучність сама стає такою, щоб магнітола не оглушувала (крок 1%).</string>
 </resources>

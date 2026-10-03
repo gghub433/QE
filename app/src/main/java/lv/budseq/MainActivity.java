@@ -129,6 +129,13 @@ public class MainActivity extends Activity {
     private static final int SEAT_ALL = 4, SEAT_DRIVER = -10, SEAT_PASSENGER = -11;
     private static final int[] CAR_SEATS = {SEAT_ALL, SEAT_DRIVER, SEAT_PASSENGER, 3, 5, 1};
     private final Button[] carSeatBtns = new Button[CAR_SEATS.length];
+    /** «+» и «−» для задержки выбранного динамика (как в магнитоле). */
+    private TextView carDelaySel;
+    /** Стартовая громкость машины (та же настройка, что «Громкость при подключении» устройства). */
+    private Switch carVolSwitch;
+    private SeekBar carVolBar;
+    private TextView carVolVal;
+    private Button carDelayMinus, carDelayPlus, carDelayReset;
     private final LinearLayout[] carPanels = new LinearLayout[CAR_TABS];
     private final ImageView[] carTabIcons = new ImageView[CAR_TABS];
     private final TextView[] carTabLabels = new TextView[CAR_TABS];
@@ -2432,6 +2439,10 @@ public class MainActivity extends Activity {
                 CarFocusView.applyFocus(MainActivity.this);
                 refreshCar();
             }
+
+            public void onSpeakerSelected(int index) {
+                refreshDelayRow();
+            }
         });
         LinearLayout.LayoutParams vlp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(440));
         vlp.topMargin = dp(8);
@@ -2555,6 +2566,34 @@ public class MainActivity extends Activity {
             public void onClick(View v) { selectTab(TAB_EQ, true); }
         }));
         p.addView(hscroll(b));
+
+        // стартовая громкость: подключилась машина — громкость сама становится такой (по 1%)
+        carVolSwitch = styledSwitch();
+        p.addView(switchRow(getString(R.string.ds_volume), getString(R.string.car_vol_hint), carVolSwitch));
+        carVolBar = new SeekBar(this);
+        carVolBar.setMax(100);
+        carVolVal = text("", 15, Color.WHITE);
+        p.addView(sliderRow(getString(R.string.car_vol_level), carVolBar, carVolVal));
+        carVolSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            public void onCheckedChanged(CompoundButton v, boolean on) {
+                if (carUpdating) return;
+                DeviceSettings ds = carSettings();
+                if (ds == null) return;
+                ds.volume = on ? Math.max(1, carVolBar.getProgress()) : -1;
+                ds.save(MainActivity.this);
+                refreshCar();
+            }
+        });
+        carVolBar.setOnSeekBarChangeListener(new Seek() {
+            public void onProgressChanged(SeekBar s, int v, boolean user) {
+                if (!user || carUpdating) return;
+                DeviceSettings ds = carSettings();
+                if (ds == null) return;
+                ds.volume = Math.max(1, v);
+                ds.save(MainActivity.this);
+                carVolVal.setText(ds.volume + "%");
+            }
+        });
     }
 
     /** Объёмный звук: системный Virtualizer на весь звук, сила 1…100. */
@@ -2573,6 +2612,48 @@ public class MainActivity extends Activity {
             seats.addView(carSeatBtns[i]);
         }
         p.addView(hscroll(seats));
+
+        // как в магнитоле: нажали на табличку динамика — «+» и «−» меняют его задержку
+        carDelaySel = text("", 14, Color.WHITE);
+        carDelaySel.setPadding(dp(4), dp(10), dp(4), dp(4));
+        p.addView(carDelaySel);
+        LinearLayout pm = new LinearLayout(this);
+        carDelayMinus = chip("−", 0, CHIP, new View.OnClickListener() {
+            public void onClick(View v) { nudgeDelay(-0.1f); }
+        });
+        carDelayPlus = chip("+", 0, CHIP, new View.OnClickListener() {
+            public void onClick(View v) { nudgeDelay(0.1f); }
+        });
+        // долгое нажатие — шаг 1 мс
+        carDelayMinus.setOnLongClickListener(new View.OnLongClickListener() {
+            public boolean onLongClick(View v) {
+                nudgeDelay(-1f);
+                return true;
+            }
+        });
+        carDelayPlus.setOnLongClickListener(new View.OnLongClickListener() {
+            public boolean onLongClick(View v) {
+                nudgeDelay(1f);
+                return true;
+            }
+        });
+        carDelayMinus.setTextSize(20);
+        carDelayPlus.setTextSize(20);
+        carDelayMinus.setMinWidth(dp(64));
+        carDelayPlus.setMinWidth(dp(64));
+        pm.addView(carDelayMinus);
+        pm.addView(carDelayPlus);
+        carDelayReset = chip(getString(R.string.car_delay_reset), 0, CHIP, new View.OnClickListener() {
+            public void onClick(View v) {
+                DeviceSettings ds = carSettings();
+                if (ds == null || ds.carFocus < 0) return;
+                ds.resetDelays(ds.carFocus);
+                ds.save(MainActivity.this);
+                refreshCar();
+            }
+        });
+        pm.addView(carDelayReset);
+        p.addView(hscroll(pm));
         p.addView(hintText(getString(R.string.car_delay_note)));
         carSurSwitch = styledSwitch();
         p.addView(switchRow(getString(R.string.car_tab_surround), getString(R.string.car_surround_note), carSurSwitch));
@@ -2657,6 +2738,50 @@ public class MainActivity extends Activity {
         }
         p.addView(hscroll(hz));
         p.addView(hintText(getString(R.string.car_filter_note)));
+    }
+
+    /** «+» / «−»: задержка выбранного динамика для выбранного места, шаг 0,1 мс (долгое нажатие — 1 мс). */
+    private void nudgeDelay(float step) {
+        DeviceSettings ds = carSettings();
+        if (ds == null) return;
+        if (ds.carFocus < 0) {
+            Toast.makeText(this, R.string.car_delay_noseat, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        int sp = carView.selectedSpeaker();
+        if (sp < 0) {
+            Toast.makeText(this, R.string.car_delay_pick, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        float v = Math.round((carView.delayOf(sp) + step) * 10f) / 10f;
+        ds.setManualDelay(ds.carFocus, sp, v);
+        ds.save(this);
+        refreshCar();
+    }
+
+    /** Строка над «+» и «−»: какой динамик выбран и его задержка. */
+    private void refreshDelayRow() {
+        if (carDelaySel == null) return;
+        DeviceSettings ds = carSettings();
+        int sp = carView.selectedSpeaker();
+        boolean seat = ds != null && ds.carFocus >= 0;
+        if (!seat) {
+            carDelaySel.setText(R.string.car_delay_noseat);
+        } else if (sp < 0) {
+            carDelaySel.setText(R.string.car_delay_pick);
+        } else {
+            float ms = carView.delayOf(sp);
+            carDelaySel.setText(getString(carView.speakerNameAt(sp)) + ": "
+                    + getString(R.string.car_ms, ms) + " · " + getString(R.string.car_cm, CarFocusView.delayCm(ms))
+                    + " · " + getString(carView.delayManual(sp) ? R.string.car_delay_manual : R.string.car_delay_auto));
+        }
+        boolean on = seat && sp >= 0;
+        carDelayMinus.setEnabled(on);
+        carDelayPlus.setEnabled(on);
+        carDelayMinus.setAlpha(on ? 1f : 0.5f);
+        carDelayPlus.setAlpha(on ? 1f : 0.5f);
+        boolean any = seat && ds.manualDelays(ds.carFocus) != null;
+        carDelayReset.setVisibility(any ? View.VISIBLE : View.GONE);
     }
 
     /** Точка CarFocusView для места из списка (водитель и пассажир — по стороне руля). */
@@ -2895,6 +3020,7 @@ public class MainActivity extends Activity {
         DeviceSettings ds = DeviceSettings.get(this, carKeyShown);
         carView.setState(ds.carFocus, ds.carMode, ds.carRhd);
         carView.setSpeakers(ds.speakers());
+        carView.setManualDelays(ds.manualDelays(ds.carFocus));
         float bal = CarFocusView.balanceFor(ds.carFocus, ds.carMode, ds.speakers(), ds.carSwap, ds.carMono);
         carView.setBalance(ds.carSwap ? -bal : bal);   // на картинке — реальные стороны
         carEditBtn.setBackground(round(carEdit ? ACCENT : CHIP, 24));
@@ -2928,7 +3054,13 @@ public class MainActivity extends Activity {
             carSeatBtns[i].setText(CarFocusView.labelRes(pt, ds.carRhd));
             carSeatBtns[i].setBackground(round(pt == ds.carFocus ? ACCENT : CHIP, 24));
         }
+        refreshDelayRow();
         carUpdating = true;
+        boolean vol = ds.volume >= 0;
+        carVolSwitch.setChecked(vol);
+        carVolBar.setEnabled(vol);
+        carVolBar.setProgress(vol ? ds.volume : 40);
+        carVolVal.setText(vol ? ds.volume + "%" : getString(R.string.ds_volume_off));
         boolean sur = ds.carSurround > 0;
         carSurSwitch.setChecked(sur);
         carSurBar.setEnabled(sur);

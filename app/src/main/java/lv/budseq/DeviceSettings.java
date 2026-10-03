@@ -30,6 +30,11 @@ public final class DeviceSettings {
     public String sound;
     /** Машина «как в магнитоле»: Bass Boost (дБ и до какой частоты), фильтр баса (Гц, 0 — выкл), объёмный звук 0…100. */
     public int carBass, carBassHz = 80, carHp, carSurround;
+    /**
+     * Задержки «вручную» («+» и «−», как в магнитоле): по каждому месту (0..5) — мс по динамикам,
+     * −1 — считать само; null — всё рассчитано.
+     */
+    public float[][] carDelay = new float[CarFocusView.POINTS][];
 
     /** Встроенный пресет «Басы» (EqEngine.PRESET_NAMES[3]) — машинам по умолчанию. */
     public static final String CAR_DEFAULT_SOUND = AppPresets.BUILTIN + 3;
@@ -70,6 +75,15 @@ public final class DeviceSettings {
                     s.carSpk = new float[spk.length()];
                     for (int i = 0; i < spk.length(); i++) s.carSpk[i] = (float) spk.getDouble(i);
                 }
+                org.json.JSONArray dly = o.optJSONArray("dly");
+                if (dly != null) {
+                    for (int p = 0; p < Math.min(dly.length(), s.carDelay.length); p++) {
+                        org.json.JSONArray a = dly.optJSONArray(p);
+                        if (a == null) continue;
+                        s.carDelay[p] = new float[a.length()];
+                        for (int i = 0; i < a.length(); i++) s.carDelay[p][i] = (float) a.optDouble(i, -1);
+                    }
+                }
             } catch (Exception ignored) {
             }
         }
@@ -80,6 +94,32 @@ public final class DeviceSettings {
     public String soundFor(int type) {
         if (sound != null) return sound;
         return type == DeviceInfo.T_CAR ? CAR_DEFAULT_SOUND : "";
+    }
+
+    /** Задержки «вручную» для места, если они подходят к нынешним динамикам; иначе null. */
+    public float[] manualDelays(int point) {
+        if (point < 0 || point >= carDelay.length) return null;
+        float[] m = carDelay[point];
+        return m != null && m.length == speakers().length / 2 ? m : null;
+    }
+
+    /** Выставить задержку динамика для места, мс (0…20). */
+    public void setManualDelay(int point, int speaker, float ms) {
+        if (point < 0 || point >= carDelay.length) return;
+        int n = speakers().length / 2;
+        if (speaker < 0 || speaker >= n) return;
+        float[] m = manualDelays(point);
+        if (m == null) {
+            m = new float[n];
+            java.util.Arrays.fill(m, -1f);
+        }
+        m[speaker] = Math.max(0f, Math.min(20f, ms));
+        carDelay[point] = m;
+    }
+
+    /** «Сбросить»: для места снова всё рассчитано. */
+    public void resetDelays(int point) {
+        if (point >= 0 && point < carDelay.length) carDelay[point] = null;
     }
 
     /** Динамики машины: свои или схема по умолчанию (4 в дверях + твитеры). */
@@ -110,6 +150,19 @@ public final class DeviceSettings {
                 for (float v : carSpk) spk.put(Math.round(v * 1000) / 1000.0);
                 o.put("spk", spk);
             }
+            boolean anyDelay = false;
+            org.json.JSONArray dly = new org.json.JSONArray();
+            for (float[] m : carDelay) {
+                if (m == null) {
+                    dly.put(JSONObject.NULL);
+                    continue;
+                }
+                anyDelay = true;
+                org.json.JSONArray a = new org.json.JSONArray();
+                for (float v : m) a.put(Math.round(v * 100) / 100.0);
+                dly.put(a);
+            }
+            if (anyDelay) o.put("dly", dly);
             prefs(c).edit().putString(address, o.toString()).apply();
         } catch (Exception ignored) {
         }

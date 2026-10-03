@@ -505,4 +505,19 @@
     <string name="wave_st_none">Android has not given the sound to the wave yet: trying again</string>
     <string name="punch_mode_speaker">Now: phone speaker. It can\'t play deep bass, so Punch hits at 180 Hz with a click: that\'s what you hear.</string>
     <string name="punch_mode_full">Now: headphones, speaker or car. Punch hits the kick at 65 Hz.</string>
+    <string name="spk_front_l">Front left</string>
+    <string name="spk_front_r">Front right</string>
+    <string name="spk_rear_l">Rear left</string>
+    <string name="spk_rear_r">Rear right</string>
+    <string name="spk_tw_l">Left tweeter</string>
+    <string name="spk_tw_r">Right tweeter</string>
+    <string name="spk_center">Centre</string>
+    <string name="spk_sub">Subwoofer</string>
+    <string name="car_delay_pick">Tap a speaker\'s box on the picture: «+» and «−» change its delay (0.1 ms, hold for 1 ms)</string>
+    <string name="car_delay_noseat">First choose a seat</string>
+    <string name="car_delay_manual">set by hand</string>
+    <string name="car_delay_auto">calculated</string>
+    <string name="car_delay_reset">Reset</string>
+    <string name="car_vol_level">Volume</string>
+    <string name="car_vol_hint">The car connects and the volume becomes exactly this, so the head unit doesn\'t blast you (step 1%).</string>
 </resources>

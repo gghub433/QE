@@ -24,6 +24,9 @@ public class CarFocusView extends View {
 
         /** В режиме расстановки перетащили динамик: новые координаты всех динамиков. */
         void onSpeakersChanged(float[] speakers);
+
+        /** Нажали на табличку задержки динамика (index — номер динамика, -1 — снять выбор). */
+        void onSpeakerSelected(int index);
     }
 
     /** 0 перед-лево, 1 перед-центр, 2 перед-право, 3 зад-лево, 4 зад-центр (весь салон), 5 зад-право. */
@@ -189,6 +192,14 @@ public class CarFocusView extends View {
     private boolean showDelays;
     private float[] delayMs = new float[0];
     private String[] delayTxt = new String[0];
+    /** Задержки «вручную» (мс по динамикам, −1 — считать само), как «+» и «−» в магнитоле. */
+    private float[] manual;
+    private boolean[] isManual = new boolean[0];
+    /** Выбранная табличка (её меняют «+» и «−»), -1 — нет. */
+    private int selected = -1, pressedBox = -1;
+    /** Где нарисованы таблички (для нажатий). */
+    private float[] boxL = new float[0], boxT = new float[0], boxW = new float[0];
+    private float boxH;
 
     private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint stroke = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -236,10 +247,60 @@ public class CarFocusView extends View {
         invalidate();
     }
 
+    /** Задержки, выставленные вручную (null — все рассчитаны). */
+    public void setManualDelays(float[] m) {
+        manual = m != null ? m.clone() : null;
+        updateDelays();
+        invalidate();
+    }
+
+    public void setSelectedSpeaker(int i) {
+        selected = i;
+        invalidate();
+    }
+
+    public int selectedSpeaker() {
+        return selected >= 0 && selected < spk.length / 2 ? selected : -1;
+    }
+
+    /** Задержка динамика сейчас (вручную или рассчитанная), мс. */
+    public float delayOf(int i) {
+        float[] calc = delaysMs(focus, spk);
+        if (manual != null && manual.length == calc.length && i < manual.length && manual[i] >= 0) return manual[i];
+        return i >= 0 && i < calc.length ? calc[i] : 0f;
+    }
+
+    public boolean delayManual(int i) {
+        return manual != null && manual.length == spk.length / 2 && i >= 0 && i < manual.length && manual[i] >= 0;
+    }
+
+    /** Название динамика по месту на схеме (передний левый, твитер, сабвуфер…). */
+    public static int speakerName(float x, float y) {
+        int s = side(x);
+        if (s == 0) return y > 0.8f ? R.string.spk_sub : R.string.spk_center;
+        if (y < 0.4f) return s < 0 ? R.string.spk_tw_l : R.string.spk_tw_r;
+        if (y < 0.565f) return s < 0 ? R.string.spk_front_l : R.string.spk_front_r;
+        return s < 0 ? R.string.spk_rear_l : R.string.spk_rear_r;
+    }
+
+    public int speakerNameAt(int i) {
+        return i >= 0 && i * 2 + 1 < spk.length ? speakerName(spk[i * 2], spk[i * 2 + 1]) : R.string.spk_center;
+    }
+
     /** Подписи задержек считаем при смене места или динамиков, а не на каждом кадре. */
     private void updateDelays() {
+        if (selected >= spk.length / 2) selected = -1;
         if (!showDelays) return;
         delayMs = delaysMs(focus, spk);
+        isManual = new boolean[delayMs.length];
+        if (manual != null && manual.length == delayMs.length) {
+            for (int i = 0; i < delayMs.length; i++) {
+                if (manual[i] >= 0) {
+                    delayMs[i] = manual[i];
+                    isManual[i] = true;
+                }
+            }
+        }
         delayTxt = new String[delayMs.length * 2];
         for (int i = 0; i < delayMs.length; i++) {
             delayTxt[i * 2] = getContext().getString(R.string.car_ms, delayMs[i]);
@@ -586,10 +647,15 @@ public class CarFocusView extends View {
             by[i] = sy - rad - gap - boxH < 0 ? sy + rad + gap : sy - rad - gap - boxH;
             bx[i] = abs[i * 2] - bw[i] / 2;
         }
+        boxL = bx;
+        boxT = by;
+        boxW = bw;
+        this.boxH = boxH;
         float maxMs = 0;
         for (float v : delayMs) maxMs = Math.max(maxMs, v);
         for (int i = 0; i < n; i++) {
             boolean waits = delayMs[i] >= 0.05f;
+            boolean sel = i == selected;
             // ниточка от таблички к динамику
             float cx = Math.max(bx[i], Math.min(bx[i] + bw[i], abs[i * 2]));
             float cy = Math.max(by[i], Math.min(by[i] + boxH, abs[i * 2 + 1]));
@@ -598,17 +664,20 @@ public class CarFocusView extends View {
             stroke.setStrokeWidth(1 * d);
             c.drawLine(cx, cy, abs[i * 2], abs[i * 2 + 1], stroke);
             r.set(bx[i], by[i], bx[i] + bw[i], by[i] + boxH);
-            fill.setColor(Color.rgb(0x26, 0x28, 0x2E));
+            // выбранная табличка (её меняют «+» и «−») — подсвечена цветом
+            fill.setColor(sel ? mix(Color.rgb(0x26, 0x28, 0x2E), glow, 0.35f) : i == pressedBox
+                    ? Color.rgb(0x36, 0x38, 0x40) : Color.rgb(0x26, 0x28, 0x2E));
             fill.setAlpha(240);
             c.drawRoundRect(r, 8 * d, 8 * d, fill);
             fill.setAlpha(255);
-            stroke.setColor(waits ? glow : Color.rgb(0x4A, 0x4D, 0x55));
+            stroke.setColor(sel ? Color.WHITE : waits ? glow : Color.rgb(0x4A, 0x4D, 0x55));
             // самый задержанный (ближний) — ярче
-            stroke.setAlpha(waits ? (int) (120 + 135 * (maxMs > 0 ? delayMs[i] / maxMs : 0)) : 255);
-            stroke.setStrokeWidth(1.4f * d);
+            stroke.setAlpha(sel ? 255 : waits ? (int) (120 + 135 * (maxMs > 0 ? delayMs[i] / maxMs : 0)) : 255);
+            stroke.setStrokeWidth((sel ? 2.4f : 1.4f) * d);
             c.drawRoundRect(r, 8 * d, 8 * d, stroke);
             float tx = bx[i] + bw[i] / 2;
-            text.setColor(Color.WHITE);
+            // выставлено вручную — число цветом волны, как в магнитоле после «+»/«−»
+            text.setColor(i < isManual.length && isManual[i] ? mix(glow, Color.WHITE, 0.35f) : Color.WHITE);
             text.setFakeBoldText(true);
             c.drawText(delayTxt[i * 2], tx, by[i] + padY + lineH - 3 * d, text);
             text.setColor(GREY_TEXT);
@@ -617,6 +686,23 @@ public class CarFocusView extends View {
         }
         text.setFakeBoldText(true);
         stroke.setAlpha(255);
+    }
+
+    private static int mix(int a, int b, float t) {
+        int r = (int) (Color.red(a) + (Color.red(b) - Color.red(a)) * t);
+        int g = (int) (Color.green(a) + (Color.green(b) - Color.green(a)) * t);
+        int bl = (int) (Color.blue(a) + (Color.blue(b) - Color.blue(a)) * t);
+        return Color.rgb(r, g, bl);
+    }
+
+    /** Табличка задержки под пальцем, -1 — нет. */
+    private int boxAt(float x, float y) {
+        if (!showDelays) return -1;
+        for (int i = 0; i < boxL.length && i < boxT.length && i < boxW.length; i++) {
+            float pad = 6 * d;
+            if (x >= boxL[i] - pad && x <= boxL[i] + boxW[i] + pad && y >= boxT[i] - pad && y <= boxT[i] + boxH + pad) return i;
+        }
+        return -1;
     }
 
     private int focusIndexForDraw() {
@@ -731,10 +817,27 @@ public class CarFocusView extends View {
         if (editMode) return dragTouch(e);
         switch (e.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
+                // табличка задержки — выбрать динамик для «+» и «−»
+                pressedBox = boxAt(e.getX(), e.getY());
+                if (pressedBox >= 0) {
+                    invalidate();
+                    return true;
+                }
                 pressed = pointAt(e.getX(), e.getY());
                 invalidate();
                 return pressed >= 0;
             case MotionEvent.ACTION_UP: {
+                if (pressedBox >= 0) {
+                    int b = boxAt(e.getX(), e.getY());
+                    if (b == pressedBox) {
+                        selected = b == selected ? -1 : b;   // повторное нажатие — снять выбор
+                        if (listener != null) listener.onSpeakerSelected(selected);
+                        performClick();
+                    }
+                    pressedBox = -1;
+                    invalidate();
+                    return true;
+                }
                 int p = pointAt(e.getX(), e.getY());
                 if (p >= 0 && p == pressed) {
                     focus = p == focus ? -1 : p;   // повторное нажатие — выключить фокус
@@ -748,10 +851,11 @@ public class CarFocusView extends View {
             }
             case MotionEvent.ACTION_CANCEL:
                 pressed = -1;
+                pressedBox = -1;
                 invalidate();
                 return true;
             default:
-                return pressed >= 0;
+                return pressed >= 0 || pressedBox >= 0;
         }
     }
 

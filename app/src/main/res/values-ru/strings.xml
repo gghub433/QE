@@ -505,4 +505,19 @@
     <string name="wave_st_none">Android пока не дал волне звук — пробую снова</string>
     <string name="punch_mode_speaker">Сейчас: динамик телефона. Глубокий бас он не играет, поэтому панч бьёт на 180 Гц и щелчком — это и слышно.</string>
     <string name="punch_mode_full">Сейчас: наушники, колонка или машина — панч бьёт «бочкой» на 65 Гц.</string>
+    <string name="spk_front_l">Передний левый</string>
+    <string name="spk_front_r">Передний правый</string>
+    <string name="spk_rear_l">Задний левый</string>
+    <string name="spk_rear_r">Задний правый</string>
+    <string name="spk_tw_l">Твитер левый</string>
+    <string name="spk_tw_r">Твитер правый</string>
+    <string name="spk_center">Центр</string>
+    <string name="spk_sub">Сабвуфер</string>
+    <string name="car_delay_pick">Нажмите на табличку динамика на схеме — «+» и «−» меняют его задержку (0,1 мс, долгое нажатие — 1 мс)</string>
+    <string name="car_delay_noseat">Сначала выберите место</string>
+    <string name="car_delay_manual">вручную</string>
+    <string name="car_delay_auto">рассчитано</string>
+    <string name="car_delay_reset">Сбросить</string>
+    <string name="car_vol_level">Громкость</string>
+    <string name="car_vol_hint">Подключилась машина — громкость сама становится такой, чтобы магнитола не оглушала (шаг 1%).</string>
 </resources>
