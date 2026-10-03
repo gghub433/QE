@@ -219,10 +219,12 @@ public class CarFocusView extends View {
     private final Path path = new Path();
     private final RectF r = new RectF();
     private final float d;
+    private final DeviceArt art;
 
     public CarFocusView(Context c) {
         super(c);
         d = getResources().getDisplayMetrics().density;
+        art = new DeviceArt(d);
         stroke.setStyle(Paint.Style.STROKE);
         stroke.setStrokeCap(Paint.Cap.ROUND);
         text.setTextAlign(Paint.Align.CENTER);
@@ -541,7 +543,7 @@ public class CarFocusView extends View {
         for (int i = 0; i + 1 < spk.length; i += 2) {
             int s = side(spk[i]);
             float size = s == 0 ? (spk[i + 1] > 0.8f ? 0.075f : 0.035f) : spk[i + 1] < 0.4f ? 0.028f : 0.045f;
-            drawSpeaker(c, abs[i], abs[i + 1], carW * size);
+            drawSpeaker(c, abs[i], abs[i + 1], carW * size, level(spk[i]));
             if (editMode) {
                 stroke.setColor(glow);
                 stroke.setAlpha(i / 2 == dragging ? 255 : 170);
@@ -742,15 +744,9 @@ public class CarFocusView extends View {
         return s < 0 ? 0.25f + 0.75f * gainL : s > 0 ? 0.25f + 0.75f * gainR : 1f;
     }
 
-    private void drawSpeaker(Canvas c, float x, float y, float rad) {
-        fill.setColor(Color.rgb(0x15, 0x16, 0x1A));
-        c.drawCircle(x, y, rad, fill);
-        stroke.setColor(Color.rgb(0x55, 0x58, 0x60));
-        stroke.setAlpha(255);
-        stroke.setStrokeWidth(1.2f * d);
-        c.drawCircle(x, y, rad, stroke);
-        fill.setColor(Color.rgb(0x44, 0x47, 0x50));
-        c.drawCircle(x, y, rad * 0.4f, fill);
+    /** Динамик подробно (решётка, подвес, диффузор, колпачок); приглушённый фокусом канал — темнее. */
+    private void drawSpeaker(Canvas c, float x, float y, float rad, float lvl) {
+        art.carSpeaker(c, x, y, rad, lvl);
     }
 
     private void drawSeat(Canvas c, float x, float seatTop, float sw, float sh) {
